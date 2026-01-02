@@ -1,0 +1,15 @@
+# 1. 账号密码 (绝对不能传)
+.env
+
+# 2. 数据库文件 (太大了，自己留着就行)
+database/
+src/chroma_db_clip/
+*.sqlite3
+*.bin
+
+# 3. 数据文件夹 (图片也不用传)
+data/
+
+# 4. 垃圾缓存文件
+__pycache__/
+*.pyc

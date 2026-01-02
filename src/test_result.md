@@ -1,0 +1,1 @@
+{\frac{2}{5}}+{\frac{3}{5}}{\div}{\frac{3}{10}}+{\frac{7}{10}}\qquad\qquad\left({\frac{3}{4}}+{\frac{3}{4}}{\times}{\mathfrak{9}}{\cdot}{\frac{1}{16}}\qquad{\frac{7}{15}}{\times}{\frac{8}{29}}{\times}{\frac{8}{15}}{\times}{\frac{8}{15}}{\times}{\frac{8}{12}}{\times}{\ddot{\left(15\right)}}{\left)}^{22}\right]
