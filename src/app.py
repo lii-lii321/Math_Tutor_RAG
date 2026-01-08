@@ -1,56 +1,106 @@
 import streamlit as st
 import base64
 import os
-import datetime
-import json
 import time
 import io
 import concurrent.futures
 import threading
 from openai import OpenAI
-from docx import Document
-from docx.shared import Inches, Pt, RGBColor
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.oxml.ns import qn
 from PIL import Image
-from dotenv import load_dotenv # 导入安全插件
-
-# 关键库：给线程发身份证，防止 Streamlit 报错
+from dotenv import load_dotenv
+import streamlit_antd_components as sac
+from db_manager import DBManager
 from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
+from streamlit_echarts import st_echarts  # 🟢 图表库
+import re  # 🟢 新增：用于提取 AI 生成的标签
+# 🟢 Word 处理库
+from docx import Document
+from docx.shared import Inches, Pt
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 
-# ================= 配置区域 (已修复) =================
-# 1. 加载本地保险箱 (.env)
+# ================= 1. 全局配置与样式加载 (Style) =================
+
+def load_css():
+    """集中管理所有 CSS 样式"""
+    st.markdown("""
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap');
+
+        html, body, [class*="css"] {
+            font-family: 'Nunito', sans-serif;
+            color: #2D3436;
+        }
+
+        .stApp { background-color: #FDFBF7; }
+        
+        [data-testid="stSidebar"] {
+            background-color: #FFFFFF;
+            box-shadow: 2px 0 20px rgba(0,0,0,0.02);
+        }
+
+        .cream-card {
+            background-color: #FFFFFF;
+            border-radius: 24px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05); 
+            margin-bottom: 25px;
+            transition: transform 0.2s;
+        }
+        .cream-card:hover { transform: translateY(-2px); }
+
+        h1 { color: #2D3436; font-weight: 800; }
+        h2, h3 { color: #636E72; font-weight: 700; }
+        
+        /* 通用按钮样式 */
+        .stButton>button {
+            border-radius: 12px;
+            font-weight: bold;
+            border: none;
+            transition: all 0.3s;
+            width: 100%;
+        }
+        
+        /* 针对首页数据看板的按钮样式优化 */
+        div[data-testid="column"] .stButton button {
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            background-color: #fff;
+            color: #2D3436;
+            border: 1px solid #f0f0f0;
+            height: 80px; 
+        }
+        div[data-testid="column"] .stButton button:hover {
+            transform: scale(1.02);
+            border-color: #74b9ff;
+            color: #0984e3;
+        }
+
+        .stTextInput>div>div>input {
+            border-radius: 12px;
+            border: 2px solid #F0F2F5;
+            background-color: #F9FAFB;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+# ================= 2. 基础配置与工具函数 (Utils) =================
+
 load_dotenv()
-
-# 2. 从保险箱里拿钥匙
 API_KEY = os.getenv("SILICONFLOW_API_KEY")
-
-# 3. 检查钥匙
-if not API_KEY:
-    # 如果没拿到，就在终端打印个红色警告
-    print("❌ 严重错误：找不到 API Key！请确认你创建了 .env 文件，并且里面写了 SILICONFLOW_API_KEY=你的密钥")
-
 BASE_URL = "https://api.siliconflow.cn/v1"
 MODEL_NAME = "Qwen/Qwen2-VL-72B-Instruct"
 
-# 👇 刚才丢失的关键配置，现在补回来了！
 DATA_DIR = "../data/full_page_book"
-MAX_WORKERS = 1  
-# ===================================================
+IMG_DIR = os.path.join(DATA_DIR, "images")
+os.makedirs(IMG_DIR, exist_ok=True)
+MAX_WORKERS = 1
 
-st.set_page_config(page_title="AI 全能教研员", page_icon="👨‍🏫", layout="wide")
+st.set_page_config(page_title="MathMaster Edu", page_icon="✏️", layout="wide")
 
-os.makedirs(os.path.join(DATA_DIR, "images"), exist_ok=True)
-json_path = os.path.join(DATA_DIR, "records.json")
-
-# --- 核心工具函数 ---
 def compress_image(image_file):
-    """压缩图片，防止传给 AI 的包太大"""
     try:
         image_file.seek(0)
         img = Image.open(image_file)
         if img.mode in ("RGBA", "P"): img = img.convert("RGB")
-        
         max_width = 1600 
         if img.width > max_width:
             ratio = max_width / img.width
@@ -65,286 +115,391 @@ def compress_image(image_file):
         return image_file
 
 def encode_image(image_file):
-    compressed_file = compress_image(image_file)
-    return base64.b64encode(compressed_file.getvalue()).decode('utf-8')
+    compressed = compress_image(image_file)
+    return base64.b64encode(compressed.getvalue()).decode('utf-8')
 
-def process_single_file(client, file_obj, tags, hint, status_container, ctx):
-    """处理单张图片的核心逻辑"""
-    # 1. 绑定上下文
-    if ctx:
-        add_script_run_ctx(threading.current_thread(), ctx)
+def generate_word_exam(questions, exam_title="错题复习试卷"):
+    doc = Document()
+    heading = doc.add_heading(exam_title, 0)
+    heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    doc.add_paragraph(f"生成时间: {time.strftime('%Y-%m-%d %H:%M')}")
+    doc.add_paragraph("-" * 30)
+    
+    for idx, q in enumerate(questions, 1):
+        p = doc.add_paragraph()
+        run = p.add_run(f"【第 {idx} 题】 (ID: {q['id']})")
+        run.bold = True
+        run.font.size = Pt(12)
         
-    # 2. 安全延时
-    time.sleep(1.5) 
+        if os.path.exists(q['image_path']):
+            try:
+                doc.add_picture(q['image_path'], width=Inches(4.5))
+            except:
+                doc.add_paragraph("[图片加载失败]")
+        
+        doc.add_paragraph("\n" * 3)
+        doc.add_paragraph("_" * 40)
+        
+    doc.add_page_break()
+    doc.add_heading("参考解析与答案", level=1)
+    
+    for idx, q in enumerate(questions, 1):
+        p = doc.add_paragraph()
+        run = p.add_run(f"【第 {idx} 题解析】")
+        run.bold = True
+        clean_content = q['ai_content'].replace('#', '').replace('*', '')
+        doc.add_paragraph(clean_content)
+        doc.add_paragraph("-" * 20)
 
+    bio = io.BytesIO()
+    doc.save(bio)
+    bio.seek(0)
+    return bio
+
+def process_single_file(client, file_obj, user_tags, hint, user_id, ctx):
+    if ctx: add_script_run_ctx(threading.current_thread(), ctx)
+    time.sleep(1) 
     fname = file_obj.name
     try:
         img_b64 = encode_image(file_obj)
-        
-        # 🟢 核心 Prompt
-        prompt = """
-        你是一名【资深小学数学教研组长】，拥有 20 年一线教学经验。请对这张图片中的错题进行【全题型深度诊断与解析】。
-        
-        ### 🧠 核心思维逻辑（思维路由）：
-        拿到题目后，请先在内心判断它属于哪一类，并执行对应的**强制分析法则**：
-
-        #### 📐 类型一：图形与几何（求长/周长/面积/体积/角度）
-        - **视觉拆解**：必须用文字描述图形的组合方式（如“长方形挖去一个半圆”）。
-        - **围栏法（求周长特用）**：想象沿着图形边缘走一圈，**严禁漏掉内部的线段或外部的曲线**。拆解为：$周长 = 线段A + 线段B + 曲线C$。
-        - **割补法（求面积特用）**：明确指出是使用“割法”（分块相加）还是“补法”（大减小）。
-
-        #### 🚗 类型二：典型应用题（行程/工程/浓度/经济/鸡兔同笼）
-        - **寻找“不变量”**：指出题目中哪个量是不变的（如总路程、总工作量）。
-        - **建立模型**：明确写出数量关系式。
-          - *行程问题*：$路程 = 速度 \\times 时间$（注意相遇还是追及）。
-          - *分数/百分数*：找准“单位1”。
-        - **单位陷阱**：**必须检查单位！**（如米 vs 千米，分钟 vs 小时），如有不同请在解析中强调换算步骤。
-
-        #### 🔢 类型三：数与代数（计算/方程/比与比例）
-        - **符号检查**：仔细区分 $\\div$（除号）和 $+$（加号）。
-        - **运算顺序**：强调先乘除后加减，有括号先算括号。
-        - **结果验证**：如果是解方程，请代入验证是否成立。
-
-        #### 📊 类型四：统计与概率（条形/折线/扇形图）
-        - **读图优先**：先读取横轴、纵轴的含义和刻度值，不要凭感觉估算。
-        - **数据一致性**：检查表格数据与图表数据是否对应。
-        """
-
-        if hint:
-            prompt += f"""
-            
-            ### 🔑 老师特别提示 (这是正确线索，请务必参考)：
-            {hint}
-            
-            (请根据以上提示，重新审视你的解题思路，确保解析逻辑能推导出该结果，不要产生幻觉。)
-            """
-
-        prompt += """
-        ---
-
-        ### ⚠️ 输出格式（严格遵守，方便家长辅导）：
-        请为每一道题输出一段内容，题目之间用 "=======" (7个等号) 分隔。
-        每段内容必须包含以下模块：
-
-        题号：[自动识别的数字]
-        【题型】：[例如：几何-求阴影面积 / 行程-相遇问题 / 统计-折线图分析]
-        【题目】：[完整抄录题目。数学公式请用通俗写法，如“3.14乘以半径的平方”，复杂公式再用LaTeX]
-        【名师精讲】：
-        1. **👀 审题眼**：[一针见血指出题目里的“坑”或“关键词”。例如：“注意！这道题单位不统一”或“注意！阴影部分包含两条半径”。]
-        2. **💡 思路拆解**：[分步骤的逻辑推导。如果是几何，写出图形拆解；如果是应用题，写出数量关系式。]
-        3. **📝 规范解答**：[给出最终算式和结果。]
-        
-        ======
+        prompt = f"""
+        你是一名亲切的小学数学老师。请对这张错题进行温柔、详细的讲解。
+        【用户提示】：{hint if hint else "无"}
+        请严格按照以下 Markdown 格式输出：
+        ## 🧠 考点在哪里？
+        (简要分析考点)
+        ## 📝 老师来细讲
+        (详细的步骤解析)
+        ## ✅ 正确答案
+        (给出最终结果)
+        ## 🏷️ 标签
+        (请提取 2-3 个核心知识点关键词，用逗号分隔。例如：几何, 相似三角形, 计算)
         """
         
-        # 重试机制
-        max_retries = 3
-        ai_content = ""
-        for attempt in range(max_retries):
+        ai_content = "AI生成失败"
+        final_tags = user_tags
+        
+        for _ in range(3):
             try:
                 response = client.chat.completions.create(
                     model=MODEL_NAME,
                     messages=[
-                        {"role": "user", 
-                         "content": [
-                            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}},
-                            {"type": "text", "text": prompt}
-                         ]
-                        }
+                        {"role": "user", "content": [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}, {"type": "text", "text": prompt}]}
                     ],
                     temperature=0.2, 
                 )
                 ai_content = response.choices[0].message.content
+                match = re.search(r"## 🏷️ 标签[:：]?\s*(.*)", ai_content, re.DOTALL)
+                if match:
+                    ai_extracted_tags = match.group(1).strip()
+                    ai_extracted_tags = ai_extracted_tags.replace("。", "").replace(".", "").strip()
+                    if ai_extracted_tags:
+                        final_tags = f"{user_tags}, {ai_extracted_tags}"
+                        tag_list = [t.strip() for t in final_tags.replace("，", ",").split(",") if t.strip()]
+                        final_tags = ", ".join(list(set(tag_list)))
                 break
             except Exception as e:
-                if attempt == max_retries - 1: raise e
+                print(f"AI Error: {e}")
                 time.sleep(2)
 
-        # 保存图片
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        unique_id = str(int(time.time() * 10000))[-6:]
-        img_filename = f"Exam_{timestamp}_{unique_id}.jpg"
-        img_path = os.path.join(DATA_DIR, "images", img_filename)
-        
+        timestamp = str(int(time.time() * 1000))
+        save_name = f"User{user_id}_{timestamp}.jpg"
+        save_path = os.path.join(IMG_DIR, save_name)
         file_obj.seek(0)
-        with open(img_path, "wb") as f:
+        with open(save_path, "wb") as f:
             f.write(file_obj.read())
             
-        # 构造数据记录
-        new_record = {
-            "id": unique_id,
-            "date": datetime.datetime.now().strftime("%Y-%m-%d"),
-            "tags": tags,
-            "image_path": img_path,
-            "ai_content": ai_content,
-            "filename": file_obj.name
-        }
-        
-        # 写入 JSON
-        current_records = []
-        if os.path.exists(json_path):
-            try:
-                with open(json_path, "r", encoding="utf-8") as f:
-                    current_records = json.load(f)
-            except: pass
-            
-        current_records.append(new_record)
-        with open(json_path, "w", encoding="utf-8") as f:
-            json.dump(current_records, f, ensure_ascii=False, indent=2)
-            
-        return True, fname, ai_content, img_path
+        db = DBManager()
+        db.save_question(user_id, fname, ai_content, save_path, final_tags)
+        return True, fname, ai_content, save_path
     except Exception as e:
-        return False, str(e), "", ""
+        return False, fname, str(e), ""
 
-def generate_word_doc():
-    """生成清洗版的 Word 文档"""
-    if not os.path.exists(json_path): return False, "暂无数据"
-    try:
-        with open(json_path, "r", encoding="utf-8") as f:
-            records = json.load(f)
-        if not records: return False, "库是空的"
-            
-        doc = Document()
-        doc.styles['Normal'].font.name = u'微软雅黑'
-        doc.styles['Normal']._element.rPr.rFonts.set(qn('w:eastAsia'), u'微软雅黑')
-        
-        doc.add_heading('AI 全科错题诊断报告', 0)
-        
-        for rec in records:
-            content = rec['ai_content']
-            content = content.replace("**", "").replace("##", "").replace("###", "")
-            
-            doc.add_heading(f"来源: {rec['filename']}", level=1)
-            
-            if os.path.exists(rec['image_path']):
-                try: 
-                    doc.add_picture(rec['image_path'], width=Inches(5.5))
-                except: 
-                    doc.add_paragraph("[图片加载失败]")
-            
-            doc.add_paragraph("") 
-            
-            questions = content.split('======')
-            
-            table = doc.add_table(rows=1, cols=2)
-            table.style = 'Table Grid'
-            hdr_cells = table.rows[0].cells
-            hdr_cells[0].text = '题目内容'
-            hdr_cells[1].text = '名师诊断 & 解析'
-            
-            for q in questions:
-                if not q.strip(): continue
-                
-                lines = q.strip().split('\n')
-                q_text = ""
-                a_text = ""
-                
-                for line in lines:
-                    line = line.strip()
-                    if "题号" in line:
-                        continue 
-                    elif "【题目】" in line:
-                        q_text += line.replace("【题目】", "").replace(":", "").replace("：", "") + "\n"
-                    else:
-                        if line: a_text += line + "\n"
-                
-                if q_text.strip() or a_text.strip():
-                    row_cells = table.add_row().cells
-                    row_cells[0].text = q_text.strip()
-                    row_cells[1].text = a_text.strip()
-            
-            doc.add_page_break()
-        
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        save_name = f"Master_Analysis_{timestamp}.docx"
-        save_path = os.path.join("../data", save_name)
-        doc.save(save_path)
-        return True, save_path
-        
-    except Exception as e:
-        return False, str(e)
+# ================= 3. 页面逻辑 (View & Controller) =================
 
-# ================= 界面逻辑 =================
-with st.sidebar:
-    st.title("👨‍🏫 AI 全能教研员")
-    count = 0
-    if os.path.exists(json_path):
-        with open(json_path, "r", encoding="utf-8") as f:
-            try: count = len(json.load(f))
-            except: pass
-    st.metric("📚 已收录错题", f"{count} 页")
+def show_login_page():
+    st.markdown("<br><br><br>", unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([1, 1.2, 1])
     
-    st.markdown("---")
-    with st.expander("🗑️ 清空题库"):
-        st.warning("确定要删除所有记录吗？")
-        if st.checkbox("确认清空"):
-            if st.button("🔴 执行清空"):
-                if os.path.exists(json_path): os.remove(json_path)
-                import shutil
-                if os.path.exists(os.path.join(DATA_DIR, "images")):
-                    shutil.rmtree(os.path.join(DATA_DIR, "images"))
-                st.rerun()
-
-tab1, tab2 = st.tabs(["📸 录入 & 实时诊断", "📘 导出诊断报告"])
-
-with tab1:
-    st.info("💡 提示：本模式已启用【全能思维路由】。难点题请在右侧输入“锦囊”提示。")
-    uploaded_files = st.file_uploader("拖入错题图片 (支持批量)", type=["jpg", "png", "jpeg"], accept_multiple_files=True)
-    
-    col_input1, col_input2 = st.columns(2)
-    with col_input1:
-        tags = st.text_input("标签", placeholder="例如: 六年级上册期末复习")
-        if not tags: tags = "未分类"
-    with col_input2:
-        user_hint = st.text_input("💡 锦囊 (选填)", placeholder="例如：答案是2626 / 注意绳子会转弯")
-    
-    if uploaded_files:
-        if st.button("🚀 开始诊断", type="primary"):
-            client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
-            ctx = get_script_run_ctx()
-
-            progress_bar = st.progress(0)
-            status_text = st.empty()
+    with col2:
+        st.markdown('<div class="cream-card">', unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center;'>✨ MathMaster</h1>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; color: #B2BEC3;'>让数学学习变得像呼吸一样简单</p>", unsafe_allow_html=True)
+        st.divider()
+        
+        with st.form("login_form"):
+            username = st.text_input("账号", placeholder="Student ID")
+            password = st.text_input("密码", type="password", placeholder="Password")
+            st.markdown("<br>", unsafe_allow_html=True)
+            submitted = st.form_submit_button("🎈 登录系统", use_container_width=True)
             
-            result_area = st.container()
+            if submitted:
+                db = DBManager()
+                user = db.login(username, password)
+                if user:
+                    st.session_state['user_info'] = {'id': user[0], 'username': username, 'role': user[1]}
+                    st.success("欢迎回来~")
+                    time.sleep(0.5)
+                    st.rerun()
+                else:
+                    st.error("哎呀，账号或密码不对哦")
+        st.markdown('</div>', unsafe_allow_html=True)
 
-            completed = 0
-            with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-                futures = []
-                for i, f in enumerate(uploaded_files):
-                    futures.append(executor.submit(process_single_file, client, f, tags, user_hint, status_container=None, ctx=ctx))
+def show_main_page():
+    load_css()
+    user = st.session_state['user_info']
+    
+    default_index = 0
+    if st.session_state.get('navigate_to') == '错题本':
+        default_index = 1
+        st.session_state['navigate_to'] = None 
+    
+    with st.sidebar:
+        st.markdown(f"""
+        <div style="text-align: center; padding: 20px;">
+            <div style="background: #FFEAA7; width: 60px; height: 60px; border-radius: 50%; line-height: 60px; font-size: 30px; margin: 0 auto;">🦁</div>
+            <h3 style="margin-top: 10px;">{user['username']}</h3>
+            <p style="color: #B2BEC3; font-size: 12px;">{user['role'].upper()}</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        menu_item = sac.menu([
+            sac.MenuItem('学习中心', icon='book-half'),
+            sac.MenuItem('错题本', icon='journal-bookmark-fill'),
+            sac.MenuItem('设置', icon='gear-fill', type='group', children=[
+                sac.MenuItem('退出登录', icon='box-arrow-right'),
+            ]),
+        ], index=default_index, format_func='title', color='orange', variant='light', open_all=True)
+
+    if menu_item == '退出登录':
+        st.session_state['user_info'] = None
+        st.rerun()
+
+    elif menu_item == '学习中心':
+        col_hello, col_date = st.columns([3, 1])
+        with col_hello:
+            st.title(f"早安, {user['username']}! ☀️")
+            st.caption("今天也是充满希望的一天，准备好攻克难题了吗？")
+        
+        st.markdown('<div class="cream-card">', unsafe_allow_html=True)
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            uploaded_files = st.file_uploader("📥 上传作业图片", accept_multiple_files=True, type=['jpg','png'])
+        with col2:
+            tags = st.text_input("🏷️ 本次标签", value="期末复习")
+            hint = st.text_input("💡 小提示", placeholder="哪里不懂点哪里...")
+            
+        if uploaded_files:
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("🚀 开始魔法解析", type="primary", use_container_width=True):
+                client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
+                ctx = get_script_run_ctx()
+                progress = st.progress(0)
+                status = st.status("🔮 AI 老师正在思考...", expanded=True)
                 
-                status_text.write("🔥 AI 正在逐题分析中 (稳健模式)...")
-                
-                for future in concurrent.futures.as_completed(futures):
-                    success, fname, content, img_path = future.result()
-                    completed += 1
-                    progress_bar.progress(completed / len(uploaded_files))
+                with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+                    futures = []
+                    for f in uploaded_files:
+                        futures.append(executor.submit(process_single_file, client, f, tags, hint, user['id'], ctx))
                     
-                    if success:
-                        with result_area:
-                            with st.expander(f"✅ 完成: {fname} (点击查看解析)", expanded=True):
-                                col1, col2 = st.columns([1, 2])
-                                with col1:
-                                    if os.path.exists(img_path):
-                                        st.image(img_path, caption="原图")
-                                with col2:
-                                    st.markdown("### 📝 AI 诊断结果")
-                                    st.markdown(content) 
-                    else:
-                        st.error(f"❌ {fname} 失败: {content}")
+                    completed = 0
+                    for future in concurrent.futures.as_completed(futures):
+                        ok, fname, content, path = future.result()
+                        completed += 1
+                        progress.progress(completed / len(uploaded_files))
+                        if ok:
+                            status.write(f"✅ {fname} 完成")
+                            with st.expander(f"📖 查看解析: {fname}"):
+                                st.markdown('<div class="cream-card" style="background-color: #F8F9FA;">', unsafe_allow_html=True)
+                                col_img, col_txt = st.columns([1, 2])
+                                with col_img: st.image(path, use_column_width=True)
+                                with col_txt: st.markdown(content)
+                                st.markdown('</div>', unsafe_allow_html=True)
+                        else:
+                            status.error(f"❌ {fname} 失败")
+                status.update(label="🎉 解析完成！已存入错题本", state="complete")
+        st.markdown('</div>', unsafe_allow_html=True)
 
-            status_text.success("🎉 所有题目处理完毕！")
-            st.balloons()
-
-with tab2:
-    st.write("将所有已录入的错题导出为 Word 文档，方便打印或复习。")
-    if st.button("📄 生成 Word 讲义", type="primary"):
-        with st.spinner("正在排版清洗..."):
-            ok, path = generate_word_doc()
-        if ok:
-            st.success(f"✅ 讲义已生成！")
-            with open(path, "rb") as f:
-                st.download_button("📥 点击下载 (.docx)", f, os.path.basename(path))
+        st.markdown("### 📊 学习状态分析")
+        
+        db = DBManager()
+        all_history = db.get_history(user['id'], user['role'])
+        
+        if not all_history:
+            st.info("👋 还没有错题数据哦，快去上传第一道题吧！")
         else:
-            st.error(f"❌ 生成失败: {path}")
+            from collections import Counter
+            all_tags = []
+            for item in all_history:
+                tags = item['tags'].replace('，', ',').split(',')
+                for t in tags:
+                    t = t.strip()
+                    if t: all_tags.append(t)
+            
+            tag_counts = Counter(all_tags)
+            top_tags = tag_counts.most_common(5)
+            
+            c_chart, c_buttons = st.columns([1.5, 2])
+            
+            with c_chart:
+                pie_data = [{"value": count, "name": tag} for tag, count in top_tags]
+                options = {
+                    "tooltip": {"trigger": "item"},
+                    "legend": {"top": "5%", "left": "center"},
+                    "series": [{
+                        "name": "错题分布",
+                        "type": "pie",
+                        "radius": ["40%", "70%"],
+                        "avoidLabelOverlap": False,
+                        "itemStyle": {"borderRadius": 10, "borderColor": '#fff', "borderWidth": 2},
+                        "label": {"show": False, "position": "center"},
+                        "emphasis": {"label": {"show": True, "fontSize": "20", "fontWeight": "bold"}},
+                        "labelLine": {"show": False},
+                        "data": pie_data
+                    }],
+                    "color": ['#FF9A9E', '#a18cd1', '#fad0c4', '#84fab0', '#fccb90']
+                }
+                st_echarts(options=options, height="300px")
+                
+            with c_buttons:
+                st.caption("🔥 你的高频错题点 (点击直达复习)")
+                cols = st.columns(3)
+                for idx, (tag_name, count) in enumerate(top_tags):
+                    col = cols[idx % 3]
+                    with col:
+                        if st.button(f"{tag_name}\n({count})", key=f"btn_{tag_name}", use_container_width=True):
+                            st.session_state['search_query'] = tag_name
+                            st.session_state['navigate_to'] = "错题本"
+                            st.rerun()
+
+    elif menu_item == '错题本':
+        st.title("📒 我的错题本")
+        
+        default_search = ""
+        if st.session_state.get('search_query'):
+            default_search = st.session_state['search_query']
+            st.toast(f"🔍 已自动为您筛选：{default_search}")
+            st.session_state['search_query'] = None 
+
+        st.markdown('<div class="cream-card">', unsafe_allow_html=True)
+        col_s, col_r, col_ex = st.columns([3, 1, 1.5]) 
+        
+        with col_s: 
+            search_term = st.text_input("🔍 搜索...", value=default_search, placeholder="搜标签或内容...")
+        with col_r: 
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("🔄 刷新", use_container_width=True): st.rerun()
+            
+        db = DBManager()
+        full_history = db.get_history(user['id'], user['role'])
+        
+        if search_term:
+            history = [item for item in full_history if search_term in item['tags'] or search_term in item['ai_content']]
+        else:
+            history = full_history
+
+        with col_ex:
+            st.markdown("<br>", unsafe_allow_html=True)
+            if history:
+                file_name = f"错题复习卷_{search_term if search_term else '全部'}_{int(time.time())}.docx"
+                doc_io = generate_word_exam(history, exam_title=f"MathMaster - {search_term if search_term else '综合'}复习")
+                st.download_button(
+                    label="📥 导出为 Word 试卷",
+                    data=doc_io,
+                    file_name=file_name,
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    use_container_width=True,
+                    type="primary"
+                )
+        st.markdown('</div>', unsafe_allow_html=True)
+            
+        if not history:
+            sac.result(label='空空如也', description='没有找到相关题目哦~', status='empty')
+        else:
+            # 🟢 全选逻辑
+            col_sel_all, col_batch_msg = st.columns([1, 5])
+            with col_sel_all:
+                def toggle_all():
+                    is_selected = st.session_state.select_all_checkbox
+                    for item in history:
+                        st.session_state[f"chk_{item['id']}"] = is_selected
+
+                st.checkbox("全选", key="select_all_checkbox", on_change=toggle_all)
+
+            batch_action_placeholder = st.empty()
+            st.caption(f"共找到 {len(history)} 道错题")
+            
+            selected_ids = []
+            for item in history:
+                c_check, c_content = st.columns([0.05, 0.95]) 
+                with c_check:
+                    st.write("") 
+                    st.write("")
+                    if st.checkbox("", key=f"chk_{item['id']}"):
+                        selected_ids.append(item['id'])
+                
+                with c_content:
+                    expander_title = f"🏷️ {item['tags']}   |   📅 {item['date']}   |   🆔 {item['id']}"
+                    with st.expander(expander_title):
+                        col_top_info, col_delete = st.columns([6, 1])
+                        with col_top_info:
+                            st.info(f"录入时间：{item['date']}  |  归属人：{item['username']}")
+                        with col_delete:
+                            if st.button("🗑️ 删除", key=f"del_{item['id']}", type="secondary", use_container_width=True):
+                                if db.delete_question(item['id']):
+                                    st.toast("已删除！")
+                                    time.sleep(0.5)
+                                    st.rerun()
+                        st.divider()
+                        c_img, c_content_inner = st.columns([1, 2])
+                        with c_img:
+                            if os.path.exists(item['image_path']):
+                                st.image(item['image_path'], use_container_width=True)
+                                st.caption("错题原图")
+                            else:
+                                st.error("❌ 图片丢失")
+                        with c_content_inner:
+                            tab_view, tab_edit = st.tabs(["👀 预览解析", "✏️ 修改内容"])
+                            with tab_view:
+                                st.markdown(f"""
+                                <div style="background-color: #f8f9fa; padding: 15px; border-radius: 10px; border: 1px solid #eee;">
+                                    {item['ai_content']}
+                                </div>
+                                """, unsafe_allow_html=True)
+                            with tab_edit:
+                                with st.form(key=f"edit_form_{item['id']}"):
+                                    new_tags = st.text_input("🏷️ 标签", value=item['tags'])
+                                    new_content = st.text_area("📝 解析内容", value=item['ai_content'], height=400)
+                                    if st.form_submit_button("💾 保存", type="primary", use_container_width=True):
+                                        if db.update_question(item['id'], new_content, new_tags):
+                                            st.success("已保存！")
+                                            time.sleep(0.5)
+                                            st.rerun()
+                                        else:
+                                            st.error("保存失败")
+
+            # 🟢 批量删除逻辑
+            if selected_ids:
+                with batch_action_placeholder.container():
+                    st.warning(f"⚡ 已选中 {len(selected_ids)} 道题目")
+                    if st.button(f"🗑️ 立即批量删除 ({len(selected_ids)})", type="primary", use_container_width=True):
+                        success_count = 0
+                        for qid in selected_ids:
+                            if db.delete_question(qid):
+                                success_count += 1
+                        if success_count > 0:
+                            st.success(f"成功删除了 {success_count} 道题！")
+                            st.session_state.select_all_checkbox = False
+                            time.sleep(1)
+                            st.rerun()
+
+# ================= 4. 程序入口 =================
+
+if 'user_info' not in st.session_state:
+    st.session_state['user_info'] = None
+
+if st.session_state['user_info'] is None:
+    load_css()
+    show_login_page()
+else:
+    show_main_page()
