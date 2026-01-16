@@ -1,18 +1,25 @@
 import pymssql
+import os
+from dotenv import load_dotenv
+
+# 加载环境变量
+load_dotenv()
 
 def test_connection():
     print("🔄 正在尝试连接 SQL Server...")
     
-    # ================= 你的数据库配置 =================
-    # ⚠️ 请修改这里的 '你的密码' ！
-    # 如果你是用 Windows 身份验证登录的 SSMS，请看下面的注释
-    
+    # ================= 从环境变量读取数据库配置 =================
     DB_SETTINGS = {
-        'server': '.',           # 本机地址，通常是 . 或者 localhost
-        'user': 'sa',            # 默认管理员账号
-        'password': '123456',  # ⬅️⬅️⬅️ 改这里！！
-        'database': 'MathTutorDB'
+        'server': os.getenv('DB_SERVER', '.'),           # 本机地址，通常是 . 或者 localhost
+        'user': os.getenv('DB_USER', 'sa'),            # 默认管理员账号
+        'password': os.getenv('DB_PASSWORD', ''),  # 从环境变量读取
+        'database': os.getenv('DB_DATABASE', 'MathTutorDB')
     }
+    
+    if not DB_SETTINGS['password']:
+        print("❌ 错误：数据库密码未配置！")
+        print("👉 请在 .env 文件中设置 DB_PASSWORD")
+        return
     # ===============================================
 
     try:

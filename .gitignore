@@ -1,9 +1,12 @@
 # 1. 账号密码 (绝对不能传)
 .env
+.env.local
+.env.*.local
 
 # 2. 数据库文件 (太大了，自己留着就行)
 database/
 src/chroma_db_clip/
+data/chroma_db_gemini/
 *.sqlite3
 *.bin
 
@@ -13,3 +16,17 @@ data/
 # 4. 垃圾缓存文件
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+
+# 5. IDE 和编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 6. 操作系统文件
+.DS_Store
+Thumbs.db

@@ -1,8 +1,18 @@
 from openai import OpenAI
 import sys
+import os
+from dotenv import load_dotenv
 
-# 🔴 请再次确认你的 Key 填在这里
-KEY = "sk-ygqrtjbuzgpiilwxfxmoojywrnygwjclewlwsqlcvaslzfzl"
+# 加载环境变量
+load_dotenv()
+
+# 🔑 从环境变量读取 API Key
+KEY = os.getenv('OPENAI_API_KEY', '')
+
+if not KEY:
+    print("❌ 错误：未找到 OPENAI_API_KEY！")
+    print("👉 请在 .env 文件中设置 OPENAI_API_KEY")
+    sys.exit(1)
 
 print(f"🔑 正在诊断 Key: {KEY[:8]}......{KEY[-5:]}")
 print("--------------------------------------------------")

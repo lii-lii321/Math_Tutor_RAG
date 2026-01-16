@@ -1,16 +1,25 @@
 import pymssql
 import datetime
+import os
+from dotenv import load_dotenv
+
+# 加载环境变量
+load_dotenv()
 
 class DBManager:
     def __init__(self):
         # ================= 数据库配置 =================
-        # ⚠️ 记得确认这里的密码是对的
+        # 从环境变量读取配置，确保安全性
         self.db_settings = {
-            'server': '.',
-            'user': 'sa',
-            'password': '123456',  # <--- 这里填你的密码
-            'database': 'MathTutorDB'
+            'server': os.getenv('DB_SERVER', '.'),
+            'user': os.getenv('DB_USER', 'sa'),
+            'password': os.getenv('DB_PASSWORD', ''),
+            'database': os.getenv('DB_DATABASE', 'MathTutorDB')
         }
+        
+        # 检查必要的配置是否存在
+        if not self.db_settings['password']:
+            raise ValueError("❌ 数据库密码未配置！请在 .env 文件中设置 DB_PASSWORD")
 
     def get_connection(self):
         return pymssql.connect(**self.db_settings)
