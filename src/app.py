@@ -69,13 +69,11 @@ def show_login_page():
                 user = db.login(username, password)
                 if user:
                     st.session_state['user_info'] = {
-                        'id': user[0], 
-                        'username': username, 
-                        'role': user[1]
+                        'id': user['id'],             # 将 user[0] 改为 user['id']
+                        'username': user['username'], # 建议直接从数据库取 username
+                    'role': user['role']          # 将 user[1] 改为 user['role']
                     }
                     st.rerun()
-                else:
-                    st.error("Invalid username or password")
 
 # ================= 6. 主页面 =================
 def show_main_page():
