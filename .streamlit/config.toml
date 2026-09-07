@@ -1,7 +1,7 @@
 [theme]
-base="light"             # 👈 关键：切回亮色模式
-primaryColor="#FF6B6B"   # 品牌色：选了你图里的那种“暖粉/珊瑚红”，很吸睛
-backgroundColor="#F8F9FA" # 背景：极淡的灰白，像纸张一样
-secondaryBackgroundColor="#FFFFFF" # 侧边栏/卡片：纯白
-textColor="#2D3436"
-font="sans serif"
+base = "light"
+primaryColor = "#2563eb"
+backgroundColor = "#f8fafc"
+secondaryBackgroundColor = "#ffffff"
+textColor = "#334155"
+font = "sans serif"

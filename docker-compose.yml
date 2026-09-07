@@ -1,0 +1,31 @@
+services:
+  mathmaster:
+    build: .
+    ports:
+      - "8501:8501"
+    volumes:
+      - mathmaster-data:/app/data
+    environment:
+      AI_PROVIDER: ${AI_PROVIDER:-mock}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-}
+      # 如需接入 MySQL，取消注释并启动下方 mysql 服务：
+      # DATABASE_URL: mysql+pymysql://mathmaster:mathmaster@mysql:3306/math_tutor?charset=utf8mb4
+    restart: unless-stopped
+
+  # 可选：生产/演示用 MySQL。默认 SQLite 即可运行。
+  # mysql:
+  #   image: mysql:8.4
+  #   environment:
+  #     MYSQL_ROOT_PASSWORD: root
+  #     MYSQL_DATABASE: math_tutor
+  #     MYSQL_USER: mathmaster
+  #     MYSQL_PASSWORD: mathmaster
+  #   volumes:
+  #     - mysql-data:/var/lib/mysql
+  #   restart: unless-stopped
+
+volumes:
+  mathmaster-data:
+  # mysql-data:
