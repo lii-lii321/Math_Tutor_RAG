@@ -72,8 +72,37 @@ def render_notebook_page(user: dict) -> None:
             st.rerun()
 
 
+def _render_followup_chat(service, q, user) -> None:
+    """围绕一道错题的多轮追问对话。历史保存在 session_state，按题隔离。"""
+    history_key = f"chat_{q.id}"
+    st.session_state.setdefault(history_key, [])
+
+    for message in st.session_state[history_key]:
+        with st.chat_message(message["role"], avatar="🧑‍🎓" if message["role"] == "user" else "📘"):
+            st.markdown(message["content"])
+
+    if prompt := st.chat_input("哪里没看懂？问老师（例如：为什么判别式要大于等于零）", key=f"chat_input_{q.id}"):
+        st.session_state[history_key].append({"role": "user", "content": prompt})
+        with st.chat_message("user", avatar="🧑‍🎓"):
+            st.markdown(prompt)
+        with st.chat_message("assistant", avatar="📘"):
+            try:
+                reply = service.answer_followup(
+                    q.id, user["id"], st.session_state[history_key], prompt
+                )
+            except Exception as exc:  # noqa: BLE001 - 对话失败不应崩溃页面
+                reply = f"⚠️ 讲师暂时不可用：{exc}"
+            st.markdown(reply)
+        st.session_state[history_key].append({"role": "assistant", "content": reply})
+        st.rerun()
+
+    if st.session_state[history_key] and st.button("清空本题对话", key=f"chat_clear_{q.id}"):
+        st.session_state[history_key] = []
+        st.rerun()
+
+
 def _render_question_detail(service, q, user) -> None:
-    tab_view, tab_edit = st.tabs(["查看", "编辑"])
+    tab_view, tab_chat, tab_edit = st.tabs(["查看", "追问讲题", "编辑"])
     with tab_view:
         img_col, content_col = st.columns([2, 3])
         with img_col:
@@ -97,6 +126,9 @@ def _render_question_detail(service, q, user) -> None:
             if q.followup_question:
                 with st.expander("举一反三 · 变式练习"):
                     st.markdown(q.followup_question)
+
+    with tab_chat:
+        _render_followup_chat(service, q, user)
 
     with tab_edit:
         with st.form(f"edit_form_{q.id}"):

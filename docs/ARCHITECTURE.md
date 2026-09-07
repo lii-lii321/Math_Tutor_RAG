@@ -49,6 +49,12 @@ SQLite / MySQL  +  ChromaDB  +  文件存储
 
 **掌握度定义**（启发式，服务于看板而非论文）：标签内复习记录中 good/easy 占比 × 0.7 + 平均调度间隔归一化 × 0.3；无复习记录为 0。
 
+## 3.5 追问讲题（多轮对话）
+
+`BaseAIProvider.answer_followup(context, history, question)` 围绕一道已解析错题构建消息序列：
+`system（讲师人设 + 题目背景）→ 最近 12 条历史 → 当前问题`。截断历史防止 token 超限；
+服务层先校验题目归属（`get_owned`）再发起对话；对话历史按题隔离存于 `st.session_state`。
+
 ## 5. 数据与安全
 
 - 默认 SQLite（WAL 模式 + busy timeout 30s，规避 Streamlit 多线程下的 `database is locked`）；`DATABASE_URL` 一键切换 MySQL/PostgreSQL。

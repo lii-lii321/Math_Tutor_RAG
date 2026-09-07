@@ -45,6 +45,17 @@ class OpenAICompatProvider(BaseAIProvider):
             raise ValueError("模型返回了空响应")
         return content
 
+    def chat(self, messages: list[dict]) -> str:
+        response = self._client.chat.completions.create(
+            model=self.settings.ai_model,
+            temperature=self.settings.ai_temperature,
+            messages=messages,
+        )
+        content = response.choices[0].message.content
+        if not content:
+            raise ValueError("模型返回了空响应")
+        return content
+
     def provider_info(self) -> AIProviderInfo:
         return AIProviderInfo(
             provider="openai_compatible",

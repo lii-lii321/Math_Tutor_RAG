@@ -18,6 +18,12 @@ SYSTEM_PROMPT = (
     "必须严格输出 JSON，不要输出任何 JSON 以外的内容。"
 )
 
+FOLLOWUP_SYSTEM_PROMPT = (
+    "你是一位耐心的数学老师，正在就学生的一道错题进行一对一追问讲解。"
+    "讲解使用简体中文，公式使用 LaTeX（$...$ 行内，$$...$$ 独立）。"
+    "回答紧扣题目本身，先直接回应学生的问题，再按需展开推导；学生理解卡住时给提示而不是直接报答案。"
+)
+
 JSON_INSTRUCTION = """请只输出一个 JSON 对象，结构如下：
 {
   "knowledge_points": ["3-5 个考察的核心知识点"],
@@ -52,8 +58,32 @@ class BaseAIProvider(abc.ABC):
         """调用多模态模型，返回原始文本响应。"""
 
     @abc.abstractmethod
+    def chat(self, messages: list[dict]) -> str:
+        """纯文本多轮对话：messages 为 [{"role": ..., "content": ...}, ...]。"""
+
+    @abc.abstractmethod
     def provider_info(self) -> AIProviderInfo:
         """提供商元信息，用于界面展示运行状态。"""
+
+    def answer_followup(
+        self,
+        question_context: str,
+        history: list[dict],
+        user_question: str,
+    ) -> str:
+        """围绕一道已解析错题的多轮追问讲题。"""
+        messages: list[dict] = [
+            {
+                "role": "system",
+                "content": f"{FOLLOWUP_SYSTEM_PROMPT}\n\n【题目背景】\n{question_context[:4000]}",
+            },
+            *history[-12:],  # 限制上下文长度，防止 token 超限
+            {"role": "user", "content": user_question},
+        ]
+        reply = self.chat(messages)
+        if not reply or not reply.strip():
+            raise AIMessageError("模型返回了空响应")
+        return reply.strip()
 
     def analyze_question(
         self, image_bytes: bytes, mime_type: str = "image/jpeg", hint: str = ""

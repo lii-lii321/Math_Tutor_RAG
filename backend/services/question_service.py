@@ -203,6 +203,33 @@ class QuestionService:
         self.vector_store.delete_questions(question_ids)
         return deleted
 
+    # ---------- 追问对话 ----------
+    def answer_followup(
+        self,
+        question_id: int,
+        user_id: int,
+        history: list[dict],
+        user_question: str,
+    ) -> str:
+        """就一道已解析的错题进行多轮追问讲题（校验题目归属）。"""
+        with self._session() as repo:
+            question = repo.get_owned(question_id, user_id)
+        if question is None:
+            raise ValueError("错题不存在或无权访问")
+
+        from backend.models.schemas import QuestionOut
+
+        out = QuestionOut.from_orm_model(question)
+        context = "\n".join(
+            [
+                "考点：" + "、".join(out.knowledge_points or []),
+                "解析：\n" + out.content_markdown,
+                "答案：" + out.answer,
+                "变式题：" + (out.followup_question or "无"),
+            ]
+        )
+        return self.ai.answer_followup(context, history, user_question)
+
     # ---------- 复习 ----------
     def due_questions(self, user_id: int) -> list[QuestionOut]:
         with self._session() as repo:

@@ -32,8 +32,19 @@ _DEMO_ANALYSIS = QuestionAnalysis(
 
 class MockProvider(BaseAIProvider):
     def _complete(self, image_bytes: bytes, mime_type: str, prompt: str) -> str:
-
         return _DEMO_ANALYSIS.model_dump_json()
+
+    def chat(self, messages: list[dict]) -> str:
+        last_user = next(
+            (m["content"] for m in reversed(messages) if m["role"] == "user"),
+            "",
+        )
+        return (
+            "**【演示模式】** 已收到你的追问：" + last_user[:80] + "\n\n"
+            "配置 `AI_API_KEY` 后，老师会结合题目背景给出真实讲解。"
+            "这里先给一个通用提示：先确认题目考查的知识点，"
+            "再从已知条件出发逐步推导，检查每一步的适用条件（例如判别式、定义域）。"
+        )
 
     def provider_info(self) -> AIProviderInfo:
         return AIProviderInfo(
