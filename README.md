@@ -73,6 +73,14 @@ flowchart LR
 
 **分层原则**：界面层（`frontend/`）只依赖应用服务（`QuestionService` 等）；服务层通过 Repository 访问数据库；AI 提供商与向量库均可替换/降级。配置集中在 `backend/config.py`（pydantic-settings 校验）。
 
+## 🖼️ 界面速览 (Screenshots)
+
+| 学情看板 | AI 录题 |
+|---|---|
+| ![dashboard](docs/screenshots/dashboard.png) | ![tutor](docs/screenshots/tutor.png) |
+| **错题本** | **今日复习（SM-2 闪卡）** |
+| ![notebook](docs/screenshots/notebook.png) | ![review](docs/screenshots/review.png) |
+
 ## 🚀 快速开始 (Quick Start)
 
 ### 方式一：本地运行（推荐 Python 3.10+）
