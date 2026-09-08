@@ -4,7 +4,7 @@ from __future__ import annotations
 import streamlit as st
 
 from backend.services.question_service import sanitize_tags
-from frontend.common import get_question_service, page_header
+from frontend.common import get_question_service, go_to, page_header
 
 
 def render_tutor_page(user: dict) -> None:
@@ -93,6 +93,12 @@ def _process_uploads(service, user, uploads, tags: list[str], hint: str) -> None
 
     ok_count = sum(1 for r in results if r[1] is not None)
     st.success(f"完成：成功 {ok_count} / {len(results)} 张，已自动归档入错题本。")
+
+    if ok_count:
+        nav_col, _ = st.columns([1, 2])
+        with nav_col:
+            if st.button("📒 去错题本查看", type="primary"):
+                go_to("notebook")
 
     for name, saved, analysis, error in results:
         st.markdown(f"##### {name}")

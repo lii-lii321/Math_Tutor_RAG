@@ -4,7 +4,7 @@ from __future__ import annotations
 import plotly.express as px
 import streamlit as st
 
-from frontend.common import get_question_service, page_header, provider_badges, stat_card
+from frontend.common import get_question_service, go_to, page_header, provider_badges, stat_card
 
 _BLUE = "#2563eb"
 
@@ -44,6 +44,14 @@ def render_dashboard(user: dict) -> None:
         stat_card(stats["reviewed"], "已复习错题")
     with col4:
         stat_card(stats["due"], "待复习", accent=True)
+
+    action_col1, action_col2, _ = st.columns([1, 1, 2])
+    with action_col1:
+        if st.button("🎬 开始复习", type="primary", use_container_width=True, disabled=stats["due"] == 0):
+            go_to("review")
+    with action_col2:
+        if st.button("📸 录一道错题", use_container_width=True):
+            go_to("tutor")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -88,6 +96,8 @@ def render_dashboard(user: dict) -> None:
                     """,
                     unsafe_allow_html=True,
                 )
+            if st.button("📚 去错题本复习最薄弱的知识点", use_container_width=True):
+                go_to("notebook", tag=stats["weak_tags"][0].tag)
         else:
             st.caption("复习几道题后，这里会生成掌握度分析。")
 

@@ -48,8 +48,9 @@ section[data-testid="stSidebar"] {
   border-radius: 14px;
   padding: 1.4rem 1.6rem;
   margin-bottom: 1rem;
+  transition: box-shadow 0.18s ease, transform 0.18s ease;
 }
-
+.mm-card:hover { box-shadow: 0 6px 20px rgba(26, 54, 93, 0.08); }
 .mm-card--flat { box-shadow: none; }
 
 /* 统计卡 */
@@ -59,6 +60,11 @@ section[data-testid="stSidebar"] {
   border-radius: 14px;
   padding: 1.2rem 1.4rem;
   height: 100%;
+  transition: box-shadow 0.18s ease, transform 0.18s ease;
+}
+.mm-stat:hover {
+  box-shadow: 0 6px 20px rgba(26, 54, 93, 0.08);
+  transform: translateY(-2px);
 }
 .mm-stat__value {
   font-size: 2.2rem;
@@ -161,6 +167,52 @@ section[data-testid="stSidebar"] {
 
 /* ---------------- 其他细节 ---------------- */
 .mm-muted { color: var(--slate-light); font-size: 0.86rem; }
+
+/* 空状态 */
+.mm-empty {
+  text-align: center;
+  padding: 2.6rem 1rem;
+  color: var(--slate-light);
+}
+.mm-empty__icon { font-size: 2.6rem; margin-bottom: 0.5rem; }
+
+/* 按钮：圆角 + 平滑过渡 */
+.stButton > button {
+  border-radius: 10px;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
+}
+.stButton > button:hover { transform: translateY(-1px); }
+.stButton > button[kind="primary"] {
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+}
+.stButton > button[kind="primary"]:hover {
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+}
+
+/* 折叠面板：悬停高亮 */
+div[data-testid="stExpander"]:hover { border-color: #cbd5e1 !important; }
+div[data-testid="stExpander"] details:hover > summary { color: var(--navy); }
+
+/* 输入框聚焦描边统一为品牌蓝 */
+.stTextInput input:focus, st-emotion-cache textarea:focus {
+  border-color: var(--blue) !important;
+  box-shadow: 0 0 0 1px var(--blue) !important;
+}
+
+/* 滚动条（WebKit） */
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* 侧边栏导航项激活态 */
+section[data-testid="stSidebar"] [data-baseweb] a { transition: background-color 0.12s ease; }
+
+/* 页面底部留白 */
+.block-container { padding-bottom: 3rem; }
 
 div[data-testid="stExpander"] {
   border: 1px solid var(--border) !important;

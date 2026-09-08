@@ -7,19 +7,27 @@ import streamlit as st
 
 from backend.services.export import generate_word_exam
 from backend.services.question_service import sanitize_tags
-from frontend.common import get_question_service, page_header
+from frontend.common import get_question_service, go_to, page_header, pop_params
+
+_PAGE_SIZE = 8
 
 
 def render_notebook_page(user: dict) -> None:
     service = get_question_service()
     page_header("错题本", "支持关键词与语义搜索；教师可查看全部学生错题")
 
+    incoming = pop_params("tag", "keyword")
+    preset_tag = incoming.get("tag")
+    preset_keyword = incoming.get("keyword")
+
     with st.container(border=True):
         col_search, col_tag, col_export = st.columns([3, 2, 1])
         with col_search:
             keyword = st.text_input(
                 "搜索",
+                value=preset_keyword or "",
                 placeholder="例如：判别式没掌握的题 / 相似三角形（自然语言即可）",
+                key="notebook_search",
             )
             semantic = st.toggle("语义搜索", value=True, help="用向量检索理解语义，而非仅字面匹配")
         with col_tag:
@@ -27,7 +35,12 @@ def render_notebook_page(user: dict) -> None:
                 user["id"], include_others=user["role"] == "teacher", semantic=False
             )
             all_tags = sorted({t for q in all_questions for t in q.tags})
-            tag_filter = st.selectbox("按标签筛选", ["全部"] + all_tags)
+            default_index = (
+                (["全部"] + all_tags).index(preset_tag) if preset_tag in all_tags else 0
+            )
+            tag_filter = st.selectbox(
+                "按标签筛选", ["全部"] + all_tags, index=default_index, key="notebook_tag"
+            )
         with col_export:
             st.markdown("<br>", unsafe_allow_html=True)
 
@@ -52,12 +65,57 @@ def render_notebook_page(user: dict) -> None:
             )
 
     if not questions:
-        st.info("没有匹配的错题。上传错题图片或调整筛选条件试试。")
+        st.markdown(
+            """
+            <div class="mm-empty">
+                <div class="mm-empty__icon">🗂️</div>
+                <div>没有匹配的错题。</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("📸 去 AI 录题", use_container_width=True):
+                go_to("tutor")
+        with c2:
+            if st.button("清除筛选条件", use_container_width=True):
+                st.session_state.pop("notebook_search", None)
+                st.session_state.pop("notebook_tag", None)
+                st.session_state.pop("notebook_page", None)
+                st.rerun()
         return
 
-    st.caption(f"共 {len(questions)} 题")
+    # 分页浏览，避免题目多时单页过长
+    total = len(questions)
+    page_count = (total + _PAGE_SIZE - 1) // _PAGE_SIZE
+    page_key = "notebook_page"
+    if page_key not in st.session_state:
+        st.session_state[page_key] = 0
+    st.session_state[page_key] = min(st.session_state[page_key], page_count - 1)
+    page_index = st.session_state[page_key]
+    page_items = questions[page_index * _PAGE_SIZE : (page_index + 1) * _PAGE_SIZE]
+
+    nav_l, nav_c, nav_r = st.columns([1, 2, 1])
+    with nav_l:
+        if st.button("← 上一页", disabled=page_index == 0, use_container_width=True):
+            st.session_state[page_key] -= 1
+            st.rerun()
+    with nav_c:
+        st.markdown(
+            f"<p class='mm-muted' style='text-align:center;margin-top:0.5rem'>"
+            f"共 {total} 题 · 第 {page_index + 1} / {page_count} 页</p>",
+            unsafe_allow_html=True,
+        )
+    with nav_r:
+        if st.button(
+            "下一页 →", disabled=page_index >= page_count - 1, use_container_width=True
+        ):
+            st.session_state[page_key] += 1
+            st.rerun()
+
     selected_ids: list[int] = []
-    for q in questions:
+    for q in page_items:
         expander_title = f"{'、'.join(q.tags[:4]) or '未分类'}　·　{q.difficulty}　·　{(q.created_at.strftime('%Y-%m-%d') if q.created_at else '')}"
         with st.expander(expander_title):
             _render_question_detail(service, q, user)
@@ -66,10 +124,22 @@ def render_notebook_page(user: dict) -> None:
 
     if selected_ids:
         st.warning(f"已选中 {len(selected_ids)} 题")
-        if st.button("批量删除选中错题", type="primary"):
-            service.delete_questions(selected_ids, user["id"])
-            st.success(f"已删除 {len(selected_ids)} 题")
-            st.rerun()
+        act_col1, act_col2, _ = st.columns([1, 1, 2])
+        with act_col1:
+            if st.button("批量删除选中错题", type="primary"):
+                service.delete_questions(selected_ids, user["id"])
+                st.success(f"已删除 {len(selected_ids)} 题")
+                st.rerun()
+        with act_col2:
+            selected = [q for q in questions if q.id in set(selected_ids)]
+            doc_io = generate_word_exam(selected, "错题精选复习卷")
+            st.download_button(
+                "导出选中的错题卷",
+                data=doc_io,
+                file_name="错题精选复习卷.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                use_container_width=True,
+            )
 
 
 def _render_followup_chat(service, q, user) -> None:

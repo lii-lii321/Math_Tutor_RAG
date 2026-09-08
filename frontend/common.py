@@ -68,3 +68,36 @@ def page_header(title: str, subtitle: str = "") -> None:
 
 def initials(name: str) -> str:
     return (name[:2] or "U").upper()
+
+
+_LABEL_TO_KEY = {
+    "学情看板": "dashboard",
+    "AI 录题": "tutor",
+    "错题本": "notebook",
+    "今日复习": "review",
+    "知识图谱": "graph",
+    "设置": "settings",
+}
+
+
+def go_to(page_key: str, **params) -> None:
+    """跨页跳转：设置导航选中项与目标页参数，随后触发重跑。
+
+    目标页通过 pop_params("notebook") 读取并清除参数。
+    """
+    for label, key in _LABEL_TO_KEY.items():
+        if key == page_key:
+            st.session_state["nav"] = label
+            break
+    for name, value in params.items():
+        st.session_state[f"param_{name}"] = value
+    st.rerun()
+
+
+def pop_params(*names: str) -> dict:
+    """读取并清除 go_to 传递的页面参数（一次性）。"""
+    return {
+        name: st.session_state.pop(f"param_{name}", None)
+        for name in names
+        if f"param_{name}" in st.session_state
+    }

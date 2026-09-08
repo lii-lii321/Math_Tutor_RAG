@@ -60,6 +60,7 @@ def render_auth_page() -> None:
                     with get_session() as session:
                         result = AuthService(session).register(payload)
                     if result.ok:
-                        st.success("注册成功，请切换到「登录」")
+                        login_user(result.user_id, result.username, result.role)
+                        st.rerun()
                     else:
                         st.error(result.message)
