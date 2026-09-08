@@ -82,8 +82,9 @@ def test_review_grading_flow(question_service, student_user):
 
 def test_dashboard_stats_shape(question_service, student_user):
     stats = question_service.dashboard_stats(student_user.id)
-    assert {"total", "reviewed", "due", "tag_stats", "weak_tags", "activity"} <= set(stats)
+    assert {"total", "reviewed", "due", "streak", "tag_stats", "weak_tags", "activity"} <= set(stats)
     assert stats["total"] >= 1
+    assert stats["streak"] >= 1  # 今天录入了错题，连击至少 1 天
     assert len(stats["activity"]) == 14
 
 

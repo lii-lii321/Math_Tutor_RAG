@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 from backend.models.schemas import QuestionOut
 from backend.services.export import generate_word_exam
-from backend.services.stats import build_activity, build_tag_stats, weak_tags
+from backend.services.stats import build_activity, build_tag_stats, study_streak, weak_tags
 
 
 def _question(idx: int, tags: list[str], due_at=None, reps: int = 0) -> QuestionOut:
@@ -71,3 +71,32 @@ def test_activity_window_has_14_days():
     activity = build_activity([recent, old])
     assert len(activity) == 14
     assert sum(a["count"] for a in activity) == 1  # 只统计近 14 天
+
+
+def test_study_streak_counts_back_from_today():
+    today = datetime.now(timezone.utc).date()
+    dates = {today, today - timedelta(days=1), today - timedelta(days=2)}
+    assert study_streak(dates) == 3
+
+
+def test_study_streak_breaks_on_gap():
+    today = datetime.now(timezone.utc).date()
+    dates = {today, today - timedelta(days=1), today - timedelta(days=3)}
+    assert study_streak(dates) == 2
+
+
+def test_study_streak_allows_yesterday_start():
+    today = datetime.now(timezone.utc).date()
+    dates = {today - timedelta(days=1), today - timedelta(days=2)}
+    assert study_streak(dates) == 2  # 今天还没学，从昨天起算
+
+
+def test_study_streak_empty():
+    assert study_streak(set()) == 0
+
+
+def test_study_streak_accepts_datetime_and_date_mix():
+    now = datetime.now(timezone.utc)
+    today = now.date()
+    dates = {now, today - timedelta(days=1)}
+    assert study_streak(dates) == 2

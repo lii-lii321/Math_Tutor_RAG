@@ -28,6 +28,7 @@ def render_dashboard(user: dict) -> None:
         <div class="mm-welcome">
             <h1>你好，{user['username']}</h1>
             <p>今天有 {stats['due']} 道错题等待复习 · 保持节奏，把每一道错题变成得分点。</p>
+            <p style="margin-top:0.4rem">🔥 连续学习 {stats.get('streak', 0)} 天</p>
             <div style="margin-top:0.8rem">{provider_badges()}</div>
         </div>
         """,

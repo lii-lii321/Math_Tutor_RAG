@@ -377,10 +377,16 @@ class QuestionService:
         due_count = len(
             [o for o in outs if o.due_at is None or _aware(o.due_at) <= now]
         )
+
+        active_dates = {o.created_at for o in outs if o.created_at}
+        active_dates.update(log.reviewed_at for log in logs)
+        from backend.services.stats import study_streak
+
         return {
             "total": len(outs),
             "reviewed": len({log.question_id for log in logs}),
             "due": due_count,
+            "streak": study_streak(active_dates),
             "tag_stats": tag_stats,
             "weak_tags": weak_tags(tag_stats),
             "activity": build_activity(outs),
