@@ -82,6 +82,8 @@ flowchart LR
 | ![dashboard](docs/screenshots/dashboard.png) | ![tutor](docs/screenshots/tutor.png) |
 | **错题本** | **今日复习（SM-2 闪卡）** |
 | ![notebook](docs/screenshots/notebook.png) | ![review](docs/screenshots/review.png) |
+| **知识图谱（标签共现）** | |
+| ![graph](docs/screenshots/graph.png) | |
 
 ## 🚀 快速开始 (Quick Start)
 

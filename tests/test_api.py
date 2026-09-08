@@ -180,6 +180,20 @@ def test_followup_ownership_isolated(client):
     assert denied.status_code == 404
 
 
+def test_export_word_exam_endpoint(client):
+    headers = _auth_header(client, "api_user", "secret1")
+    resp = client.get("/api/questions/export/docx", headers=headers)
+    assert resp.status_code == 200
+    assert resp.content[:2] == b"PK"  # docx 本质是 zip
+
+    empty = client.get(
+        "/api/questions/export/docx",
+        headers=headers,
+        params={"keyword": "不存在的关键词xyz"},
+    )
+    assert empty.status_code == 404
+
+
 def test_stats_endpoints(client):
     headers = _auth_header(client, "api_user", "secret1")
     dash = client.get("/api/stats/dashboard", headers=headers)

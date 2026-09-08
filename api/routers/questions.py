@@ -1,12 +1,13 @@
 """错题路由：列表 / AI 录题 / 文本录题 / 详情 / 编辑 / 删除 / 相似题。"""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
 from pydantic import BaseModel, Field
 
 from api.deps import get_current_user
 from backend.models.orm import User
 from backend.models.schemas import QuestionAnalysis, QuestionOut
+from backend.services.export import generate_word_exam
 from backend.services.question_service import QuestionService, sanitize_tags
 
 router = APIRouter(prefix="/questions", tags=["questions"])
@@ -121,6 +122,26 @@ def import_questions(
 def export_questions(user: User = Depends(get_current_user)) -> dict:
     """导出当前用户全部错题的 JSON 备份。"""
     return _service().export_user_data(user.id)
+
+
+@router.get("/export/docx")
+def export_word_exam(
+    tag: str | None = None,
+    keyword: str | None = None,
+    user: User = Depends(get_current_user),
+) -> Response:
+    """按当前筛选（可选 tag/keyword）导出可打印的 Word 复习卷。"""
+    questions = _service().list_questions(
+        user.id, include_others=user.role == "teacher", tag=tag, keyword=keyword, semantic=False
+    )
+    if not questions:
+        raise HTTPException(404, "没有可导出的错题")
+    stream = generate_word_exam(questions, "错题复习卷")
+    return Response(
+        content=stream.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": 'attachment; filename="mathmaster_exam.docx"'},
+    )
 
 
 @router.get("/{question_id}", response_model=QuestionOut)
