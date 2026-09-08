@@ -206,9 +206,10 @@ Math_Tutor_RAG/
 
 ## 🗺️ 路线图 (Roadmap)
 
-- [ ] 知识点图谱可视化（标签共现网络）
+- [x] ~~知识点图谱可视化（标签共现网络）~~（v2.1）
+- [x] ~~FastAPI 网关化以便多端复用~~（v2.1）
 - [ ] PostgreSQL 支持；对象存储（S3/OSS）托管题目图片
-- [ ] OpenTelemetry 观测埋点；FastAPI 网关化以便多端复用
+- [ ] OpenTelemetry 观测埋点；消息队列异步解析
 
 ## 📄 License
 
