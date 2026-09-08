@@ -171,6 +171,8 @@ ruff check .       # 静态检查
 
 GitHub Actions 在每次 push / PR 时执行：`ruff lint → pytest (3.10/3.11/3.12 矩阵) → Docker 构建`。
 
+部署到服务器 / 云端的完整步骤（含 MySQL 切换、备份策略、常见问题）见 **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**。
+
 ## 📁 目录结构
 
 ```
