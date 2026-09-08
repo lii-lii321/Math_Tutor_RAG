@@ -25,7 +25,9 @@
 | 💬 **追问讲题** | 每道错题内置多轮对话（Chat UI）：带题目上下文的多轮讲题，上下文自动截断防超限 |
 | 📊 **学情看板** | 知识点分布、**标签级掌握度估算**（结合复习表现与调度间隔）、薄弱知识点 Top N、近 14 天录入趋势 |
 | 🖨️ **一键组卷导出** | 按筛选结果生成可打印 Word 复习卷，保留题目原图与答题留白 |
-| 🔐 **生产级安全** | bcrypt 密码哈希、登录失败延迟、Pydantic 入参校验、SQL 参数化查询 |
+| 🔐 **生产级安全** | bcrypt 密码哈希、登录失败延迟、JWT 认证、Pydantic 入参校验、SQL 参数化查询 |
+| 🔌 **FastAPI 网关** | 与 Streamlit 共享同一套 backend 服务的 REST API（JWT + OpenAPI 文档），Web / 小程序 / 脚本多端复用 |
+| 🧩 **知识图谱** | 标签共现力导向图，直观呈现知识点之间的关联结构 |
 | 🧪 **工程化** | pytest 41 用例、ruff、GitHub Actions CI（lint + 3 版本矩阵测试 + Docker 构建）、Docker Compose 一键部署 |
 
 ## 🏗️ 架构 (Architecture)
@@ -109,8 +111,27 @@ streamlit run app.py
 
 ```bash
 docker compose up -d --build
-# 访问 http://localhost:8501，数据持久化于 named volume
+# Web 访问 http://localhost:8501，REST API 访问 http://localhost:8000/docs
+# 数据持久化于 named volume
 ```
+
+### 方式三：单独启动 API 网关
+
+```bash
+pip install -r requirements.txt
+uvicorn api.main:app --port 8000
+# OpenAPI 文档: http://localhost:8000/docs
+```
+
+```bash
+# 快速体验 API
+curl -s -X POST http://localhost:8000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "demo", "password": "demo123"}'
+# 返回 access_token，后续请求带 Authorization: Bearer <token>
+```
+
+> `.env` 中设置 `AUTH_SECRET` 为强随机密钥（≥ 32 字节）以保护 JWT 签名。
 
 ### 启用真实 AI 模型
 
@@ -153,6 +174,10 @@ GitHub Actions 在每次 push / PR 时执行：`ruff lint → pytest (3.10/3.11/
 ```
 Math_Tutor_RAG/
 ├── app.py                     # Streamlit 入口（路由 + 侧边栏）
+├── api/                       # FastAPI 网关（REST API，多端复用）
+│   ├── main.py                # 应用工厂 + CORS + OpenAPI
+│   ├── deps.py                # JWT 认证 / 会话依赖
+│   └── routers/               # auth / questions / review / stats
 ├── backend/
 │   ├── config.py              # pydantic-settings 配置中心
 │   ├── database.py            # SQLAlchemy 引擎 / 会话 / 初始化

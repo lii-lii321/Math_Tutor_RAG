@@ -32,6 +32,7 @@ _PAGES = {
     "AI 录题": "tutor",
     "错题本": "notebook",
     "今日复习": "review",
+    "知识图谱": "graph",
     "设置": "settings",
 }
 
@@ -91,6 +92,10 @@ def main() -> None:
         render_notebook_page(user)
     elif page == "review":
         render_review_page(user)
+    elif page == "graph":
+        from frontend.pages.graph import render_graph_page
+
+        render_graph_page(user)
     elif page == "settings":
         render_settings_page(user)
 

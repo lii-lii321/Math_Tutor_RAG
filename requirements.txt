@@ -6,6 +6,12 @@ streamlit>=1.49
 streamlit-antd-components>=0.3.2
 plotly>=5.22
 
+# REST API 网关（多端复用）
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9
+PyJWT>=2.8
+
 # 数据层
 sqlalchemy>=2.0.30
 pydantic>=2.7

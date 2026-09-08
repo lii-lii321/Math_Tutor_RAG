@@ -10,8 +10,25 @@ services:
       AI_BASE_URL: ${AI_BASE_URL:-}
       AI_API_KEY: ${AI_API_KEY:-}
       AI_MODEL: ${AI_MODEL:-}
+      AUTH_SECRET: ${AUTH_SECRET:-dev-only-secret-change-me-0123456789abcdef}
       # 如需接入 MySQL，取消注释并启动下方 mysql 服务：
       # DATABASE_URL: mysql+pymysql://mathmaster:mathmaster@mysql:3306/math_tutor?charset=utf8mb4
+    restart: unless-stopped
+
+  api:
+    build: .
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - mathmaster-data:/app/data
+    environment:
+      AI_PROVIDER: ${AI_PROVIDER:-mock}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-}
+      AUTH_SECRET: ${AUTH_SECRET:-dev-only-secret-change-me-0123456789abcdef}
+      DATABASE_URL: ${DATABASE_URL:-}
     restart: unless-stopped
 
   # 可选：生产/演示用 MySQL。默认 SQLite 即可运行。

@@ -58,6 +58,40 @@ class QuestionService:
             session.close()
 
     # ---------- 录入 ----------
+    def create_manual_question(
+        self,
+        user_id: int,
+        *,
+        content_markdown: str,
+        answer: str = "",
+        tags: list[str] | None = None,
+        knowledge_points: list[str] | None = None,
+        source: str = "manual",
+    ) -> QuestionOut:
+        """手动录入文本错题：入库 + 向量索引，跳过视觉模型。"""
+        if not content_markdown or not content_markdown.strip():
+            raise ValueError("题目内容不能为空")
+        clean_tags = [t.strip() for t in (tags or []) if t.strip()]
+        clean_points = [t.strip() for t in (knowledge_points or []) if t.strip()]
+        with self._session() as repo:
+            question = repo.create(
+                user_id,
+                content_markdown=content_markdown,
+                answer=answer,
+                knowledge_points=clean_points,
+                tags=clean_tags,
+                source=source,
+            )
+            out = QuestionOut.from_orm_model(question)
+
+        self.vector_store.upsert_question(
+            out.id,
+            " ".join([*clean_points, content_markdown, answer, *clean_tags]),
+            user_id=user_id,
+            tags=clean_tags,
+        )
+        return out
+
     def analyze_and_save(
         self,
         user_id: int,
@@ -257,6 +291,45 @@ class QuestionService:
                 due_at=schedule.due_at,
             )
             return QuestionOut.from_orm_model(updated) if updated else None
+
+    # ---------- 备份 / 恢复 ----------
+    BACKUP_FORMAT = "mathmaster-backup"
+    BACKUP_VERSION = 1
+
+    def export_user_data(self, user_id: int) -> dict:
+        """导出用户全部错题为可移植 JSON（图片不包含，路径仅作参考）。"""
+        questions = self.list_questions(user_id, semantic=False)
+        return {
+            "format": self.BACKUP_FORMAT,
+            "version": self.BACKUP_VERSION,
+            "exported_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+            "count": len(questions),
+            "questions": [q.model_dump(mode="json") for q in questions],
+        }
+
+    def import_user_data(self, user_id: int, data: dict) -> int:
+        """从备份 JSON 恢复错题（全部按手动录入处理，逐条校验）。返回导入数量。"""
+        if data.get("format") != self.BACKUP_FORMAT:
+            raise ValueError("备份文件格式不正确")
+        items = data.get("questions")
+        if not isinstance(items, list):
+            raise ValueError("备份文件缺少 questions 列表")
+
+        imported = 0
+        for item in items:
+            try:
+                self.create_manual_question(
+                    user_id,
+                    content_markdown=str(item.get("content_markdown", "")).strip(),
+                    answer=str(item.get("answer", "") or ""),
+                    tags=[str(t) for t in (item.get("tags") or [])][:8],
+                    knowledge_points=[str(t) for t in (item.get("knowledge_points") or [])][:8],
+                    source="imported",
+                )
+                imported += 1
+            except Exception as exc:  # noqa: BLE001 - 单条失败不阻断整体
+                logger.warning("导入单条错题失败: %s", exc)
+        return imported
 
     # ---------- 统计 ----------
     def dashboard_stats(self, user_id: int, *, include_others: bool = False) -> dict:

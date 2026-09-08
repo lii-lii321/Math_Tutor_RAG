@@ -40,6 +40,12 @@ class Settings(BaseSettings):
     seed_demo_username: str = "demo"
     seed_demo_password: str = "demo123"
 
+    # ---------- API 网关 (JWT) ----------
+    # 生产环境务必通过 .env 设置强随机密钥（>= 32 字节）
+    auth_secret: str = "dev-only-secret-change-me-0123456789abcdef"
+    access_token_expire_minutes: int = Field(default=7 * 24 * 60, ge=1)
+    api_prefix: str = "/api"
+
     # ---------- AI 提供商 ----------
     # openai_compatible: 任何兼容 OpenAI Chat Completions 的服务
     #   (SiliconFlow / Qwen / GLM / DeepSeek / OpenAI / Ollama ...)
