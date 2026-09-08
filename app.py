@@ -50,6 +50,9 @@ def _render_sidebar(user: dict) -> str:
             """,
             unsafe_allow_html=True,
         )
+        pending = st.session_state.pop("_pending_nav", None)  # 必须在菜单实例化前写入其 key
+        if pending:
+            st.session_state["nav"] = pending
         menu = sac.menu(
             [sac.MenuItem(label) for label in _PAGES],
             format_func="title",

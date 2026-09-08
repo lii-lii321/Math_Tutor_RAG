@@ -81,14 +81,13 @@ _LABEL_TO_KEY = {
 
 
 def go_to(page_key: str, **params) -> None:
-    """跨页跳转：设置导航选中项与目标页参数，随后触发重跑。
+    """跨页跳转：记录目标导航项，触发重跑。
 
-    目标页通过 pop_params("notebook") 读取并清除参数。
+    注意：菜单组件的 session key 只能在其「本次实例化之前」修改，
+    因此这里仅写入 _pending_nav，由 app.py 在渲染侧边栏前消费。
     """
-    for label, key in _LABEL_TO_KEY.items():
-        if key == page_key:
-            st.session_state["nav"] = label
-            break
+    label = next(label for label, key in _LABEL_TO_KEY.items() if key == page_key)
+    st.session_state["_pending_nav"] = label
     for name, value in params.items():
         st.session_state[f"param_{name}"] = value
     st.rerun()
