@@ -44,6 +44,7 @@ def render_review_page(user: dict) -> None:
     )
 
     with st.container(border=True):
+        reveal_key = f"reveal_{question.id}"  # 按题隔离，避免上一题状态泄漏
         if question.image_path:
             st.image(question.image_path, use_container_width=False, width=460)
         else:
@@ -51,9 +52,9 @@ def render_review_page(user: dict) -> None:
             st.caption("（手动录入题，请先回忆解法）")
 
         if st.button("显示解析", type="secondary"):
-            st.session_state["reveal"] = True
+            st.session_state[reveal_key] = True
 
-        if st.session_state.get("reveal"):
+        if st.session_state.get(reveal_key):
             st.divider()
             st.markdown(question.content_markdown, unsafe_allow_html=True)
             st.markdown(f"**答案**：{question.answer}")
@@ -63,7 +64,7 @@ def render_review_page(user: dict) -> None:
                 with col:
                     if st.button(_GRADE_LABELS[grade], key=f"grade_{grade}", use_container_width=True):
                         updated = service.grade_review(question.id, user["id"], grade)
-                        st.session_state["reveal"] = False
+                        st.session_state[reveal_key] = False
                         if updated is not None:
                             from backend.services.review import format_interval
 
