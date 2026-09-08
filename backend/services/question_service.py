@@ -155,11 +155,21 @@ class QuestionService:
         tag: str | None = None,
         keyword: str | None = None,
         semantic: bool = True,
+        offset: int = 0,
+        limit: int | None = None,
     ) -> list[QuestionOut]:
-        """关键词检索；开启语义搜索时用向量召回补充关键词未命中的题目。"""
+        """关键词检索；开启语义搜索时用向量召回补充关键词未命中的题目。
+
+        offset/limit 在过滤后应用；不传 limit 返回全部（界面默认），API 层分页传入。
+        """
         with self._session() as repo:
             primary = repo.list_for_user(
-                user_id, include_others=include_others, tag=tag, keyword=keyword
+                user_id,
+                include_others=include_others,
+                tag=tag,
+                keyword=keyword,
+                offset=offset,
+                limit=limit,
             )
             results = {q.id: QuestionOut.from_orm_model(q) for q in primary}
 
@@ -177,6 +187,23 @@ class QuestionService:
             key=lambda q: q.created_at or dt.datetime.min.replace(tzinfo=dt.timezone.utc),
             reverse=True,
         )
+
+    def count_for_user(
+        self,
+        user_id: int,
+        *,
+        include_others: bool = False,
+        tag: str | None = None,
+        keyword: str | None = None,
+    ) -> int:
+        """过滤口径下的错题总数（API 分页用）。"""
+        with self._session() as repo:
+            return repo.count_for_user(
+                user_id,
+                include_others=include_others,
+                tag=tag,
+                keyword=keyword,
+            )
 
     def get_question(self, question_id: int, user_id: int) -> QuestionOut | None:
         with self._session() as repo:

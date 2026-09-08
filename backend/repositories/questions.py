@@ -91,9 +91,10 @@ class QuestionRepository:
         include_others: bool = False,
         tag: str | None = None,
         keyword: str | None = None,
-        limit: int = 500,
+        offset: int = 0,
+        limit: int | None = None,
     ) -> list[Question]:
-        stmt = select(Question).order_by(Question.created_at.desc()).limit(limit)
+        stmt = select(Question).order_by(Question.created_at.desc())
         if not include_others:
             stmt = stmt.where(Question.user_id == user_id)
         questions = list(self.session.execute(stmt).scalars())
@@ -110,7 +111,26 @@ class QuestionRepository:
                 or any(kw in str(t).lower() for t in (q.tags or []))
                 or any(kw in str(t).lower() for t in (q.knowledge_points or []))
             ]
+        if offset:
+            questions = questions[offset:]
+        if limit is not None:
+            questions = questions[:limit]
         return questions
+
+    def count_for_user(
+        self,
+        user_id: int,
+        *,
+        include_others: bool = False,
+        tag: str | None = None,
+        keyword: str | None = None,
+    ) -> int:
+        """与 list_for_user 相同口径的总数（供分页使用）。"""
+        return len(
+            self.list_for_user(
+                user_id, include_others=include_others, tag=tag, keyword=keyword
+            )
+        )
 
     def due_for_review(self, user_id: int, now: dt.datetime | None = None) -> list[Question]:
         questions = self.list_for_user(user_id)

@@ -1,7 +1,17 @@
 """错题路由：列表 / AI 录题 / 文本录题 / 详情 / 编辑 / 删除 / 相似题。"""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Response,
+    UploadFile,
+    status,
+)
 from pydantic import BaseModel, Field
 
 from api.deps import get_current_user
@@ -44,18 +54,35 @@ def _service() -> QuestionService:
 
 @router.get("", response_model=list[QuestionOut])
 def list_questions(
+    response: Response,
     tag: str | None = None,
     keyword: str | None = None,
     semantic: bool = True,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=100),
     user: User = Depends(get_current_user),
 ) -> list[QuestionOut]:
-    return _service().list_questions(
+    """分页列出错题（按创建时间倒序）；X-Total-Count 为过滤后的总数。"""
+    service = _service()
+    items = service.list_questions(
         user.id,
         include_others=user.role == "teacher",
         tag=tag,
         keyword=keyword,
         semantic=semantic,
+        offset=offset,
+        limit=limit,
     )
+    total = len(items)
+    if offset or total == limit:
+        total = service.count_for_user(
+            user.id,
+            include_others=user.role == "teacher",
+            tag=tag,
+            keyword=keyword,
+        )
+    response.headers["X-Total-Count"] = str(total)
+    return items
 
 
 @router.post("/analyze", response_model=AnalyzeResult, status_code=status.HTTP_201_CREATED)

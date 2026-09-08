@@ -194,6 +194,29 @@ def test_export_word_exam_endpoint(client):
     assert empty.status_code == 404
 
 
+def test_questions_pagination(client):
+    headers = _auth_header(client, "api_user", "secret1")
+    full = client.get("/api/questions", headers=headers)
+    assert full.status_code == 200
+    total = int(full.headers["X-Total-Count"])
+    assert total >= 3
+
+    page1 = client.get(
+        "/api/questions", headers=headers, params={"offset": 0, "limit": 2}
+    )
+    page2 = client.get(
+        "/api/questions", headers=headers, params={"offset": 2, "limit": 2}
+    )
+    assert len(page1.json()) == 2
+    assert len(page2.json()) >= 1
+    ids1 = {q["id"] for q in page1.json()}
+    ids2 = {q["id"] for q in page2.json()}
+    assert not ids1 & ids2  # 分页不重叠
+
+    bad = client.get("/api/questions", headers=headers, params={"limit": 500})
+    assert bad.status_code == 422  # 超过上限 100
+
+
 def test_stats_endpoints(client):
     headers = _auth_header(client, "api_user", "secret1")
     dash = client.get("/api/stats/dashboard", headers=headers)
