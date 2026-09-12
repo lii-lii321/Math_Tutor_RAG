@@ -110,13 +110,16 @@ def render_dashboard(user: dict) -> None:
     with col4:
         stat_card(stats["due"], "待复习", accent=True)
 
-    action_col1, action_col2, _ = st.columns([1, 1, 2])
+    action_col1, action_col2, action_col3, _ = st.columns([1, 1, 1, 1])
     with action_col1:
         if st.button("🎬 开始复习", type="primary", use_container_width=True, disabled=stats["due"] == 0):
             go_to("review")
     with action_col2:
         if st.button("📸 录一道错题", use_container_width=True):
             go_to("tutor")
+    with action_col3:
+        if st.button("📒 打开错题本", use_container_width=True):
+            go_to("notebook")
 
     st.markdown("<br>", unsafe_allow_html=True)
 

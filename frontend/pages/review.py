@@ -101,7 +101,10 @@ def render_review_page(user: dict) -> None:
                         session_stats["grades"][grade] = session_stats["grades"].get(grade, 0) + 1
                         if updated is not None:
                             when = format_interval(updated.interval_days)
-                            st.session_state["last_schedule_msg"] = f"下次复习：{when}"
+                            msg = f"下次复习：{when}"
+                            if updated.mastered:
+                                msg += " · 🎉 已掌握归档，移出复习池"
+                            st.session_state["last_schedule_msg"] = msg
                         st.session_state[idx_key] = cursor
                         st.rerun()
                     st.caption(format_interval(preview.next_interval))  # 评分后该题移出待复习队列，游标原地指向下一题

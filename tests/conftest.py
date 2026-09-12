@@ -27,6 +27,20 @@ def _database() -> None:
     init_db(seed_users=True)
 
 
+@pytest.fixture(scope="session")
+def api_client():
+    from fastapi.testclient import TestClient
+
+    from api.main import create_app
+
+    return TestClient(create_app())
+
+
+@pytest.fixture
+def client(api_client):
+    return api_client
+
+
 @pytest.fixture
 def db_session():
     session = SessionLocal()
