@@ -81,6 +81,7 @@ def _render_manual_entry(service, user) -> None:
                 st.error(f"保存失败：{exc}")
                 return
             st.success(f"已存入错题本（#{saved.id}），向量索引同步更新。")
+            st.toast("错题已归档", icon="📒")
             if st.button("📒 去错题本查看", key="manual_view_notebook"):
                 go_to("notebook")
 
@@ -112,13 +113,15 @@ def _process_uploads(service, user, uploads, tags: list[str], hint: str) -> None
             if st.button("📒 去错题本查看", type="primary"):
                 go_to("notebook")
 
-    for name, saved, analysis, error in results:
-        st.markdown(f"##### {name}")
-        if error:
-            st.error(f"解析失败：{error}")
-            continue
-        assert saved is not None and analysis is not None
-        _render_analysis(saved, analysis, service, user)
+    for i, (name, saved, analysis, error) in enumerate(results):
+        with st.expander(
+            f"{'✅ ' if saved else '❌ '}{name}", expanded=(i == 0)
+        ):
+            if error:
+                st.error(f"解析失败：{error}")
+                continue
+            assert saved is not None and analysis is not None
+            _render_analysis(saved, analysis, service, user)
 
 
 def _render_analysis(saved, analysis, service, user) -> None:

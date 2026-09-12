@@ -493,8 +493,14 @@ class QuestionService:
         # build_tag_stats 只读所需字段，QuestionOut 满足鸭子类型
         tag_stats: list[TagStat] = build_tag_stats(outs, logs_by_question)
         now = dt.datetime.now(dt.timezone.utc)
+        # 待复习口径 = 自己名下到期（教师看全班总量，但复习池只含自己的题）
         due_count = len(
-            [o for o in outs if o.due_at is None or _aware(o.due_at) <= now]
+            [
+                o
+                for o in outs
+                if o.user_id == user_id
+                and (o.due_at is None or _aware(o.due_at) <= now)
+            ]
         )
 
         active_dates = {o.created_at for o in outs if o.created_at}
