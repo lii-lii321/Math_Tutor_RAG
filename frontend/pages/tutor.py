@@ -4,7 +4,7 @@ from __future__ import annotations
 import streamlit as st
 
 from backend.services.question_service import sanitize_tags
-from frontend.common import get_question_service, go_to, page_header
+from frontend.common import followup_chat, get_question_service, go_to, page_header
 
 
 def render_tutor_page(user: dict) -> None:
@@ -154,3 +154,6 @@ def _render_analysis(saved, analysis, service, user) -> None:
                 )
         else:
             st.caption("暂无相似错题。随着错题积累，这里会自动出现同知识点的历史题目。")
+
+    with st.expander("💬 就这道题追问老师"):
+        followup_chat(service, saved, user)

@@ -100,3 +100,33 @@ def pop_params(*names: str) -> dict:
         for name in names
         if f"param_{name}" in st.session_state
     }
+
+
+def followup_chat(service, question, user: dict) -> None:
+    """围绕一道错题的多轮追问对话组件（历史按题隔离，存于 session_state）。"""
+    history_key = f"chat_{question.id}"
+    st.session_state.setdefault(history_key, [])
+
+    for message in st.session_state[history_key]:
+        with st.chat_message(
+            message["role"], avatar="🧑‍🎓" if message["role"] == "user" else "📘"
+        ):
+            st.markdown(message["content"])
+
+    if prompt := st.chat_input(
+        "哪里没看懂？问老师（例如：为什么判别式要大于等于零）",
+        key=f"chat_input_{question.id}",
+    ):
+        st.session_state[history_key].append({"role": "user", "content": prompt})
+        with st.chat_message("user", avatar="🧑‍🎓"):
+            st.markdown(prompt)
+        with st.chat_message("assistant", avatar="📘"):
+            try:
+                reply = service.answer_followup(
+                    question.id, user["id"], st.session_state[history_key], prompt
+                )
+            except Exception as exc:  # noqa: BLE001 - 对话失败不应崩溃页面
+                reply = f"⚠️ 讲师暂时不可用：{exc}"
+            st.markdown(reply)
+        st.session_state[history_key].append({"role": "assistant", "content": reply})
+        st.rerun()
