@@ -17,12 +17,16 @@ def render_notebook_page(user: dict) -> None:
     service = get_question_service()
     page_header("错题本", "支持关键词与语义搜索；教师可查看全部学生错题")
 
-    incoming = pop_params("tag", "keyword")
+    incoming = pop_params("tag", "keyword", "student")
     preset_tag = incoming.get("tag")
     preset_keyword = incoming.get("keyword")
+    preset_student = incoming.get("student")
 
     with st.container(border=True):
-        col_search, col_tag, col_export = st.columns([3, 2, 1])
+        is_teacher = user["role"] == "teacher"
+        student_filter_id: int | None = None
+
+        col_search, col_tag, col_export = st.columns([3, 2, 2])
         with col_search:
             keyword = st.text_input(
                 "搜索",
@@ -32,8 +36,24 @@ def render_notebook_page(user: dict) -> None:
             )
             semantic = st.toggle("语义搜索", value=True, help="用向量检索理解语义，而非仅字面匹配")
         with col_tag:
+            if is_teacher:
+                overview = service.students_overview(user["id"])
+                student_names = ["全部学生"] + [r["username"] for r in overview]
+                default_student = preset_student if preset_student in student_names else "全部学生"
+                student_name = st.selectbox(
+                    "查看学生", student_names,
+                    index=student_names.index(default_student),
+                    key="notebook_student",
+                )
+                student_filter_id = next(
+                    (r["user_id"] for r in overview if r["username"] == student_name),
+                    None,
+                )
+            else:
+                student_filter_id = user["id"]
+
             all_questions = service.list_questions(
-                user["id"], include_others=user["role"] == "teacher", semantic=False
+                student_filter_id or user["id"], include_others=False, semantic=False
             )
             all_tags = sorted({t for q in all_questions for t in q.tags})
             default_index = (
@@ -46,8 +66,8 @@ def render_notebook_page(user: dict) -> None:
             st.markdown("<br>", unsafe_allow_html=True)
 
         questions = service.list_questions(
-            user["id"],
-            include_others=user["role"] == "teacher",
+            student_filter_id or user["id"],
+            include_others=False,
             tag=None if tag_filter == "全部" else tag_filter,
             keyword=keyword or None,
             semantic=semantic,
@@ -207,8 +227,11 @@ def _render_question_detail(service, q, user) -> None:
             for col, grade in zip(grade_cols, ("again", "hard", "good", "easy"), strict=False):
                 with col:
                     if st.button(_grade_labels[grade], key=f"nb_grade_{q.id}_{grade}", use_container_width=True):
-                        service.grade_review(q.id, user["id"], grade)
-                        st.toast("已按 SM-2 重新排期", icon="🔁")
+                        updated = service.grade_review(q.id, user["id"], grade)
+                        if updated is None:
+                            st.toast("只能重测自己的错题", icon="⚠️")
+                        else:
+                            st.toast("已按 SM-2 重新排期", icon="🔁")
                         st.rerun()
 
     with tab_chat:
@@ -220,12 +243,15 @@ def _render_question_detail(service, q, user) -> None:
             new_content = st.text_area("解析（Markdown）", value=q.content_markdown, height=260)
             new_answer = st.text_input("答案", value=q.answer)
             if st.form_submit_button("保存修改", type="primary"):
-                service.update_question(
+                updated = service.update_question(
                     q.id,
                     user["id"],
                     content_markdown=new_content,
                     answer=new_answer,
                     tags=sanitize_tags(new_tags.replace("、", ",")),
                 )
-                st.success("已保存，向量索引同步更新")
-                st.rerun()
+                if updated is None:
+                    st.error("保存失败：只能编辑自己的错题（教师可查看但不可修改学生的题）")
+                else:
+                    st.success("已保存，向量索引同步更新")
+                    st.rerun()
