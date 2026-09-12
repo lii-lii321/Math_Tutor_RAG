@@ -7,6 +7,7 @@ Session 策略：每次公开操作独立开短事务（session-per-operation）
 from __future__ import annotations
 
 import datetime as dt
+import io
 import re
 import uuid
 from collections.abc import Callable, Iterator
@@ -161,10 +162,21 @@ class QuestionService:
         return out, analysis
 
     def _persist_image(self, user_id: int, image_bytes: bytes) -> Path:
+        """图片落盘：压缩到最长边 1600px 的 JPEG，节省存储并加快导出。"""
         user_dir = self.settings.data_dir / "images" / f"u{user_id}"
         user_dir.mkdir(parents=True, exist_ok=True)
         path = user_dir / f"{dt.datetime.now():%Y%m%d_%H%M%S}_{uuid.uuid4().hex[:8]}.jpg"
-        path.write_bytes(image_bytes)
+        try:
+            from PIL import Image
+
+            with Image.open(io.BytesIO(image_bytes)) as image:
+                image = image.convert("RGB")
+                if max(image.size) > 1600:
+                    image.thumbnail((1600, 1600))
+                image.save(path, "JPEG", quality=85, optimize=True)
+        except Exception as exc:  # noqa: BLE001 - 非 JPEG/损坏图片回退为原样保存
+            logger.warning("图片压缩失败，按原样保存: %s", exc)
+            path.write_bytes(image_bytes)
         return path
 
     @staticmethod

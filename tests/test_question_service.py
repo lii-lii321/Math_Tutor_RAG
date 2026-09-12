@@ -58,6 +58,22 @@ def test_isolation_between_users(question_service, db_session, student_user):
     assert all(q.id != mine.id for q in other_view)
 
 
+def test_persist_image_compresses_large_images(question_service, student_user):
+    from PIL import Image
+
+    big = Image.new("RGB", (2400, 1200), (10, 60, 130))
+    stream = io.BytesIO()
+    big.save(stream, format="JPEG", quality=95)
+    raw_size = len(stream.getvalue())
+
+    saved, _ = question_service.analyze_and_save(student_user.id, stream.getvalue())
+    with Image.open(saved.image_path) as stored:
+        assert max(stored.size) <= 1600
+    import os
+
+    assert os.path.getsize(saved.image_path) < raw_size
+
+
 def test_update_and_delete(question_service, student_user):
     saved, _ = question_service.analyze_and_save(student_user.id, _tiny_jpeg())
     updated = question_service.update_question(
