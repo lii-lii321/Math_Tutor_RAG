@@ -1,6 +1,8 @@
 """间隔重复复习页：闪卡式复习，SM-2 调度。"""
 from __future__ import annotations
 
+import datetime as dt
+
 import streamlit as st
 
 from backend.services.review import GRADE_ORDER
@@ -62,6 +64,12 @@ def render_review_page(user: dict) -> None:
 
     with st.container(border=True):
         reveal_key = f"reveal_{question.id}"  # 按题隔离，避免上一题状态泄漏
+        if question.last_reviewed_at:
+            last = question.last_reviewed_at
+            if last.tzinfo is None:
+                last = last.replace(tzinfo=dt.timezone.utc)
+            days_ago = (dt.datetime.now(dt.timezone.utc) - last).days
+            st.caption(f"上次复习：{days_ago} 天前 · 已连续记牢 {question.reps} 次")
         if question.image_path:
             st.image(question.image_path, use_container_width=False, width=460)
         else:

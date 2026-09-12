@@ -71,6 +71,8 @@ def _render_manual_entry(service, user) -> None:
                 knowledge_points=sanitize_tags(points),
             )
             st.success(f"已存入错题本（#{saved.id}），向量索引同步更新。")
+            if st.button("📒 去错题本查看", key="manual_view_notebook"):
+                go_to("notebook")
 
 
 def _process_uploads(service, user, uploads, tags: list[str], hint: str) -> None:
