@@ -271,6 +271,7 @@ class QuestionService:
         content_markdown: str | None = None,
         answer: str | None = None,
         tags: list[str] | None = None,
+        user_note: str | None = None,
     ) -> QuestionOut | None:
         with self._session() as repo:
             question = repo.update(
@@ -279,6 +280,7 @@ class QuestionService:
                 content_markdown=content_markdown,
                 answer=answer,
                 tags=tags,
+                user_note=user_note,
             )
             out = QuestionOut.from_orm_model(question) if question else None
 
@@ -290,6 +292,31 @@ class QuestionService:
                 tags=out.tags,
             )
         return out
+
+    def add_tags_to_many(
+        self, question_ids: list[int], user_id: int, new_tags: list[str]
+    ) -> int:
+        """批量为错题追加标签，并同步向量库元数据。"""
+        if not question_ids or not new_tags:
+            return 0
+        with self._session() as repo:
+            changed = repo.add_tags(question_ids, user_id, new_tags)
+            for qid in question_ids:
+                question = repo.get_owned(qid, user_id)
+                if question is not None:
+                    self.vector_store.upsert_question(
+                        question.id,
+                        " ".join(
+                            [
+                                *(question.knowledge_points or []),
+                                question.content_markdown,
+                                question.answer or "",
+                            ]
+                        ),
+                        user_id=user_id,
+                        tags=list(question.tags or []),
+                    )
+        return changed
 
     def delete_questions(self, question_ids: list[int], user_id: int) -> int:
         with self._session() as repo:

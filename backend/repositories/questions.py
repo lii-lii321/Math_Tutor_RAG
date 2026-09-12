@@ -55,6 +55,7 @@ class QuestionRepository:
         answer: str | None = None,
         tags: list[str] | None = None,
         knowledge_points: list[str] | None = None,
+        user_note: str | None = None,
     ) -> Question | None:
         question = self._get_owned(question_id, user_id)
         if question is None:
@@ -67,8 +68,29 @@ class QuestionRepository:
             question.tags = tags
         if knowledge_points is not None:
             question.knowledge_points = knowledge_points
+        if user_note is not None:
+            question.user_note = user_note
         self.session.flush()
         return question
+
+    def add_tags(
+        self, question_ids: list[int], user_id: int, new_tags: list[str]
+    ) -> int:
+        """为一组错题合并追加标签（去重），返回处理数量。"""
+        changed = 0
+        for qid in question_ids:
+            question = self._get_owned(qid, user_id)
+            if question is None:
+                continue
+            merged = list(question.tags or [])
+            for tag in new_tags:
+                if tag and tag not in merged:
+                    merged.append(tag)
+            if merged != (question.tags or []):
+                question.tags = merged
+            changed += 1
+        self.session.flush()
+        return changed
 
     def delete_many(self, question_ids: list[int], user_id: int) -> int:
         if not question_ids:

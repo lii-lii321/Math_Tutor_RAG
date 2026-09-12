@@ -65,6 +65,11 @@ def test_update_and_delete(question_service, student_user):
     )
     assert updated is not None and updated.answer == "修正后的答案"
 
+    noted = question_service.update_question(
+        saved.id, student_user.id, user_note="自己的易错备注"
+    )
+    assert noted is not None and noted.user_note == "自己的易错备注"
+
     deleted = question_service.delete_questions([saved.id], student_user.id)
     assert deleted == 1
     assert question_service.get_question(saved.id, student_user.id) is None

@@ -30,6 +30,7 @@ class QuestionUpdate(BaseModel):
     content_markdown: str | None = None
     answer: str | None = None
     tags: list[str] | None = None
+    user_note: str | None = None
 
 
 class TextQuestionInput(BaseModel):
@@ -201,6 +202,7 @@ def update_question(
         content_markdown=payload.content_markdown,
         answer=payload.answer,
         tags=payload.tags,
+        user_note=payload.user_note,
     )
     if updated is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "错题不存在")

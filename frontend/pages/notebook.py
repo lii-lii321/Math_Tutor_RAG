@@ -177,12 +177,11 @@ def render_notebook_page(user: dict) -> None:
 
     if selected_ids:
         st.warning(f"已选中 {len(selected_ids)} 题")
-        act_col1, act_col2, _ = st.columns([1, 1, 2])
+        act_col1, act_col2, act_col3 = st.columns([1, 1.4, 1.6])
         with act_col1:
             if st.button("批量删除选中错题", type="primary"):
                 service.delete_questions(selected_ids, user["id"])
                 st.toast(f"已删除 {len(selected_ids)} 题", icon="🗑️")
-                st.success(f"已删除 {len(selected_ids)} 题")
                 st.rerun()
         with act_col2:
             selected = [q for q in questions if q.id in set(selected_ids)]
@@ -194,6 +193,16 @@ def render_notebook_page(user: dict) -> None:
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 use_container_width=True,
             )
+        with act_col3:
+            new_tag = st.text_input(
+                "追加标签", placeholder="例如：月考重点", key="batch_tag"
+            )
+            if st.button("为选中追加标签", use_container_width=True) and new_tag.strip():
+                changed = service.add_tags_to_many(
+                    selected_ids, user["id"], sanitize_tags(new_tag)
+                )
+                st.toast(f"已为 {changed} 题追加标签", icon="🏷️")
+                st.rerun()
 
 
 def _render_followup_chat(service, q, user) -> None:
@@ -220,6 +229,8 @@ def _render_question_detail(service, q, user) -> None:
             else:
                 st.caption("尚未复习")
         with content_col:
+            if q.user_note:
+                st.info(f"📝 我的笔记：{q.user_note}")
             st.markdown(q.content_markdown, unsafe_allow_html=True)
             if q.answer:
                 st.markdown(f"**答案**：{q.answer}")
@@ -248,6 +259,12 @@ def _render_question_detail(service, q, user) -> None:
             new_tags = st.text_input("标签（逗号分隔）", value="、".join(q.tags) if q.tags else "")
             new_content = st.text_area("解析（Markdown）", value=q.content_markdown, height=260)
             new_answer = st.text_input("答案", value=q.answer)
+            new_note = st.text_area(
+                "我的笔记（易错点、思路备忘）",
+                value=q.user_note or "",
+                height=80,
+                placeholder="例如：下次先看第二问的隐藏条件",
+            )
             if st.form_submit_button("保存修改", type="primary"):
                 updated = service.update_question(
                     q.id,
@@ -255,6 +272,7 @@ def _render_question_detail(service, q, user) -> None:
                     content_markdown=new_content,
                     answer=new_answer,
                     tags=sanitize_tags(new_tags.replace("、", ",")),
+                    user_note=new_note.strip() or None,
                 )
                 if updated is None:
                     st.error("保存失败：只能编辑自己的错题（教师可查看但不可修改学生的题）")
