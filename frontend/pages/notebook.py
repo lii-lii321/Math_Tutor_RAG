@@ -200,6 +200,16 @@ def _render_question_detail(service, q, user) -> None:
             if q.followup_question:
                 with st.expander("举一反三 · 变式练习"):
                     st.markdown(q.followup_question)
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("**重测本题**")
+            grade_cols = st.columns(4)
+            _grade_labels = {"again": "😵 忘了", "hard": "😅 勉强", "good": "🙂 记得", "easy": "😎 秒懂"}
+            for col, grade in zip(grade_cols, ("again", "hard", "good", "easy"), strict=False):
+                with col:
+                    if st.button(_grade_labels[grade], key=f"nb_grade_{q.id}_{grade}", use_container_width=True):
+                        service.grade_review(q.id, user["id"], grade)
+                        st.toast("已按 SM-2 重新排期", icon="🔁")
+                        st.rerun()
 
     with tab_chat:
         _render_followup_chat(service, q, user)

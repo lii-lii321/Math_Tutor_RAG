@@ -5,7 +5,7 @@ import datetime as dt
 
 import streamlit as st
 
-from backend.services.review import GRADE_ORDER
+from backend.services.review import GRADE_ORDER, format_interval
 from frontend.common import get_question_service, go_to, page_header
 
 _GRADE_LABELS = {"again": "😵 忘了", "hard": "😅 勉强", "good": "🙂 记得", "easy": "😎 秒懂"}
@@ -87,6 +87,12 @@ def render_review_page(user: dict) -> None:
             grade_cols = st.columns(4)
             for col, grade in zip(grade_cols, GRADE_ORDER, strict=False):
                 with col:
+                    preview = service.scheduler.next_schedule(
+                        grade=grade,
+                        reps=question.reps,
+                        ease=question.ease,
+                        interval_days=question.interval_days,
+                    )
                     if st.button(_GRADE_LABELS[grade], key=f"grade_{grade}", use_container_width=True):
                         updated = service.grade_review(question.id, user["id"], grade)
                         st.session_state[reveal_key] = False
@@ -94,12 +100,11 @@ def render_review_page(user: dict) -> None:
                         session_stats["graded"] += 1
                         session_stats["grades"][grade] = session_stats["grades"].get(grade, 0) + 1
                         if updated is not None:
-                            from backend.services.review import format_interval
-
                             when = format_interval(updated.interval_days)
                             st.session_state["last_schedule_msg"] = f"下次复习：{when}"
                         st.session_state[idx_key] = cursor
-                        st.rerun()  # 评分后该题移出待复习队列，游标原地指向下一题
+                        st.rerun()
+                    st.caption(format_interval(preview.next_interval))  # 评分后该题移出待复习队列，游标原地指向下一题
         else:
             skip_col, _ = st.columns([1, 2])
             with skip_col:
