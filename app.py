@@ -22,7 +22,7 @@ st.set_page_config(
     page_title=f"{settings.app_name} · 智能错题本",
     page_icon="📘",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="auto",  # 窄屏自动折叠，兼顾移动端
 )
 load_css()
 

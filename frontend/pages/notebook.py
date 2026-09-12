@@ -1,6 +1,7 @@
 """错题本：关键词 + 语义双路检索、编辑、批量管理、Word 导出。"""
 from __future__ import annotations
 
+import datetime as dt
 import os
 
 import streamlit as st
@@ -115,8 +116,17 @@ def render_notebook_page(user: dict) -> None:
             st.rerun()
 
     selected_ids: list[int] = []
+    now = dt.datetime.now(dt.timezone.utc)
     for q in page_items:
-        expander_title = f"{'、'.join(q.tags[:4]) or '未分类'}　·　{q.difficulty}　·　{(q.created_at.strftime('%Y-%m-%d') if q.created_at else '')}"
+        due_at = q.due_at
+        if due_at is not None and due_at.tzinfo is None:
+            due_at = due_at.replace(tzinfo=dt.timezone.utc)
+        is_due = due_at is None or due_at <= now
+        due_mark = "⏰ " if is_due else "✅ "
+        expander_title = (
+            f"{due_mark}{'、'.join(q.tags[:4]) or '未分类'}　·　{q.difficulty}　·　"
+            f"{(q.created_at.strftime('%Y-%m-%d') if q.created_at else '')}"
+        )
         with st.expander(expander_title):
             _render_question_detail(service, q, user)
             if st.checkbox("选中", key=f"select_{q.id}"):

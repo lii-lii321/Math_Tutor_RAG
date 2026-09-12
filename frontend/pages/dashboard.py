@@ -11,6 +11,18 @@ _BLUE = "#2563eb"
 _MASTERY_COLORS = {"weak": "#d97706", "mid": "#2563eb", "good": "#059669"}
 
 
+def _picked_tag(event) -> str | None:
+    """从 plotly on_select 事件里取被点击扇区的标签。"""
+    selection = getattr(event, "selection", None)
+    points = getattr(selection, "points", None) if selection else None
+    for point in points or []:
+        for key in ("customdata", "label", "name"):
+            value = point.get(key) if isinstance(point, dict) else getattr(point, key, None)
+            if value:
+                return str(value[0] if isinstance(value, list) else value)
+    return None
+
+
 def mastery_color(mastery: float) -> str:
     if mastery < 0.4:
         return _MASTERY_COLORS["weak"]
@@ -57,13 +69,14 @@ def render_dashboard(user: dict) -> None:
 
     chart_col, weak_col = st.columns([3, 2])
     with chart_col:
-        page_header("知识点分布", "错题按标签聚合，识别薄弱板块")
+        page_header("知识点分布", "错题按标签聚合 · 点击扇区直达该知识点的错题")
         if stats["tag_stats"]:
             top = stats["tag_stats"][:8]
             pie = px.pie(
                 names=[s.tag for s in top],
                 values=[s.count for s in top],
                 hole=0.55,
+                custom_data=[s.tag for s in top],
             )
             pie.update_traces(textposition="outside", textinfo="label+value")
             pie.update_layout(
@@ -73,7 +86,16 @@ def render_dashboard(user: dict) -> None:
                 paper_bgcolor="rgba(0,0,0,0)",
                 font=dict(family="sans-serif", color="#334155"),
             )
-            st.plotly_chart(pie, use_container_width=True, config={"displayModeBar": False})
+            event = st.plotly_chart(
+                pie,
+                use_container_width=True,
+                on_select="rerun",
+                key="tag_pie",
+                config={"displayModeBar": False},
+            )
+            clicked = _picked_tag(event)
+            if clicked:
+                go_to("notebook", tag=clicked)
         else:
             st.info("还没有错题，去「AI 录题」上传第一张错题图片吧。")
 
