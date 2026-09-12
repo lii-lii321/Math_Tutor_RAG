@@ -4,7 +4,7 @@
 # Web 框架
 streamlit>=1.49
 streamlit-antd-components>=0.3.2
-plotly>=5.22
+plotly>=7.0.0
 
 # REST API 网关（多端复用）
 fastapi>=0.115
