@@ -83,22 +83,22 @@ def render_notebook_page(user: dict) -> None:
         if questions:
             exp_col1, exp_col2 = st.columns(2)
             with exp_col1:
-                redo_io = generate_word_exam(questions, "错题复习卷", mode="redo")
+                redo_io = generate_word_exam(questions, "错题复习卷", mode="redo", answer_key=True)
                 st.download_button(
-                    "导出重做版（原图+留白）",
+                    "导出重做版（原图+留白+卷末答案）",
                     data=redo_io,
-                    file_name="错题复习卷_重做版.docx",
+                    file_name=f"错题复习卷_重做版_{dt.date.today():%Y%m%d}.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     use_container_width=True,
                     type="primary",
-                    help="只含题目与答题留白，适合打印重做",
+                    help="只含题目与答题留白，卷末附参考答案，适合打印重做",
                 )
             with exp_col2:
                 detail_io = generate_word_exam(questions, "错题详解卷", mode="detailed")
                 st.download_button(
                     "导出详解版（含解析答案）",
                     data=detail_io,
-                    file_name="错题详解卷.docx",
+                    file_name=f"错题详解卷_{dt.date.today():%Y%m%d}.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     use_container_width=True,
                     help="含完整解析、答案与变式练习",

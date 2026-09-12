@@ -30,6 +30,16 @@ def _service() -> QuestionService:
     return QuestionService()
 
 
+@router.get("/history")
+def review_history(
+    limit: int = 20, user: User = Depends(get_current_user)
+) -> list[dict]:
+    """最近的复习记录（新→旧）。"""
+    from backend.services.question_service import QuestionService
+
+    return QuestionService().recent_reviews(user.id, limit=limit)
+
+
 @router.get("/due", response_model=list[QuestionOut])
 def due_questions(user: User = Depends(get_current_user)) -> list[QuestionOut]:
     return _service().due_questions(user.id)

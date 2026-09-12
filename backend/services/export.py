@@ -26,6 +26,7 @@ def generate_word_exam(
     questions: list[QuestionOut],
     exam_title: str = "错题复习卷",
     mode: ExportMode = "redo",
+    answer_key: bool = False,
 ) -> io.BytesIO:
     doc = Document()
     heading = doc.add_heading(exam_title, level=0)
@@ -65,6 +66,15 @@ def generate_word_exam(
                 doc.add_paragraph(f"变式练习：{question.followup_question}")
 
         doc.add_paragraph("\n" * _BLANK_LINES_AFTER_QUESTION)
+
+    if answer_key and mode == "redo":
+        doc.add_page_break()
+        doc.add_heading("参考答案", level=1)
+        for idx, question in enumerate(questions, 1):
+            answer = doc.add_paragraph()
+            run = answer.add_run(f"第 {idx} 题：")
+            run.bold = True
+            answer.add_run(question.answer or "—")
 
     stream = io.BytesIO()
     doc.save(stream)
