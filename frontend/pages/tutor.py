@@ -58,18 +58,28 @@ def _render_manual_entry(service, user) -> None:
                 tags = st.text_input("标签（逗号分隔）", placeholder="例如：几何, 相似三角形")
             with col_k:
                 points = st.text_input("考点（逗号分隔，可选）", placeholder="例如：相似三角形")
+            ai_enrich = st.toggle(
+                "让 AI 解析并补全空缺标注",
+                value=False,
+                help="开启后 AI 会分析题目文本，补全答案、标签与考点（留空的字段才会被补全）",
+            )
             submitted = st.form_submit_button("存入错题本", type="primary", use_container_width=True)
         if submitted:
             if not content.strip():
                 st.error("题目与解析不能为空")
                 return
-            saved = service.create_manual_question(
-                user["id"],
-                content_markdown=content.strip(),
-                answer=answer.strip(),
-                tags=sanitize_tags(tags),
-                knowledge_points=sanitize_tags(points),
-            )
+            try:
+                saved = service.create_manual_question(
+                    user["id"],
+                    content_markdown=content.strip(),
+                    answer=answer.strip(),
+                    tags=sanitize_tags(tags),
+                    knowledge_points=sanitize_tags(points),
+                    ai_analyze=ai_enrich,
+                )
+            except Exception as exc:  # noqa: BLE001 - AI 失败给出明确提示
+                st.error(f"保存失败：{exc}")
+                return
             st.success(f"已存入错题本（#{saved.id}），向量索引同步更新。")
             if st.button("📒 去错题本查看", key="manual_view_notebook"):
                 go_to("notebook")

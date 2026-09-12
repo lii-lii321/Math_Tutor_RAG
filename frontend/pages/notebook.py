@@ -55,15 +55,28 @@ def render_notebook_page(user: dict) -> None:
 
         st.markdown("<br>", unsafe_allow_html=True)
         if questions:
-            doc_io = generate_word_exam(questions, "错题复习卷")
-            st.download_button(
-                "导出 Word 复习卷",
-                data=doc_io,
-                file_name="错题复习卷.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                use_container_width=True,
-                type="primary",
-            )
+            exp_col1, exp_col2 = st.columns(2)
+            with exp_col1:
+                redo_io = generate_word_exam(questions, "错题复习卷", mode="redo")
+                st.download_button(
+                    "导出重做版（原图+留白）",
+                    data=redo_io,
+                    file_name="错题复习卷_重做版.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    use_container_width=True,
+                    type="primary",
+                    help="只含题目与答题留白，适合打印重做",
+                )
+            with exp_col2:
+                detail_io = generate_word_exam(questions, "错题详解卷", mode="detailed")
+                st.download_button(
+                    "导出详解版（含解析答案）",
+                    data=detail_io,
+                    file_name="错题详解卷.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    use_container_width=True,
+                    help="含完整解析、答案与变式练习",
+                )
 
     if not questions:
         st.markdown(

@@ -85,6 +85,18 @@ class BaseAIProvider(abc.ABC):
             raise AIMessageError("模型返回了空响应")
         return reply.strip()
 
+    def analyze_text(self, text: str, hint: str = "") -> QuestionAnalysis:
+        """纯文本错题解析（手动录入场景），复用结构化输出约束。"""
+        prompt = (
+            f"题目内容：\n{text[:4000]}\n\n"
+            f"学生补充：{hint or '无'}\n\n"
+            f"{JSON_INSTRUCTION}"
+        )
+        raw = self.chat(
+            [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": prompt}]
+        )
+        return parse_analysis(raw)
+
     def analyze_question(
         self, image_bytes: bytes, mime_type: str = "image/jpeg", hint: str = ""
     ) -> QuestionAnalysis:

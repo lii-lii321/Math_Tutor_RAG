@@ -31,6 +31,16 @@ def test_word_export_produces_docx():
     assert len(data) > 1000
 
 
+def test_word_export_modes_differ():
+    from backend.services.export import generate_word_exam
+
+    questions = [_question(1, ["几何"])]
+    redo = generate_word_exam(questions, "重做卷", mode="redo").getvalue()
+    detail = generate_word_exam(questions, "详解卷", mode="detailed").getvalue()
+    assert redo[:2] == b"PK" and detail[:2] == b"PK"
+    assert len(detail) > len(redo)  # 详解版包含解析文本，体积更大
+
+
 def test_tag_stats_counts_and_mastery_default_zero():
     questions = [_question(1, ["几何"]), _question(2, ["几何", "代数"])]
     stats = build_tag_stats(questions)

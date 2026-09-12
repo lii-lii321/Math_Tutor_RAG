@@ -86,3 +86,28 @@ def test_import_restores_questions(service, student_user):
     assert len(after) == before + 1
     restored = after[0]
     assert restored.source == "imported"
+
+
+def test_manual_entry_ai_enrich_fills_empty_fields(service, student_user):
+    saved = service.create_manual_question(
+        student_user.id,
+        content_markdown="AI 补全测试题目：解方程 $2x=6$。",
+        answer="",
+        tags=[],
+        ai_analyze=True,
+    )
+    assert saved.answer  # Mock 的演示解析会补全答案
+    assert saved.tags
+    assert saved.followup_question
+
+
+def test_manual_entry_ai_enrich_keeps_user_fields(service, student_user):
+    saved = service.create_manual_question(
+        student_user.id,
+        content_markdown="用户字段优先测试：解方程 $3x=9$。",
+        answer="x=3",
+        tags=["用户标签"],
+        ai_analyze=True,
+    )
+    assert saved.answer == "x=3"  # 用户填了答案则不被覆盖
+    assert saved.tags == ["用户标签"]

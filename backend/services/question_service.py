@@ -87,26 +87,39 @@ class QuestionService:
         tags: list[str] | None = None,
         knowledge_points: list[str] | None = None,
         source: str = "manual",
+        ai_analyze: bool = False,
+        hint: str = "",
     ) -> QuestionOut:
-        """手动录入文本错题：入库 + 向量索引，跳过视觉模型。"""
+        """手动录入文本错题：入库 + 向量索引；可选 AI 文本解析补全空缺标注。"""
         if not content_markdown or not content_markdown.strip():
             raise ValueError("题目内容不能为空")
         clean_tags = [t.strip() for t in (tags or []) if t.strip()]
         clean_points = [t.strip() for t in (knowledge_points or []) if t.strip()]
+        clean_answer = (answer or "").strip()
+        followup = ""
+
+        if ai_analyze:
+            analysis = self.ai.analyze_text(content_markdown.strip(), hint)
+            clean_answer = clean_answer or analysis.answer
+            clean_points = clean_points or analysis.knowledge_points[:4]
+            clean_tags = clean_tags or analysis.tags[:4]
+            followup = analysis.followup_question
+
         with self._session() as repo:
             question = repo.create(
                 user_id,
-                content_markdown=content_markdown,
-                answer=answer,
+                content_markdown=content_markdown.strip(),
+                answer=clean_answer,
                 knowledge_points=clean_points,
                 tags=clean_tags,
+                followup_question=followup,
                 source=source,
             )
             out = QuestionOut.from_orm_model(question)
 
         self.vector_store.upsert_question(
             out.id,
-            " ".join([*clean_points, content_markdown, answer, *clean_tags]),
+            " ".join([*clean_points, content_markdown.strip(), clean_answer, *clean_tags]),
             user_id=user_id,
             tags=clean_tags,
         )

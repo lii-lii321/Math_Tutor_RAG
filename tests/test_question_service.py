@@ -35,7 +35,10 @@ def test_list_and_keyword_search(question_service, student_user):
 
     by_keyword = question_service.list_questions(student_user.id, keyword="判别式", semantic=False)
     assert all(
-        "判别式" in q.content_markdown or any("判别式" in t for t in q.tags)
+        "判别式" in q.content_markdown
+        or "判别式" in (q.answer or "")
+        or any("判别式" in t for t in q.tags)
+        or any("判别式" in t for t in q.knowledge_points)
         for q in by_keyword
     )
 

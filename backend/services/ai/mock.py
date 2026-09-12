@@ -46,6 +46,9 @@ class MockProvider(BaseAIProvider):
             "再从已知条件出发逐步推导，检查每一步的适用条件（例如判别式、定义域）。"
         )
 
+    def analyze_text(self, text: str, hint: str = "") -> QuestionAnalysis:
+        return _DEMO_ANALYSIS.model_copy(deep=True)
+
     def provider_info(self) -> AIProviderInfo:
         return AIProviderInfo(
             provider="mock",
