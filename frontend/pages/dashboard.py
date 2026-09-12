@@ -31,6 +31,53 @@ def mastery_color(mastery: float) -> str:
     return _MASTERY_COLORS["good"]
 
 
+def _render_calendar(calendar: dict) -> None:
+    z = calendar["z"]
+    if calendar["max"] == 0:
+        st.caption("还没有学习记录，录入或复习错题后这里会点亮。")
+        return
+    heatmap = px.imshow(
+        z,
+        x=calendar["x"],
+        y=calendar["y"],
+        color_continuous_scale=["#f1f5f9", "#93c5fd", "#2563eb", "#1a365d"],
+        aspect="auto",
+    )
+    heatmap.update_layout(
+        margin=dict(t=10, b=10, l=10, r=10),
+        height=210,
+        paper_bgcolor="rgba(0,0,0,0)",
+        font=dict(family="sans-serif", color="#334155"),
+        coloraxis_showscale=False,
+    )
+    heatmap.update_xaxes(tickangle=0, tickfont=dict(size=9))
+    heatmap.update_yaxes(tickfont=dict(size=9))
+    st.plotly_chart(heatmap, use_container_width=True, config={"displayModeBar": False})
+
+
+def _render_accuracy_trend(trend: list[dict]) -> None:
+    if not trend:
+        st.caption("还没有复习记录；完成一轮复习后这里会出现正确率曲线。")
+        return
+    line = px.line(
+        x=[t["date"] for t in trend],
+        y=[t["accuracy"] for t in trend],
+        markers=True,
+        labels={"x": "日期", "y": "正确率%"},
+    )
+    line.update_traces(line_color=_BLUE)
+    line.update_layout(
+        margin=dict(t=10, b=10, l=10, r=10),
+        height=210,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(family="sans-serif", color="#334155"),
+        yaxis=dict(range=[0, 105], gridcolor="#e2e8f0"),
+        xaxis=dict(showgrid=False),
+    )
+    st.plotly_chart(line, use_container_width=True, config={"displayModeBar": False})
+
+
 def render_dashboard(user: dict) -> None:
     service = get_question_service()
     stats = service.dashboard_stats(user["id"], include_others=user["role"] == "teacher")
@@ -147,3 +194,11 @@ def render_dashboard(user: dict) -> None:
         yaxis=dict(dtick=1, range=[0, max(3, max(a["count"] for a in activity) + 1)], gridcolor="#e2e8f0"),
     )
     st.plotly_chart(bar, use_container_width=True, config={"displayModeBar": False})
+
+    cal_col, trend_col = st.columns([3, 2])
+    with cal_col:
+        page_header("学习日历", "近 90 天 · 颜色越深，当天学得越多")
+        _render_calendar(stats["calendar"])
+    with trend_col:
+        page_header("复习正确率", "近 30 天 · 记得/秒懂占比")
+        _render_accuracy_trend(stats["accuracy_trend"])

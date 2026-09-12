@@ -464,13 +464,18 @@ class QuestionService:
 
         active_dates = {o.created_at for o in outs if o.created_at}
         active_dates.update(log.reviewed_at for log in logs)
-        from backend.services.stats import study_streak
+        from backend.services.stats import build_accuracy_trend, build_calendar, study_streak
 
+        calendar_events = [o.created_at for o in outs if o.created_at] + [
+            log.reviewed_at for log in logs
+        ]
         return {
             "total": len(outs),
             "reviewed": len({log.question_id for log in logs}),
             "due": due_count,
             "streak": study_streak(active_dates),
+            "calendar": build_calendar(calendar_events),
+            "accuracy_trend": build_accuracy_trend(logs),
             "tag_stats": tag_stats,
             "weak_tags": weak_tags(tag_stats),
             "activity": build_activity(outs),

@@ -112,3 +112,67 @@ def study_streak(active_dates: set) -> int:
         streak += 1
         cursor -= dt.timedelta(days=1)
     return streak
+
+
+def _as_date(value) -> dt.date:
+    if isinstance(value, dt.datetime):
+        return value.astimezone().date() if value.tzinfo else value.date()
+    return value
+
+
+def build_calendar(events: list, days: int = 90, today: dt.date | None = None) -> dict:
+    """GitHub 风格学习日历的矩阵数据。
+
+    返回 {"z": 7×N 矩阵（周一在首行，无数据/未来日期为 None）,
+          "x": 每列周一起始日期标签, "y": 星期标签, "max": 峰值}
+    """
+    today = today or dt.date.today()
+    start = today - dt.timedelta(days=days - 1)
+    start -= dt.timedelta(days=start.weekday())  # 对齐周一
+
+    counts: dict[dt.date, int] = {}
+    for event in events or []:
+        day = _as_date(event)
+        counts[day] = counts.get(day, 0) + 1
+
+    n_weeks = ((today - start).days + 7) // 7
+    z: list[list[int | None]] = [[None] * n_weeks for _ in range(7)]
+    day = start
+    while day <= today:
+        col = (day - start).days // 7
+        z[day.weekday()][col] = counts.get(day, 0)
+        day += dt.timedelta(days=1)
+
+    return {
+        "z": z,
+        "x": [(start + dt.timedelta(weeks=w)).strftime("%m-%d") for w in range(n_weeks)],
+        "y": ["一", "二", "三", "四", "五", "六", "日"],
+        "max": max(counts.values(), default=0),
+    }
+
+
+def build_accuracy_trend(logs: list, days: int = 30, today: dt.date | None = None) -> list[dict]:
+    """近 N 天复习正确率趋势：仅返回有复习记录的日期。
+
+    正确率 = (good + easy) / 当日复习总数。
+    """
+    today = today or dt.date.today()
+    start = today - dt.timedelta(days=days - 1)
+    per_day: dict[dt.date, dict[str, int]] = {}
+    for log in logs or []:
+        day = _as_date(log.reviewed_at)
+        if day < start or day > today:
+            continue
+        bucket = per_day.setdefault(day, {"total": 0, "strong": 0})
+        bucket["total"] += 1
+        if log.grade in ("good", "easy"):
+            bucket["strong"] += 1
+
+    return [
+        {
+            "date": day.strftime("%m-%d"),
+            "total": bucket["total"],
+            "accuracy": round(bucket["strong"] / bucket["total"] * 100),
+        }
+        for day, bucket in sorted(per_day.items())
+    ]
