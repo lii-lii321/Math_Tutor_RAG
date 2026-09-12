@@ -155,6 +155,7 @@ def render_notebook_page(user: dict) -> None:
         with act_col1:
             if st.button("批量删除选中错题", type="primary"):
                 service.delete_questions(selected_ids, user["id"])
+                st.toast(f"已删除 {len(selected_ids)} 题", icon="🗑️")
                 st.success(f"已删除 {len(selected_ids)} 题")
                 st.rerun()
         with act_col2:

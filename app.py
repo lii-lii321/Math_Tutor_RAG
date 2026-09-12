@@ -86,6 +86,9 @@ def _render_sidebar(user: dict) -> str:
                 <div class="mm-muted">{user['role']}</div>
               </div>
             </div>
+            <div class="mm-muted" style="text-align:center;margin-top:0.8rem;font-size:0.75rem">
+              v{settings.app_version}
+            </div>
             """,
             unsafe_allow_html=True,
         )

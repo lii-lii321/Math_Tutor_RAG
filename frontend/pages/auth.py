@@ -23,6 +23,29 @@ def render_auth_page() -> None:
 
     tab_login, tab_register = st.tabs(["登录", "注册"])
 
+    st.markdown(
+        """
+        <div style="max-width:640px;margin:1.2rem auto 0 auto;display:flex;gap:0.8rem">
+          <div style="flex:1;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:0.9rem;text-align:center">
+            <div style="font-size:1.5rem">📸</div>
+            <div style="font-weight:600;color:#1a365d;margin-top:0.2rem">拍照录题</div>
+            <div style="font-size:0.8rem;color:#64748b;margin-top:0.2rem">视觉大模型识别手写题，自动生成考点解析</div>
+          </div>
+          <div style="flex:1;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:0.9rem;text-align:center">
+            <div style="font-size:1.5rem">🔁</div>
+            <div style="font-weight:600;color:#1a365d;margin-top:0.2rem">间隔重复</div>
+            <div style="font-size:0.8rem;color:#64748b;margin-top:0.2rem">SM-2 算法科学排期，对抗遗忘曲线</div>
+          </div>
+          <div style="flex:1;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:0.9rem;text-align:center">
+            <div style="font-size:1.5rem">🧠</div>
+            <div style="font-weight:600;color:#1a365d;margin-top:0.2rem">知识图谱</div>
+            <div style="font-size:0.8rem;color:#64748b;margin-top:0.2rem">RAG 向量检索举一反三，薄弱点一目了然</div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     with tab_login:
         with st.form("login_form", clear_on_submit=False):
             username = st.text_input("用户名", placeholder="admin / demo")
