@@ -62,6 +62,10 @@ def generate_word_exam(
                 answer = doc.add_paragraph()
                 answer_run = answer.add_run(f"答案：{question.answer}")
                 answer_run.bold = True
+            if question.user_note:
+                note = doc.add_paragraph()
+                note_run = note.add_run(f"我的笔记：{question.user_note}")
+                note_run.italic = True
             if question.followup_question:
                 doc.add_paragraph(f"变式练习：{question.followup_question}")
 
