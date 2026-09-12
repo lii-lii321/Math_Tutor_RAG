@@ -12,11 +12,11 @@ _MASTERY_COLORS = {"weak": "#d97706", "mid": "#2563eb", "good": "#059669"}
 
 
 def _picked_tag(event) -> str | None:
-    """从 plotly on_select 事件里取被点击扇区的标签。"""
+    """从 plotly on_select 事件里取被点击色条/扇区对应的标签。"""
     selection = getattr(event, "selection", None)
     points = getattr(selection, "points", None) if selection else None
     for point in points or []:
-        for key in ("customdata", "label", "name"):
+        for key in ("y", "label", "customdata", "name"):
             value = point.get(key) if isinstance(point, dict) else getattr(point, key, None)
             if value:
                 return str(value[0] if isinstance(value, list) else value)
@@ -69,28 +69,33 @@ def render_dashboard(user: dict) -> None:
 
     chart_col, weak_col = st.columns([3, 2])
     with chart_col:
-        page_header("知识点分布", "错题按标签聚合 · 点击扇区直达该知识点的错题")
+        page_header("知识点分布", "错题按标签聚合 · 点击色条直达该知识点的错题")
         if stats["tag_stats"]:
             top = stats["tag_stats"][:8]
-            pie = px.pie(
-                names=[s.tag for s in top],
-                values=[s.count for s in top],
-                hole=0.55,
-                custom_data=[s.tag for s in top],
+            bar_fig = px.bar(
+                x=[s.count for s in top],
+                y=[s.tag for s in top],
+                orientation="h",
+                labels={"x": "错题数", "y": ""},
+                color=[s.count for s in top],
+                color_continuous_scale=["#bfdbfe", "#2563eb"],
             )
-            pie.update_traces(textposition="outside", textinfo="label+value")
-            pie.update_layout(
+            bar_fig.update_layout(
                 showlegend=False,
-                margin=dict(t=30, b=20, l=20, r=20),
-                height=360,
+                coloraxis_showscale=False,
+                margin=dict(t=10, b=10, l=10, r=20),
+                height=max(280, 44 * len(top)),
                 paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
                 font=dict(family="sans-serif", color="#334155"),
+                xaxis=dict(showgrid=False, title=""),
             )
+            bar_fig.update_yaxes(autorange="reversed")
             event = st.plotly_chart(
-                pie,
+                bar_fig,
                 use_container_width=True,
                 on_select="rerun",
-                key="tag_pie",
+                key="tag_bar",
                 config={"displayModeBar": False},
             )
             clicked = _picked_tag(event)
