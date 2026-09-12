@@ -88,6 +88,19 @@ def test_import_restores_questions(service, student_user):
     assert restored.source == "imported"
 
 
+def test_export_user_csv(service, student_user):
+    service.create_manual_question(
+        student_user.id,
+        content_markdown="CSV 导出测试：解方程 $x=1$。",
+        answer="x=1",
+        tags=["csv"],
+    )
+    csv_text = service.export_user_csv(student_user.id)
+    assert csv_text.startswith("\ufeff")  # UTF-8 BOM，Excel 中文兼容
+    assert "CSV 导出测试" in csv_text
+    assert "csv" in csv_text
+
+
 def test_manual_entry_ai_enrich_fills_empty_fields(service, student_user):
     saved = service.create_manual_question(
         student_user.id,
