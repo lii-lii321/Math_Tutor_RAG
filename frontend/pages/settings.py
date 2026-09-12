@@ -91,6 +91,34 @@ def render_settings_page(user: dict) -> None:
             st.caption("默认 SQLite 零配置；配置 DATABASE_URL 可切换 MySQL / PostgreSQL。")
 
     with st.container(border=True):
+        st.markdown("#### 标签管理")
+        usage = service.tag_usage(user["id"])
+        if not usage:
+            st.caption("暂无标签。")
+        else:
+            st.caption("重命名或删除标签会同步更新所有错题与向量索引。")
+            with st.form("tag_manage_form"):
+                old_tag = st.selectbox("选择标签", list(usage.keys()))
+                new_tag = st.text_input("重命名为（留空则不重命名）", placeholder="新标签名")
+                col_r, col_d = st.columns(2)
+                with col_r:
+                    rename_clicked = st.form_submit_button("重命名", use_container_width=True)
+                with col_d:
+                    delete_clicked = st.form_submit_button("删除标签", use_container_width=True)
+            if rename_clicked and new_tag.strip():
+                try:
+                    changed = service.rename_tag(user["id"], old_tag, new_tag.strip())
+                    st.toast(f"已重命名 {changed} 题", icon="🏷️")
+                    st.rerun()
+                except ValueError as exc:
+                    st.error(str(exc))
+            if delete_clicked:
+                changed = service.delete_tag(user["id"], old_tag)
+                st.toast(f"已从 {changed} 题移除标签", icon="🗑️")
+                st.rerun()
+            st.caption("当前使用情况：" + "、".join(f"{k}({v})" for k, v in usage.items()))
+
+    with st.container(border=True):
         st.markdown("#### 数据备份")
         st.caption("导出全部错题为 JSON 备份文件；导入时按手动错题恢复，已含解析、标签与考点。")
         backup_data = service.export_user_data(user["id"])

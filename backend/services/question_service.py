@@ -304,19 +304,68 @@ class QuestionService:
             for qid in question_ids:
                 question = repo.get_owned(qid, user_id)
                 if question is not None:
-                    self.vector_store.upsert_question(
-                        question.id,
-                        " ".join(
-                            [
-                                *(question.knowledge_points or []),
-                                question.content_markdown,
-                                question.answer or "",
-                            ]
-                        ),
-                        user_id=user_id,
-                        tags=list(question.tags or []),
-                    )
+                    self._reindex_owned(question)
         return changed
+
+    def tag_usage(self, user_id: int) -> dict[str, int]:
+        """用户错题标签使用统计：{标签: 题数}，按题数降序。"""
+        questions = self.list_questions(user_id, semantic=False)
+        usage: dict[str, int] = {}
+        for question in questions:
+            for tag in question.tags or []:
+                usage[tag] = usage.get(tag, 0) + 1
+        return dict(sorted(usage.items(), key=lambda kv: kv[1], reverse=True))
+
+    def rename_tag(self, user_id: int, old: str, new: str) -> int:
+        """全局重命名标签（含知识点），返回更新的题目数。"""
+        old, new = old.strip(), new.strip()
+        if not old or not new:
+            raise ValueError("标签名不能为空")
+        if old == new:
+            return 0
+        changed = 0
+        with self._session() as repo:
+            for question in repo.list_for_user(user_id):
+                tags = list(question.tags or [])
+                points = list(question.knowledge_points or [])
+                new_tags = [new if t == old else t for t in tags]
+                new_points = [new if t == old else t for t in points]
+                if new_tags != tags or new_points != points:
+                    question.tags = new_tags
+                    question.knowledge_points = new_points
+                    changed += 1
+                    self._reindex_owned(question)
+        return changed
+
+    def delete_tag(self, user_id: int, tag: str) -> int:
+        """从所有错题中移除某标签（同时清理知识点中的同名项）。"""
+        tag = tag.strip()
+        if not tag:
+            raise ValueError("标签名不能为空")
+        changed = 0
+        with self._session() as repo:
+            for question in repo.list_for_user(user_id):
+                tags = [t for t in (question.tags or []) if t != tag]
+                points = [t for t in (question.knowledge_points or []) if t != tag]
+                if tags != (question.tags or []) or points != (question.knowledge_points or []):
+                    question.tags = tags
+                    question.knowledge_points = points
+                    changed += 1
+                    self._reindex_owned(question)
+        return changed
+
+    def _reindex_owned(self, question) -> None:  # noqa: ANN001 - ORM 实例
+        from backend.models.schemas import QuestionOut
+
+        out = QuestionOut.from_orm_model(question)
+        self.vector_store.upsert_question(
+            out.id,
+            " ".join(
+                [*(out.knowledge_points or []), out.content_markdown, out.answer or ""]
+            ),
+            user_id=out.user_id,
+            tags=out.tags,
+        )
 
     def delete_questions(self, question_ids: list[int], user_id: int) -> int:
         with self._session() as repo:
