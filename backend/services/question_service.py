@@ -57,6 +57,26 @@ class QuestionService:
         finally:
             session.close()
 
+    @contextmanager
+    def _user_session(self) -> Iterator[object]:
+        from backend.repositories.users import UserRepository
+
+        if self._session_factory is None:
+            from backend.database import SessionLocal
+
+            factory = SessionLocal
+        else:
+            factory = self._session_factory
+        session = factory()
+        try:
+            yield UserRepository(session)
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+
     # ---------- 录入 ----------
     def create_manual_question(
         self,
@@ -359,6 +379,70 @@ class QuestionService:
         return imported
 
     # ---------- 统计 ----------
+    def students_overview(self, teacher_id: int) -> list[dict]:
+        """教师报表：每个学生的错题/复习/掌握度/活跃度汇总。仅教师可调用。"""
+        from backend.models.schemas import QuestionOut
+
+        with self._user_session() as users:
+            caller = users.get_by_id(teacher_id)
+            if caller is None:
+                raise ValueError("用户不存在")
+            if caller.role != "teacher":
+                raise PermissionError("仅教师可查看学生总览")
+            students = [u for u in users.list_users() if u.role == "student"]
+
+        with self._session() as repo:
+            questions = repo.list_for_user(teacher_id, include_others=True)
+            logs = repo.all_review_logs()
+
+        outs = [QuestionOut.from_orm_model(q) for q in questions]
+        by_user: dict[int, list[QuestionOut]] = {}
+        for out in outs:
+            by_user.setdefault(out.user_id, []).append(out)
+        logs_by_user: dict[int, list[tuple[str, float]]] = {}
+        logs_by_user_id: dict[int, list] = {}
+        now = dt.datetime.now(dt.timezone.utc)
+        for log in logs:
+            logs_by_user.setdefault(log.user_id, []).append(
+                (log.grade, log.next_interval)
+            )
+            logs_by_user_id.setdefault(log.user_id, []).append(log)
+
+        rows: list[dict] = []
+        for student in students:
+            items = by_user.get(student.id, [])
+            student_logs = logs_by_user.get(student.id, [])
+            student_log_objs = logs_by_user_id.get(student.id, [])
+            tag_stats = build_tag_stats(items, {q.id: student_logs for q in items})
+            mastery = (
+                round(sum(s.mastery for s in tag_stats) / len(tag_stats), 3)
+                if tag_stats
+                else 0.0
+            )
+            due = len(
+                [o for o in items if o.due_at is None or _aware(o.due_at) <= now]
+            )
+            reviewed_questions = {log.question_id for log in student_log_objs}
+            last_active = max(
+                [o.created_at for o in items if o.created_at]
+                + [log.reviewed_at for log in student_log_objs],
+                default=None,
+            )
+            rows.append(
+                {
+                    "user_id": student.id,
+                    "username": student.username,
+                    "total": len(items),
+                    "due": due,
+                    "reviewed": len(reviewed_questions),
+                    "mastery": mastery,
+                    "tags": len(tag_stats),
+                    "last_active": last_active,
+                }
+            )
+        rows.sort(key=lambda r: r["total"], reverse=True)
+        return rows
+
     def dashboard_stats(self, user_id: int, *, include_others: bool = False) -> dict:
         with self._session() as repo:
             questions = repo.list_for_user(user_id, include_others=include_others)

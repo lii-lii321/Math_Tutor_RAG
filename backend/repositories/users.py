@@ -21,6 +21,12 @@ class UserRepository:
     def get_by_id(self, user_id: int) -> User | None:
         return self.session.get(User, user_id)
 
+    def list_users(self) -> list[User]:
+        """全部用户，按注册时间升序。"""
+        return list(
+            self.session.execute(select(User).order_by(User.id.asc())).scalars()
+        )
+
     def create(self, data: RegisterInput, bcrypt_rounds: int = 12) -> User:
         if self.get_by_username(data.username) is not None:
             raise ValueError(f"用户名已被占用: {data.username}")

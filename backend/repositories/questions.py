@@ -186,6 +186,11 @@ class QuestionRepository:
         )
         return list(self.session.execute(stmt).scalars())
 
+    def all_review_logs(self) -> list[ReviewLog]:
+        """全部用户的复习记录（教师报表用）。"""
+        stmt = select(ReviewLog).order_by(ReviewLog.reviewed_at.asc())
+        return list(self.session.execute(stmt).scalars())
+
     # ---------- 内部 ----------
     def _get_owned(self, question_id: int, user_id: int) -> Question | None:
         return self.session.execute(

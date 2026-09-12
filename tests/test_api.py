@@ -217,6 +217,25 @@ def test_questions_pagination(client):
     assert bad.status_code == 422  # 超过上限 100
 
 
+def test_students_overview_api(client):
+    _ = client.post(
+        "/api/auth/register",
+        json={"username": "api_teacher", "password": "secret1", "role": "teacher"},
+    )
+    teacher_headers = _auth_header(client, "api_teacher", "secret1")
+    student_headers = _auth_header(client, "api_user", "secret1")
+
+    allowed = client.get("/api/stats/students", headers=teacher_headers)
+    assert allowed.status_code == 200
+    assert isinstance(allowed.json(), list)
+    assert any(
+        row["username"] == "api_user" for row in allowed.json()
+    ), "教师应能看到学生"
+
+    denied = client.get("/api/stats/students", headers=student_headers)
+    assert denied.status_code == 403
+
+
 def test_stats_endpoints(client):
     headers = _auth_header(client, "api_user", "secret1")
     dash = client.get("/api/stats/dashboard", headers=headers)

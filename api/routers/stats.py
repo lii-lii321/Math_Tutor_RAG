@@ -4,7 +4,7 @@ from __future__ import annotations
 from collections import Counter
 from itertools import combinations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from api.deps import get_current_user
@@ -28,6 +28,15 @@ def _service() -> QuestionService:
 def dashboard(user: User = Depends(get_current_user)) -> dict:
     """学情看板数据：总数 / 到期 / 标签掌握度 / 活跃度。"""
     return _service().dashboard_stats(user.id, include_others=user.role == "teacher")
+
+
+@router.get("/students")
+def students_overview(user: User = Depends(get_current_user)) -> list[dict]:
+    """教师专属：全班学生错题/复习/掌握度汇总。"""
+    try:
+        return _service().students_overview(user.id)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
 
 
 @router.get("/tag-graph", response_model=list[CooccurrenceEdge])

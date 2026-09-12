@@ -36,9 +36,24 @@ _PAGES = {
     "设置": "settings",
 }
 
+_TEACHER_PAGES = {
+    "学生总览": "students",
+}
+
 
 def _render_sidebar(user: dict) -> str:
     from frontend.common import initials
+
+    visible = dict(_PAGES)
+    if user.get("role") == "teacher":
+        # 教师专属页插在「知识图谱」之前
+        ordered = list(visible.items())
+        insert_at = next(
+            (i for i, (label, key) in enumerate(ordered) if key == "graph"),
+            len(ordered),
+        )
+        ordered[insert_at:insert_at] = list(_TEACHER_PAGES.items())
+        visible = dict(ordered)
 
     with st.sidebar:
         st.markdown(
@@ -54,7 +69,7 @@ def _render_sidebar(user: dict) -> str:
         if pending:
             st.session_state["nav"] = pending
         menu = sac.menu(
-            [sac.MenuItem(label) for label in _PAGES],
+            [sac.MenuItem(label) for label in visible],
             format_func="title",
             color="#2563eb",
             variant="light",
@@ -77,7 +92,8 @@ def _render_sidebar(user: dict) -> str:
         if st.button("退出登录", use_container_width=True):
             logout_user()
             st.rerun()
-    return _PAGES.get(menu or "学情看板", "dashboard")
+    all_pages = {**visible}
+    return all_pages.get(menu or "学情看板", "dashboard")
 
 
 def main() -> None:
@@ -99,6 +115,10 @@ def main() -> None:
         from frontend.pages.graph import render_graph_page
 
         render_graph_page(user)
+    elif page == "students":
+        from frontend.pages.students import render_students_page
+
+        render_students_page(user)
     elif page == "settings":
         render_settings_page(user)
 
