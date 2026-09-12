@@ -24,7 +24,6 @@ def render_notebook_page(user: dict) -> None:
 
     with st.container(border=True):
         is_teacher = user["role"] == "teacher"
-        student_filter_id: int | None = None
 
         col_search, col_tag, col_export = st.columns([3, 2, 2])
         with col_search:
@@ -45,15 +44,22 @@ def render_notebook_page(user: dict) -> None:
                     index=student_names.index(default_student),
                     key="notebook_student",
                 )
-                student_filter_id = next(
-                    (r["user_id"] for r in overview if r["username"] == student_name),
-                    None,
-                )
+                if student_name == "全部学生":
+                    # 教师视角：全部 = 自己 + 所有学生的题
+                    view_user_id = user["id"]
+                    include_others = True
+                else:
+                    view_user_id = next(
+                        (r["user_id"] for r in overview if r["username"] == student_name),
+                        user["id"],
+                    )
+                    include_others = False
             else:
-                student_filter_id = user["id"]
+                view_user_id = user["id"]
+                include_others = False
 
             all_questions = service.list_questions(
-                student_filter_id or user["id"], include_others=False, semantic=False
+                view_user_id, include_others=include_others, semantic=False
             )
             all_tags = sorted({t for q in all_questions for t in q.tags})
             default_index = (
@@ -66,8 +72,8 @@ def render_notebook_page(user: dict) -> None:
             st.markdown("<br>", unsafe_allow_html=True)
 
         questions = service.list_questions(
-            student_filter_id or user["id"],
-            include_others=False,
+            view_user_id,
+            include_others=include_others,
             tag=None if tag_filter == "全部" else tag_filter,
             keyword=keyword or None,
             semantic=semantic,
