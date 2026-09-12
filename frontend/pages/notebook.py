@@ -34,6 +34,7 @@ def render_notebook_page(user: dict) -> None:
                 key="notebook_search",
             )
             semantic = st.toggle("语义搜索", value=True, help="用向量检索理解语义，而非仅字面匹配")
+            only_due = st.toggle("仅看待复习", value=False, help="隐藏已掌握和尚未到期的错题")
             sort_mode = st.selectbox(
                 "排序",
                 ["最新录入", "最早录入", "复习次数最少", "最近复习"],
@@ -83,10 +84,17 @@ def render_notebook_page(user: dict) -> None:
             keyword=keyword or None,
             semantic=semantic,
         )
-        _epoch = dt.datetime(1970, 1, 1, tzinfo=dt.timezone.utc)
 
         def _aware_dt(value: dt.datetime | None) -> dt.datetime:
             return value if value is None or value.tzinfo else value.replace(tzinfo=dt.timezone.utc)
+
+        if only_due:
+            now_dt = dt.datetime.now(dt.timezone.utc)
+            questions = [
+                q
+                for q in questions
+                if q.due_at is None or _aware_dt(q.due_at) <= now_dt
+            ]
 
         if sort_mode == "最早录入":
             questions.sort(
@@ -206,11 +214,19 @@ def render_notebook_page(user: dict) -> None:
                 st.rerun()
         with act_col2:
             selected = [q for q in questions if q.id in set(selected_ids)]
-            doc_io = generate_word_exam(selected, "错题精选复习卷")
+            redo_io = generate_word_exam(selected, "错题精选复习卷", mode="redo")
             st.download_button(
-                "导出选中的错题卷",
-                data=doc_io,
-                file_name="错题精选复习卷.docx",
+                "导出选中（重做版）",
+                data=redo_io,
+                file_name="错题精选复习卷_重做版.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                use_container_width=True,
+            )
+            detail_io = generate_word_exam(selected, "错题精选详解卷", mode="detailed")
+            st.download_button(
+                "导出选中（详解版）",
+                data=detail_io,
+                file_name="错题精选详解卷.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 use_container_width=True,
             )
