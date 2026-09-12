@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime as dt
 from datetime import datetime, timedelta, timezone
 
 from backend.models.schemas import QuestionOut
@@ -74,21 +75,21 @@ def test_activity_window_has_14_days():
 
 
 def test_study_streak_counts_back_from_today():
-    today = datetime.now(timezone.utc).date()
+    today = dt.date(2026, 9, 12)
     dates = {today, today - timedelta(days=1), today - timedelta(days=2)}
-    assert study_streak(dates) == 3
+    assert study_streak(dates, today=today) == 3
 
 
 def test_study_streak_breaks_on_gap():
-    today = datetime.now(timezone.utc).date()
+    today = dt.date(2026, 9, 12)
     dates = {today, today - timedelta(days=1), today - timedelta(days=3)}
-    assert study_streak(dates) == 2
+    assert study_streak(dates, today=today) == 2
 
 
 def test_study_streak_allows_yesterday_start():
-    today = datetime.now(timezone.utc).date()
+    today = dt.date(2026, 9, 12)
     dates = {today - timedelta(days=1), today - timedelta(days=2)}
-    assert study_streak(dates) == 2  # 今天还没学，从昨天起算
+    assert study_streak(dates, today=today) == 2  # 今天还没学，从昨天起算
 
 
 def test_study_streak_empty():
@@ -96,7 +97,8 @@ def test_study_streak_empty():
 
 
 def test_study_streak_accepts_datetime_and_date_mix():
-    now = datetime.now(timezone.utc)
+    # 10:00 UTC → 本地（UTC+8）同日 18:00，混合 date/datetime 应归一到同一日期口径
+    now = datetime(2026, 9, 12, 10, 0, tzinfo=timezone.utc)
     today = now.date()
     dates = {now, today - timedelta(days=1)}
-    assert study_streak(dates) == 2
+    assert study_streak(dates, today=today) == 2

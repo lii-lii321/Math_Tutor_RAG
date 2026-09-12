@@ -7,7 +7,7 @@ from __future__ import annotations
 import datetime as dt
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, computed_field, field_validator
 
 
 # ---------------- AI 结构化输出 ----------------
@@ -88,6 +88,12 @@ class QuestionOut(BaseModel):
             last_reviewed_at=q.last_reviewed_at,
             created_at=q.created_at,
         )
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def mastered(self) -> bool:
+        """掌握归档：连续记牢 ≥3 次且调度间隔 ≥21 天的题移出每日复习池。"""
+        return self.reps >= 3 and self.interval_days >= 21
 
 
 class TagStat(BaseModel):

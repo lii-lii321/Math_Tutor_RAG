@@ -89,20 +89,16 @@ def weak_tags(tag_stats: list[TagStat], limit: int = 5) -> list[TagStat]:
     return candidates[:limit]
 
 
-def study_streak(active_dates: set) -> int:
+def study_streak(active_dates: set, today: dt.date | None = None) -> int:
     """连续学习天数：以今天（若今天无记录则从昨天）向前数，活跃日连续计数。
 
-    active_dates: 学习发生的日期集合（录入错题或完成复习）。
+    active_dates: 学习发生的日期或时刻集合（录入错题或完成复习）。
+    today: 可注入当前日期，便于测试。
     """
     if not active_dates:
         return 0
-    today = dt.date.today()
-    normalized = set()
-    for value in active_dates:
-        if isinstance(value, dt.datetime):
-            normalized.add(value.astimezone().date() if value.tzinfo else value.date())
-        elif isinstance(value, dt.date):
-            normalized.add(value)
+    today = today or dt.date.today()
+    normalized = {_as_date(value) for value in active_dates}
 
     cursor = today if today in normalized else today - dt.timedelta(days=1)
     if cursor not in normalized:

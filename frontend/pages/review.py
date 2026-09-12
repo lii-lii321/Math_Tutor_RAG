@@ -111,6 +111,23 @@ def render_review_page(user: dict) -> None:
         st.caption(st.session_state["last_schedule_msg"])
 
     st.divider()
+    with st.expander("复习历史（最近 20 次）"):
+        history = service.recent_reviews(user["id"], limit=20)
+        if not history:
+            st.caption("还没有复习记录。")
+        else:
+            rows = [
+                {
+                    "时间": h["reviewed_at"].astimezone().strftime("%m-%d %H:%M")
+                    if h["reviewed_at"] else "",
+                    "评分": _GRADE_LABELS.get(h["grade"], h["grade"]),
+                    "下次间隔": f"{h['interval_days']:.0f} 天",
+                    "题目": h["snippet"],
+                }
+                for h in history
+            ]
+            st.dataframe(rows, use_container_width=True, hide_index=True)
+
     with st.expander("SM-2 评分说明"):
         st.markdown(
             "| 评分 | SM-2 质量 q | 效果 |\n|---|---|---|\n"

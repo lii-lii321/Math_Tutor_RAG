@@ -121,8 +121,12 @@ def render_notebook_page(user: dict) -> None:
         due_at = q.due_at
         if due_at is not None and due_at.tzinfo is None:
             due_at = due_at.replace(tzinfo=dt.timezone.utc)
-        is_due = due_at is None or due_at <= now
-        due_mark = "⏰ " if is_due else "✅ "
+        if q.mastered:
+            due_mark = "🏆 "
+        elif due_at is None or due_at <= now:
+            due_mark = "⏰ "
+        else:
+            due_mark = "✅ "
         expander_title = (
             f"{due_mark}{'、'.join(q.tags[:4]) or '未分类'}　·　{q.difficulty}　·　"
             f"{(q.created_at.strftime('%Y-%m-%d') if q.created_at else '')}"

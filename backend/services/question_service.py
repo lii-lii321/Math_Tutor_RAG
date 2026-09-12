@@ -313,8 +313,30 @@ class QuestionService:
 
     # ---------- 复习 ----------
     def due_questions(self, user_id: int) -> list[QuestionOut]:
+        """到期错题；已掌握归档的题目不再进入每日复习池。"""
         with self._session() as repo:
-            return [QuestionOut.from_orm_model(q) for q in repo.due_for_review(user_id)]
+            due = repo.due_for_review(user_id)
+        outs = [QuestionOut.from_orm_model(q) for q in due]
+        return [o for o in outs if not o.mastered]
+
+    def recent_reviews(self, user_id: int, limit: int = 20) -> list[dict]:
+        """最近的复习记录（新→旧），供复习历史视图使用。"""
+        with self._session() as repo:
+            logs = repo.review_logs_for_user(user_id)
+            questions = {q.id: q for q in repo.list_for_user(user_id)}
+        rows: list[dict] = []
+        for log in reversed(logs[-limit:]):
+            question = questions.get(log.question_id)
+            rows.append(
+                {
+                    "reviewed_at": log.reviewed_at,
+                    "grade": log.grade,
+                    "interval_days": log.next_interval,
+                    "snippet": (question.content_markdown[:50] if question else "（已删除）"),
+                    "tags": (list(question.tags or []) if question else []),
+                }
+            )
+        return rows
 
     def grade_review(self, question_id: int, user_id: int, grade: str) -> QuestionOut | None:
         with self._session() as repo:
@@ -473,6 +495,7 @@ class QuestionService:
             "total": len(outs),
             "reviewed": len({log.question_id for log in logs}),
             "due": due_count,
+            "mastered": len([o for o in outs if o.mastered]),
             "streak": study_streak(active_dates),
             "calendar": build_calendar(calendar_events),
             "accuracy_trend": build_accuracy_trend(logs),
