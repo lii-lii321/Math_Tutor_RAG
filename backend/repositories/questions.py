@@ -106,6 +106,16 @@ class QuestionRepository:
     def get_owned(self, question_id: int, user_id: int) -> Question | None:
         return self._get_owned(question_id, user_id)
 
+    def get_by_ids(self, ids: list[int]) -> list[Question]:
+        """按 id 批量获取（不做归属过滤，调用方负责鉴权）。"""
+        if not ids:
+            return []
+        return list(
+            self.session.execute(
+                select(Question).where(Question.id.in_(ids))
+            ).scalars()
+        )
+
     def list_for_user(
         self,
         user_id: int,

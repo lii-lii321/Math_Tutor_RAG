@@ -207,13 +207,14 @@ class QuestionService:
             results = {q.id: QuestionOut.from_orm_model(q) for q in primary}
 
         if keyword and semantic:
-            hits = self.vector_store.semantic_search(keyword, user_id=user_id)
-            hit_ids = {hit.question_id for hit in hits} - set(results)
-            with self._session() as repo:
-                for qid in hit_ids:
-                    q = repo.get_owned(qid, user_id)
-                    if q:
-                        results[qid] = QuestionOut.from_orm_model(q)
+            scope = self._search_scope(user_id, include_others)
+            hits = self.vector_store.semantic_search(keyword, user_ids=scope)
+            hit_ids = [h.question_id for h in hits if h.question_id not in set(results)]
+            if hit_ids:
+                with self._session() as repo:
+                    for q in repo.get_by_ids(hit_ids):
+                        if q.user_id == user_id or include_others:
+                            results[q.id] = QuestionOut.from_orm_model(q)
 
         return sorted(
             results.values(),
@@ -243,13 +244,24 @@ class QuestionService:
             q = repo.get_owned(question_id, user_id)
             return QuestionOut.from_orm_model(q) if q else None
 
+    def _search_scope(self, user_id: int, include_others: bool) -> list[int]:
+        """语义检索的可见范围：普通用户仅自己；教师为 自己 + 全部学生。"""
+        if not include_others:
+            return [user_id]
+        with self._user_session() as users:
+            return [
+                u.id
+                for u in users.list_users()
+                if u.role == "student" or u.id == user_id
+            ]
+
     def similar_questions(self, question: QuestionOut, *, user_id: int) -> list[QuestionOut]:
         """「举一反三」：以本题解析文本为查询，召回最相近的历史错题。"""
         query_text = " ".join(
             [*(question.knowledge_points or []), *(question.tags or []), question.content_markdown]
         )
         hits: list[RagHit] = self.vector_store.similar_questions(
-            query_text, user_id=user_id, exclude_id=question.id
+            query_text, user_ids=[user_id], exclude_id=question.id
         )
         if not hits:
             return []

@@ -29,16 +29,16 @@ def test_upsert_and_similar(store):
     )
     assert ok2
 
-    hits = store.similar_questions("利用判别式求参数取值范围", user_id=1, exclude_id=9001)
+    hits = store.similar_questions(
+        "利用判别式求参数取值范围", user_ids=[1], exclude_id=9001
+    )
     assert hits and hits[0].question_id == 9002 or hits == []
 
     store.delete_questions([9001, 9002])
 
 
 def test_user_isolation_in_query(store):
-    if not store.is_available():
-        pytest.skip("向量库不可用")
     store.upsert_question(9101, "相似三角形求比例", user_id=77, tags=["几何"])
-    hits_other_user = store.semantic_search("相似三角形", user_id=999999)
+    hits_other_user = store.semantic_search("相似三角形", user_ids=[999999])
     assert all(h.question_id != 9101 for h in hits_other_user)
     store.delete_questions([9101])

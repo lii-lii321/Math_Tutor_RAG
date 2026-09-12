@@ -123,20 +123,22 @@ class QuestionVectorStore:
         self,
         query_text: str,
         *,
-        user_id: int,
+        user_ids: list[int],
         exclude_id: int | None = None,
         top_k: int | None = None,
     ) -> list[RagHit]:
-        return self._query(query_text, user_id=user_id, exclude_id=exclude_id, top_k=top_k)
+        return self._query(query_text, user_ids=user_ids, exclude_id=exclude_id, top_k=top_k)
 
-    def semantic_search(self, query: str, *, user_id: int, top_k: int = 20) -> list[RagHit]:
-        return self._query(query, user_id=user_id, exclude_id=None, top_k=top_k)
+    def semantic_search(
+        self, query: str, *, user_ids: list[int], top_k: int = 20
+    ) -> list[RagHit]:
+        return self._query(query, user_ids=user_ids, exclude_id=None, top_k=top_k)
 
     def _query(
         self,
         query_text: str,
         *,
-        user_id: int,
+        user_ids: list[int],
         exclude_id: int | None,
         top_k: int | None,
     ) -> list[RagHit]:
@@ -144,11 +146,13 @@ class QuestionVectorStore:
         if collection is None or not query_text.strip():
             return []
         top_k = top_k or self.settings.rag_top_k
+        where = {"user_id": {"$in": user_ids}} if user_ids else None
         try:
+            total = max(collection.count(where=where) if where else collection.count(), 1)
             result = collection.query(
                 query_texts=[query_text],
-                n_results=min(top_k + (1 if exclude_id else 0), max(collection.count(), 1)),
-                where={"user_id": user_id},
+                n_results=min(top_k + (1 if exclude_id else 0), total),
+                where=where,
             )
         except Exception as exc:  # noqa: BLE001
             logger.warning("向量检索失败: %s", exc)
