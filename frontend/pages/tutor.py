@@ -26,6 +26,13 @@ def render_tutor_page(user: dict) -> None:
                     type=["jpg", "jpeg", "png", "webp"],
                     accept_multiple_files=True,
                 )
+                if uploads:
+                    preview_cols = st.columns(min(len(uploads), 4))
+                    for i, upload in enumerate(uploads[:4]):
+                        with preview_cols[i]:
+                            st.image(upload.getvalue(), use_container_width=True, caption=upload.name)
+                    if len(uploads) > 4:
+                        st.caption(f"已选择 {len(uploads)} 张图片")
             with col_meta:
                 tags_input = st.text_input("标签（可选，逗号分隔）", placeholder="例如：期末复习, 几何", key="photo_tags")
                 hint = st.text_area(
