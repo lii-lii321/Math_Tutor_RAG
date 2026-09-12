@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
 
 from frontend.common import get_question_service, go_to, page_header, provider_badges, stat_card
@@ -36,23 +37,28 @@ def _render_calendar(calendar: dict) -> None:
     if calendar["max"] == 0:
         st.caption("还没有学习记录，录入或复习错题后这里会点亮。")
         return
-    heatmap = px.imshow(
-        z,
+    heatmap = go.Heatmap(
+        z=z,
         x=calendar["x"],
         y=calendar["y"],
-        color_continuous_scale=["#f1f5f9", "#93c5fd", "#2563eb", "#1a365d"],
-        aspect="auto",
+        customdata=calendar.get("dates"),
+        colorscale=[[0, "#e2e8f0"], [0.4, "#93c5fd"], [0.75, "#2563eb"], [1, "#1a365d"]],
+        showscale=False,
+        xgap=3,
+        ygap=3,
+        zmin=0,
+        hovertemplate="%{customdata}（周 %{y}）：<b>%{z}</b> 题<extra></extra>",
     )
-    heatmap.update_layout(
+    fig = go.Figure(data=heatmap)
+    fig.update_layout(
         margin=dict(t=10, b=10, l=10, r=10),
         height=210,
         paper_bgcolor="rgba(0,0,0,0)",
         font=dict(family="sans-serif", color="#334155"),
-        coloraxis_showscale=False,
     )
-    heatmap.update_xaxes(tickangle=0, tickfont=dict(size=9))
-    heatmap.update_yaxes(tickfont=dict(size=9))
-    st.plotly_chart(heatmap, use_container_width=True, config={"displayModeBar": False})
+    fig.update_xaxes(tickangle=0, tickfont=dict(size=9))
+    fig.update_yaxes(tickfont=dict(size=9))
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
 
 def _render_accuracy_trend(trend: list[dict]) -> None:

@@ -133,16 +133,19 @@ def build_calendar(events: list, days: int = 90, today: dt.date | None = None) -
 
     n_weeks = ((today - start).days + 7) // 7
     z: list[list[int | None]] = [[None] * n_weeks for _ in range(7)]
+    dates: list[list[str | None]] = [[None] * n_weeks for _ in range(7)]
     day = start
     while day <= today:
         col = (day - start).days // 7
         z[day.weekday()][col] = counts.get(day, 0)
+        dates[day.weekday()][col] = day.isoformat()
         day += dt.timedelta(days=1)
 
     return {
         "z": z,
-        "x": [(start + dt.timedelta(weeks=w)).strftime("%m-%d") for w in range(n_weeks)],
+        "x": [f"W{w + 1}" for w in range(n_weeks)],
         "y": ["一", "二", "三", "四", "五", "六", "日"],
+        "dates": dates,
         "max": max(counts.values(), default=0),
     }
 
