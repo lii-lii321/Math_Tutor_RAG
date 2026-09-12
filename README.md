@@ -28,6 +28,8 @@
 | 🔐 **生产级安全** | bcrypt 密码哈希、登录失败延迟、JWT 认证、Pydantic 入参校验、SQL 参数化查询 |
 | 🔌 **FastAPI 网关** | 与 Streamlit 共享同一套 backend 服务的 REST API（JWT + OpenAPI 文档），Web / 小程序 / 脚本多端复用 |
 | 🧩 **知识图谱** | 标签共现力导向图，直观呈现知识点之间的关联结构 |
+| 👨‍🏫 **教师端** | 学生总览：全班错题量/待复习/掌握度/最近活跃，逐个查看学生知识点分布 |
+| 📅 **学习日历** | 90 天热力图 + 近 30 天复习正确率趋势 + 连续学习天数 |
 | 🧪 **工程化** | pytest 41 用例、ruff、GitHub Actions CI（lint + 3 版本矩阵测试 + Docker 构建）、Docker Compose 一键部署 |
 
 ## 🏗️ 架构 (Architecture)
@@ -82,6 +84,8 @@ flowchart LR
 | ![dashboard](docs/screenshots/dashboard.png) | ![tutor](docs/screenshots/tutor.png) |
 | **错题本** | **今日复习（SM-2 闪卡）** |
 | ![notebook](docs/screenshots/notebook.png) | ![review](docs/screenshots/review.png) |
+| **知识图谱（标签共现）** | **学生总览（教师端）** |
+| ![graph](docs/screenshots/graph.png) | ![students](docs/screenshots/students.png) |
 | **知识图谱（标签共现）** | |
 | ![graph](docs/screenshots/graph.png) | |
 
