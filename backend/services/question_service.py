@@ -478,6 +478,29 @@ class QuestionService:
     BACKUP_FORMAT = "mathmaster-backup"
     BACKUP_VERSION = 1
 
+    def export_user_csv(self, user_id: int) -> str:
+        """导出用户错题为 CSV（Excel 友好，UTF-8 BOM 兼容中文）。"""
+        import csv
+        import io as _io
+
+        questions = self.list_questions(user_id, semantic=False)
+        buffer = _io.StringIO()
+        writer = csv.writer(buffer)
+        writer.writerow(["id", "created_at", "difficulty", "tags", "knowledge_points", "answer", "content"])
+        for q in questions:
+            writer.writerow(
+                [
+                    q.id,
+                    q.created_at.isoformat() if q.created_at else "",
+                    q.difficulty,
+                    " ".join(q.tags),
+                    " ".join(q.knowledge_points),
+                    q.answer,
+                    q.content_markdown,
+                ]
+            )
+        return "\ufeff" + buffer.getvalue()
+
     def export_user_data(self, user_id: int) -> dict:
         """导出用户全部错题为可移植 JSON（图片不包含，路径仅作参考）。"""
         questions = self.list_questions(user_id, semantic=False)

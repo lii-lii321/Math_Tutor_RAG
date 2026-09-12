@@ -30,13 +30,12 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
       - name: Install dependencies
-        run: |
-          pip install -r requirements-dev.txt
-      - name: Run tests
+        run: pip install -r requirements-dev.txt pytest-cov
+      - name: Run tests with coverage
         env:
           AI_PROVIDER: mock
           RAG_ENABLED: "false"
-        run: pytest -v
+        run: pytest -q --cov=backend --cov=api --cov-report=term-missing
 
   boot-smoke:
     runs-on: ubuntu-latest

@@ -131,6 +131,14 @@ def render_settings_page(user: dict) -> None:
                 mime="application/json",
                 use_container_width=True,
             )
+            csv_data = service.export_user_csv(user["id"])
+            st.download_button(
+                "导出 CSV（Excel）",
+                data=csv_data,
+                file_name=f"mathmaster_{datetime.date.today():%Y%m%d}.csv",
+                mime="text/csv",
+                use_container_width=True,
+            )
         with col_up:
             upload = st.file_uploader("导入备份", type=["json"], key="backup_import")
             if upload is not None and st.button("开始导入", use_container_width=True):
