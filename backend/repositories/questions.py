@@ -30,6 +30,7 @@ class QuestionRepository:
         followup_question: str = "",
         image_path: str | None = None,
         source: str = "ai",
+        ocr_text: str | None = None,
     ) -> Question:
         question = Question(
             user_id=user_id,
@@ -41,6 +42,7 @@ class QuestionRepository:
             followup_question=followup_question or None,
             image_path=image_path,
             source=source,
+            ocr_text=ocr_text or None,
         )
         self.session.add(question)
         self.session.flush()
@@ -140,6 +142,7 @@ class QuestionRepository:
                 for q in questions
                 if kw in (q.content_markdown or "").lower()
                 or kw in (q.answer or "").lower()
+                or kw in (q.ocr_text or "").lower()
                 or any(kw in str(t).lower() for t in (q.tags or []))
                 or any(kw in str(t).lower() for t in (q.knowledge_points or []))
             ]

@@ -32,3 +32,6 @@ chromadb>=0.5.15
 python-docx>=1.1
 Pillow>=10.3
 alembic>=1.13
+
+# 可选：OCR 原图文字识别（.env 设 OCR_ENABLED=true 并安装后启用）
+# rapidocr-onnxruntime>=1.3

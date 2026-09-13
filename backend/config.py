@@ -67,6 +67,11 @@ class Settings(BaseSettings):
     embedding_api_key: str = ""
     rag_top_k: int = Field(default=3, ge=1, le=20)
 
+    # ---------- OCR（可选）----------
+    # 开启后录题时对原图做文字识别，识别文本参与语义/关键词搜索。
+    # 需要：pip install rapidocr-onnxruntime
+    ocr_enabled: bool = False
+
     # ---------- 复习算法 (SM-2) ----------
     review_default_ease: float = Field(default=2.5, ge=1.3)
     review_again_minutes: int = Field(default=10, ge=1)

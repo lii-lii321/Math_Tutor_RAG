@@ -15,7 +15,11 @@ from frontend.common import (
     page_header,
     pop_params,
 )
-from frontend.components import question_detail_view, regrade_buttons
+from frontend.components import (
+    question_detail_view,
+    regrade_buttons,
+    save_followup_button,
+)
 
 _PAGE_SIZE = 8
 
@@ -258,6 +262,8 @@ def _render_question_detail(service, q, user) -> None:
     tab_view, tab_chat, tab_edit = st.tabs(["查看", "追问讲题", "编辑"])
     with tab_view:
         question_detail_view(q)
+        if q.followup_question:
+            save_followup_button(service, q, user, q.followup_question)
         st.markdown("<br>", unsafe_allow_html=True)
         regrade_buttons(service, q, user)
 

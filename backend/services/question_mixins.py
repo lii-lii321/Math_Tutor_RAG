@@ -220,11 +220,14 @@ class EntryMixin:
         user_tags: list[str] | None = None,
         hint: str = "",
     ) -> tuple[QuestionOut, QuestionAnalysis]:
-        """完整录入链路：AI 解析 → 图片落盘 → 数据库 → 向量索引。"""
+        """完整录入链路：AI 解析 → 图片落盘 →（可选 OCR）→ 数据库 → 向量索引。"""
         analysis = self.ai.analyze_question(image_bytes, mime_type, hint)
         tags = analysis.merged_tags(user_tags or [])
 
         image_path = self._persist_image(user_id, image_bytes)
+        from backend.services.ocr import extract_text
+
+        ocr_text = extract_text(str(image_path))
         with self._session() as repo:
             question = repo.create(
                 user_id,
@@ -235,12 +238,16 @@ class EntryMixin:
                 difficulty=analysis.difficulty,
                 followup_question=analysis.followup_question,
                 image_path=str(image_path),
+                ocr_text=ocr_text,
             )
             out = QuestionOut.from_orm_model(question)
 
+        embed_text = self._embeddable_text(analysis)
+        if ocr_text:
+            embed_text = f"{embed_text} {ocr_text}"
         self.vector_store.upsert_question(
             out.id,
-            self._embeddable_text(analysis),
+            embed_text,
             user_id=user_id,
             tags=tags,
         )

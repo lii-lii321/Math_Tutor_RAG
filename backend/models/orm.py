@@ -71,6 +71,7 @@ class Question(Base):
     followup_question: Mapped[str | None] = mapped_column(Text)
     source: Mapped[str] = mapped_column(String(16), default="ai")  # ai / manual
     user_note: Mapped[str | None] = mapped_column(Text)
+    ocr_text: Mapped[str | None] = mapped_column(Text)  # 原图 OCR 文字（可选特性）
 
     # SM-2 调度状态
     reps: Mapped[int] = mapped_column(Integer, default=0)

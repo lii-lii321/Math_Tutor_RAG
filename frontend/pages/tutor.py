@@ -5,6 +5,7 @@ import streamlit as st
 
 from backend.services.question_service import sanitize_tags
 from frontend.common import followup_chat, get_question_service, go_to, page_header
+from frontend.components import save_followup_button
 
 
 def render_tutor_page(user: dict) -> None:
@@ -151,6 +152,7 @@ def _render_analysis(saved, analysis, service, user) -> None:
         if analysis.followup_question:
             with st.expander("举一反三 · 变式练习"):
                 st.markdown(analysis.followup_question)
+                save_followup_button(service, saved, user, analysis.followup_question)
 
         st.divider()
         st.markdown("**相似错题（向量召回）**")

@@ -62,6 +62,7 @@ class QuestionOut(BaseModel):
     followup_question: str | None = None
     source: str = "ai"
     user_note: str | None = None
+    ocr_text: str | None = None
     reps: int = 0
     ease: float = 2.5
     interval_days: float = 0
@@ -83,6 +84,7 @@ class QuestionOut(BaseModel):
             followup_question=q.followup_question,
             source=q.source,
             user_note=q.user_note,
+            ocr_text=q.ocr_text,
             reps=q.reps,
             ease=q.ease,
             interval_days=q.interval_days,

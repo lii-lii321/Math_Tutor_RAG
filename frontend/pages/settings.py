@@ -82,6 +82,27 @@ def render_settings_page(user: dict) -> None:
                     unsafe_allow_html=True,
                 )
 
+            st.markdown("#### OCR（原图文字识别，可选）")
+            if settings.ocr_enabled:
+                try:
+                    import rapidocr_onnxruntime  # noqa: F401
+
+                    st.markdown(
+                        '<span class="mm-badge mm-badge--ok">已启用</span>',
+                        unsafe_allow_html=True,
+                    )
+                except ImportError:
+                    st.markdown(
+                        '<span class="mm-badge mm-badge--warn">已开启但缺少依赖：'
+                        "pip install rapidocr-onnxruntime</span>",
+                        unsafe_allow_html=True,
+                    )
+            else:
+                st.markdown(
+                    '<span class="mm-badge">未启用（.env 设 OCR_ENABLED=true 开启）</span>',
+                    unsafe_allow_html=True,
+                )
+
             st.markdown("#### 存储")
             st.markdown(
                 f"<span class='mm-muted'>数据库：{settings.database_url.split('://')[0]}</span>　"
