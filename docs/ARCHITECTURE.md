@@ -1,6 +1,12 @@
 # 架构决策说明 (Architecture Notes)
 
-本文记录 v2.0 重构中的关键技术决策，便于面试交流与后续演进。
+本文记录重构与迭代中的关键技术决策，便于面试交流与后续演进。
+
+## 0. 服务组合（v2.2）
+
+`QuestionService` 曾是 662 行的单类，已按领域拆分为 Mixin 组合（`question_mixins.py`）：
+`EntryMixin`（录入）/ `QueryMixin`（检索）/ `EditTagMixin`（编辑与标签）/ `ReviewMixin`（复习与追问）/ `BackupMixin`（备份导出）/ `StatsMixin`(统计) + `CoreMixin`（会话/配置/索引等基础设施）。
+公共 API 不变，调用方零改动。
 
 ## 1. 总体分层
 
@@ -17,7 +23,7 @@ repositories (数据访问层，SQLAlchemy ORM)
 SQLite / MySQL  +  ChromaDB  +  文件存储
 ```
 
-- **界面层零业务逻辑**：页面组件只做交互编排，所有写入/检索/调度都走服务层。
+- **界面层零业务逻辑**：页面组件只做交互编排，所有写入/检索/调度都走服务层。可复用展示组件集中在 `frontend/components.py`（详情视图 / 重测 / 变式入库 / 命中高亮），文案集中在 `frontend/i18n.py`。
 - **session-per-operation**：`QuestionService` 每个公开方法内部开短事务。Streamlit 的执行模型是「脚本反复重跑 + 多线程渲染」，持有长事务既容易跨请求泄漏又会出现 SQLite 写锁竞争。
 - **依赖注入点**：`QuestionService(session_factory=...)` 接受会话工厂注入，测试可直接替换。
 

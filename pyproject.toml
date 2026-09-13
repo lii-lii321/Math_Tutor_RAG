@@ -29,4 +29,7 @@ known-first-party = ["backend", "frontend"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = [
+    "e2e: 端到端界面测试（需要运行中的应用与 Playwright 浏览器）",
+]
 filterwarnings = ["ignore::DeprecationWarning"]
