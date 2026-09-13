@@ -57,11 +57,20 @@ jobs:
           timeout 90 bash -c 'until curl -sf http://localhost:8000/health; do sleep 2; done'
       - name: Install Playwright & pytest
         run: pip install pytest playwright && playwright install --with-deps chromium
+      - name: Print frontend dep versions
+        run: pip show streamlit streamlit-antd-components streamlit-agraph | grep -E "Name|Version"
       - name: Run E2E smoke (against running app)
         env:
           MM_E2E: "1"
           MM_E2E_BASE_URL: http://localhost:8601
         run: pytest tests/e2e -q -m e2e
+      - name: Upload failure screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-failures
+          path: e2e_failure_*.png
+          if-no-files-found: ignore
 
   docker:
     runs-on: ubuntu-latest
