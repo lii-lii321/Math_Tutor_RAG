@@ -4,6 +4,7 @@
 # Web 框架
 streamlit>=1.49
 streamlit-antd-components>=0.3.2
+streamlit-agraph>=0.0.45
 plotly>=7.0.0
 
 # REST API 网关（多端复用）
