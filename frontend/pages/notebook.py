@@ -259,7 +259,9 @@ def _render_followup_chat(service, q, user) -> None:
 
 
 def _render_question_detail(service, q, user) -> None:
-    tab_view, tab_chat, tab_edit = st.tabs(["查看", "追问讲题", "编辑"])
+    tab_view, tab_chat, tab_comment, tab_edit = st.tabs(
+        ["查看", "追问讲题", "批注", "编辑"]
+    )
     with tab_view:
         question_detail_view(q)
         if q.followup_question:
@@ -270,5 +272,47 @@ def _render_question_detail(service, q, user) -> None:
     with tab_chat:
         _render_followup_chat(service, q, user)
 
+    with tab_comment:
+        _render_comments(q, user)
+
     with tab_edit:
         edit_question_form(service, q, user)
+
+
+def _render_comments(q, user) -> None:
+    """错题批注：教师批语 / 自己的备注；作者本人或教师可删。"""
+    from backend.services.comment_service import CommentService
+
+    comment_service = CommentService()
+    comments = comment_service.list_for_question(q.id)
+    if comments:
+        for comment in comments:
+            who = "👨‍🏫" if comment["role"] == "teacher" else "🧑‍🎓"
+            st.markdown(
+                f"**{who} {comment['author']}**　"
+                f"<span class='mm-muted'>"
+                f"{comment['created_at'].astimezone().strftime('%m-%d %H:%M') if comment['created_at'] else ''}"
+                f"</span>",
+                unsafe_allow_html=True,
+            )
+            st.markdown(comment["content"])
+            can_delete = comment["author"] == user["username"] or user["role"] == "teacher"
+            if can_delete and st.button("删除", key=f"del_comment_{comment['id']}"):
+                comment_service.delete(comment["id"], user["id"], user["role"] == "teacher")
+                st.rerun()
+            st.divider()
+    else:
+        st.caption("暂无批注。教师批语和自己的备注都会显示在这里。")
+
+    with st.form(f"comment_form_{q.id}"):
+        new_comment = st.text_area("写批注", height=70, placeholder="例如：第二问要注意分类讨论")
+        if st.form_submit_button("提交批注", type="primary"):
+            if not new_comment.strip():
+                st.error("批注内容不能为空")
+            else:
+                try:
+                    comment_service.add(q.id, user["id"], new_comment)
+                    st.toast("批注已添加", icon="💬")
+                    st.rerun()
+                except ValueError as exc:
+                    st.error(str(exc))

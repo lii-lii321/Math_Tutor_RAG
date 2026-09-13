@@ -91,6 +91,9 @@ class Question(Base):
     review_logs: Mapped[list[ReviewLog]] = relationship(
         back_populates="question", cascade="all, delete-orphan"
     )
+    comments: Mapped[list[Comment]] = relationship(
+        back_populates="question", cascade="all, delete-orphan", order_by="Comment.created_at"
+    )
 
     def is_due(self, now: dt.datetime | None = None) -> bool:
         now = now or _utcnow()
@@ -98,6 +101,25 @@ class Question(Base):
             return True
         due = self.due_at if self.due_at.tzinfo else self.due_at.replace(tzinfo=dt.timezone.utc)
         return due <= now
+
+
+class Comment(Base):
+    """错题批注：教师对学生错题的留言（也可用于学生自注）。"""
+
+    __tablename__ = "comments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    question_id: Mapped[int] = mapped_column(
+        ForeignKey("questions.id", ondelete="CASCADE"), index=True
+    )
+    author_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    content: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    question: Mapped[Question] = relationship(back_populates="comments")
+    author: Mapped[User] = relationship()
 
 
 class ReviewLog(Base):

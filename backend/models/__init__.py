@@ -1,5 +1,5 @@
 """数据模型层：ORM 与 Pydantic 契约。"""
-from backend.models.orm import Base, Question, ReviewLog, User
+from backend.models.orm import Base, Comment, Question, ReviewLog, User
 from backend.models.schemas import (
     AIProviderInfo,
     LoginResult,
@@ -12,6 +12,7 @@ from backend.models.schemas import (
 __all__ = [
     "AIProviderInfo",
     "Base",
+    "Comment",
     "LoginResult",
     "Question",
     "QuestionAnalysis",
