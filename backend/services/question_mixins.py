@@ -26,8 +26,10 @@ from backend.services.stats import (
     build_activity,
     build_calendar,
     build_tag_stats,
+    mastery_trend,
     study_streak,
     weak_tags,
+    weekly_report,
 )
 from backend.utils.logging import get_logger
 
@@ -688,6 +690,8 @@ class StatsMixin:
             "streak": study_streak(active_dates),
             "calendar": build_calendar(calendar_events),
             "accuracy_trend": build_accuracy_trend(logs),
+            "weekly": weekly_report(outs, logs),
+            "mastery_trend": mastery_trend(outs, logs),
             "tag_stats": tag_stats,
             "weak_tags": weak_tags(tag_stats),
             "activity": build_activity(outs),

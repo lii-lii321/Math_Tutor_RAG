@@ -84,6 +84,29 @@ def _render_accuracy_trend(trend: list[dict]) -> None:
     st.plotly_chart(line, width="stretch", config={"displayModeBar": False})
 
 
+def _render_mastery_trend(trend: list[dict]) -> None:
+    if not trend or all(p["mastery"] == 0 for p in trend):
+        st.caption("复习几道题后，这里会出现掌握度成长曲线。")
+        return
+    line = px.line(
+        x=[p["date"] for p in trend],
+        y=[p["mastery"] for p in trend],
+        markers=True,
+        labels={"x": "日期", "y": "掌握度%"},
+    )
+    line.update_traces(line_color="#059669", fill="tozeroy", fillcolor="rgba(5,150,105,0.08)")
+    line.update_layout(
+        margin=dict(t=10, b=10, l=10, r=10),
+        height=200,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(family="sans-serif", color="#334155"),
+        yaxis=dict(range=[0, 105], gridcolor="#e2e8f0"),
+        xaxis=dict(showgrid=False),
+    )
+    st.plotly_chart(line, width="stretch", config={"displayModeBar": False})
+
+
 def render_dashboard(user: dict) -> None:
     service = get_question_service()
     stats = service.dashboard_stats(user["id"], include_others=user["role"] == "teacher")
@@ -120,6 +143,18 @@ def render_dashboard(user: dict) -> None:
     with action_col3:
         if st.button("📒 打开错题本", width="stretch"):
             go_to("notebook")
+
+    weekly = stats.get("weekly", {})
+    if weekly:
+        accuracy_text = f"{weekly['accuracy']}%" if weekly.get("accuracy") is not None else "—"
+        st.markdown(
+            f"""<div class="mm-card" style="padding:0.8rem 1.2rem">
+            <strong>📣 本周周报</strong>　录入 <b>{weekly['created']}</b> 题 ·
+            复习 <b>{weekly['reviews']}</b> 次 · 正确率 <b>{accuracy_text}</b> ·
+            活跃 <b>{weekly['active_days']}</b> 天
+            </div>""",
+            unsafe_allow_html=True,
+        )
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -211,3 +246,5 @@ def render_dashboard(user: dict) -> None:
     with trend_col:
         page_header("复习正确率", "近 30 天 · 记得/秒懂占比")
         _render_accuracy_trend(stats["accuracy_trend"])
+        page_header("掌握度变化", "近 30 天 · 平均掌握度走势")
+        _render_mastery_trend(stats.get("mastery_trend", []))

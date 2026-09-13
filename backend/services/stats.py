@@ -175,3 +175,55 @@ def build_accuracy_trend(logs: list, days: int = 30, today: dt.date | None = Non
         }
         for day, bucket in sorted(per_day.items())
     ]
+
+
+def weekly_report(questions: list, logs: list, today: dt.date | None = None) -> dict:
+    """本周（周一起）学习周报：录入量、复习量、正确率、活跃天数。
+
+    questions/logs 为含 created_at / reviewed_at / grade 属性的鸭子类型。
+    """
+    today = today or dt.date.today()
+    monday = today - dt.timedelta(days=today.weekday())
+    created = [q for q in questions if q.created_at and _as_date(q.created_at) >= monday]
+    reviews = [log for log in logs if _as_date(log.reviewed_at) >= monday]
+    strong = sum(1 for log in reviews if log.grade in ("good", "easy"))
+    active_days = len(
+        {_as_date(q.created_at) for q in created}
+        | {_as_date(log.reviewed_at) for log in reviews}
+    )
+    return {
+        "created": len(created),
+        "reviews": len(reviews),
+        "accuracy": round(strong / len(reviews) * 100) if reviews else None,
+        "active_days": active_days,
+    }
+
+
+def mastery_trend(
+    questions: list, logs: list, days: int = 30, today: dt.date | None = None
+) -> list[dict]:
+    """近 N 天整体掌握度变化：按天回放「截至当日」的错题与复习记录。
+
+    掌握度 = 各标签掌握度的简单平均（与看板口径一致），百分制。
+    """
+    today = today or dt.date.today()
+    start = today - dt.timedelta(days=days - 1)
+    points: list[dict] = []
+    for offset in range(days):
+        day = start + dt.timedelta(days=offset)
+        qs = [q for q in questions if q.created_at and _as_date(q.created_at) <= day]
+        if not qs:
+            continue
+        day_logs: dict[int, list[tuple[str, float]]] = {}
+        for log in logs:
+            if _as_date(log.reviewed_at) <= day:
+                day_logs.setdefault(log.question_id, []).append(
+                    (log.grade, log.next_interval)
+                )
+        if not day_logs:
+            points.append({"date": day.strftime("%m-%d"), "mastery": 0})
+            continue
+        stats = build_tag_stats(qs, day_logs)
+        avg = sum(s.mastery for s in stats) / len(stats)
+        points.append({"date": day.strftime("%m-%d"), "mastery": round(avg * 100)})
+    return points
