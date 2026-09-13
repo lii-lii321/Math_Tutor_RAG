@@ -152,6 +152,17 @@ def export_questions(user: User = Depends(get_current_user)) -> dict:
     return _service().export_user_data(user.id)
 
 
+@router.get("/export/csv")
+def export_questions_csv(user: User = Depends(get_current_user)) -> Response:
+    """导出当前用户全部错题为 CSV（Excel 友好，UTF-8 BOM）。"""
+    csv_text = _service().export_user_csv(user.id)
+    return Response(
+        content=csv_text,
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="mathmaster_questions.csv"'},
+    )
+
+
 @router.get("/export/docx")
 def export_word_exam(
     tag: str | None = None,

@@ -37,12 +37,40 @@ def test_weekly_report_counts_this_week_only():
         _Log(2, dt.datetime(2026, 8, 30, 9, 0), "easy"),  # 上上周
     ]
     report = weekly_report(questions, logs, today=_TODAY)
-    assert report == {"created": 1, "reviews": 2, "accuracy": 50, "active_days": 2}
+    assert report["created"] == 1
+    assert report["reviews"] == 2
+    assert report["accuracy"] == 50
+    assert report["active_days"] == 2
+    # 上周（08-31..09-06）：Q2 创建于 09-01 属于上周；其复习在 08-30 属上上周
+    assert report["prev"]["created"] == 1
+    assert report["prev"]["reviews"] == 0
+
+
+def test_weekly_report_prev_week_bucket():
+    questions = [
+        _Q(1, dt.datetime(2026, 9, 8, 10, 0), ["代数"]),  # 本周
+        _Q(2, dt.datetime(2026, 9, 2, 10, 0), ["几何"]),  # 上周三
+    ]
+    logs = [_Log(2, dt.datetime(2026, 9, 3, 9, 0), "easy")]
+    report = weekly_report(questions, logs, today=_TODAY)
+    assert report["prev"]["created"] == 1
+    assert report["prev"]["reviews"] == 1
+    assert report["prev"]["accuracy"] == 100
+    assert report["reviews"] == 0
 
 
 def test_weekly_report_empty_week():
     report = weekly_report([], [], today=_TODAY)
-    assert report == {"created": 0, "reviews": 2 - 2, "accuracy": None, "active_days": 0}
+    assert report["created"] == 0
+    assert report["reviews"] == 0
+    assert report["accuracy"] is None
+    assert report["active_days"] == 0
+    assert report["prev"] == {
+        "created": 0,
+        "reviews": 0,
+        "accuracy": None,
+        "active_days": 0,
+    }
 
 
 def test_mastery_trend_grows_with_reviews():

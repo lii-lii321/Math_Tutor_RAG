@@ -184,8 +184,15 @@ class QuestionRepository:
         return int(self.session.execute(count_stmt).scalar_one())
 
     def due_for_review(self, user_id: int, now: dt.datetime | None = None) -> list[Question]:
-        questions = self.list_for_user(user_id)
-        return [q for q in questions if q.is_due(now)]
+        """到期错题（SQL 下推）；新题 due_at 为 NULL 视为立即到期。"""
+        now = now or dt.datetime.now(dt.timezone.utc)
+        stmt = (
+            select(Question)
+            .where(Question.user_id == user_id)
+            .where(or_(Question.due_at.is_(None), Question.due_at <= now))
+            .order_by(Question.created_at.desc())
+        )
+        return list(self.session.execute(stmt).scalars())
 
     def count_by_tag(self, questions: list[Question]) -> dict[str, int]:
         counter: dict[str, int] = {}

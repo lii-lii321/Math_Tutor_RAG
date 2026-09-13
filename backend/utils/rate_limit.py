@@ -39,3 +39,46 @@ class InMemoryRateLimiter:
 
     def reset(self, key: str) -> None:
         self._failures.pop(key, None)
+
+
+class RedisRateLimiter:
+    """Redis 固定窗口实现：多实例部署共享计数。
+
+    依赖 redis 包（pip install redis）。使用 INCR + 首次过期实现窗口计数。
+    """
+
+    def __init__(
+        self,
+        redis_url: str = "redis://localhost:6379/0",
+        max_failures: int = 5,
+        window_seconds: int = 300,
+        client=None,
+    ):
+        self.max_failures = max_failures
+        self.window_seconds = window_seconds
+        if client is not None:
+            self._client = client
+        else:
+            try:
+                import redis
+            except ImportError as exc:  # pragma: no cover
+                raise ImportError(
+                    "RedisRateLimiter 需要 redis 包：pip install redis"
+                ) from exc
+            self._client = redis.Redis.from_url(redis_url, decode_responses=True)
+
+    def _key(self, key: str) -> str:
+        return f"mathmaster:login_fail:{key}"
+
+    def is_locked(self, key: str) -> bool:
+        count = self._client.get(self._key(key))
+        return int(count or 0) >= self.max_failures
+
+    def record_failure(self, key: str) -> None:
+        pipe = self._client.pipeline()
+        pipe.incr(self._key(key))
+        pipe.expire(self._key(key), self.window_seconds, nx=True)
+        pipe.execute()
+
+    def reset(self, key: str) -> None:
+        self._client.delete(self._key(key))

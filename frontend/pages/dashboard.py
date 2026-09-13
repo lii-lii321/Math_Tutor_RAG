@@ -147,10 +147,17 @@ def render_dashboard(user: dict) -> None:
     weekly = stats.get("weekly", {})
     if weekly:
         accuracy_text = f"{weekly['accuracy']}%" if weekly.get("accuracy") is not None else "—"
+        prev = weekly.get("prev") or {}
+        delta = ""
+        prev_reviews = prev.get("reviews")
+        if prev_reviews:
+            diff = weekly.get("reviews", 0) - prev_reviews
+            arrow = "↑" if diff > 0 else ("↓" if diff < 0 else "＝")
+            delta = f"（复习量较上周 {arrow} {abs(diff)}）"
         st.markdown(
             f"""<div class="mm-card" style="padding:0.8rem 1.2rem">
             <strong>📣 本周周报</strong>　录入 <b>{weekly['created']}</b> 题 ·
-            复习 <b>{weekly['reviews']}</b> 次 · 正确率 <b>{accuracy_text}</b> ·
+            复习 <b>{weekly['reviews']}</b> 次{delta} · 正确率 <b>{accuracy_text}</b> ·
             活跃 <b>{weekly['active_days']}</b> 天
             </div>""",
             unsafe_allow_html=True,

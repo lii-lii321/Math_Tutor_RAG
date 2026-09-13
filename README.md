@@ -8,7 +8,7 @@
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.49%2B-ff4b4b)
 ![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-d71f00)
 ![ChromaDB](https://img.shields.io/badge/RAG-ChromaDB-4051b5)
-![Tests](https://img.shields.io/badge/tests-98%20passing-2ea44f)
+![Tests](https://img.shields.io/badge/tests-140%20passing%20%2B%203%20E2E-2ea44f)
 [![CI](https://github.com/lii-lii321/Math_Tutor_RAG/actions/workflows/ci.yml/badge.svg)](https://github.com/lii-lii321/Math_Tutor_RAG/actions/workflows/ci.yml)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -28,9 +28,11 @@
 | 🔐 **生产级安全** | bcrypt 密码哈希、登录失败延迟、JWT 认证、Pydantic 入参校验、SQL 参数化查询 |
 | 🔌 **FastAPI 网关** | 与 Streamlit 共享同一套 backend 服务的 REST API（JWT + OpenAPI 文档），Web / 小程序 / 脚本多端复用 |
 | 🧩 **知识图谱** | 标签共现力导向图，直观呈现知识点之间的关联结构 |
-| 👨‍🏫 **教师端** | 学生总览：全班错题量/待复习/掌握度/最近活跃，逐个查看学生知识点分布 |
-| 📅 **学习日历** | 90 天热力图 + 近 30 天复习正确率趋势 + 连续学习天数 |
-| 🧪 **工程化** | pytest 41 用例、ruff、GitHub Actions CI（lint + 3 版本矩阵测试 + Docker 构建）、Docker Compose 一键部署 |
+| 👨‍🏫 **教师端** | 学生总览：全班错题量/待复习/掌握度/最近活跃，逐个查看学生知识点分布；错题批注 |
+| 📅 **学习日历** | 90 天热力图 + 复习正确率趋势 + 掌握度成长曲线 + 连续学习打卡 + 周报环比 |
+| ⌨️ **高效复习** | 键盘快捷键（空格/1-4）、评分间隔预览、跳过、掌握归档（🏆）、复习历史 |
+| 🌙 **体验细节** | 深色模式、PWA 可安装、OCR 原图搜索（可选）、MUJI 极简界面 |
+| 🧪 **工程化** | pytest 140 用例 + Playwright E2E、ruff、覆盖率 ~92%、CI（lint + 3 版本矩阵 + 启动冒烟 + E2E + Docker）、Alembic 迁移、Docker Compose 一键部署 |
 
 ## 🏗️ 架构 (Architecture)
 

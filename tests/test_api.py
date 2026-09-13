@@ -236,6 +236,16 @@ def test_students_overview_api(client):
     assert denied.status_code == 403
 
 
+def test_export_csv_endpoint(client):
+    headers = _auth_header(client, "api_user", "secret1")
+    resp = client.get("/api/questions/export/csv", headers=headers)
+    assert resp.status_code == 200
+    assert resp.text.startswith("﻿")  # UTF-8 BOM，Excel 中文兼容
+    header_row = resp.text.splitlines()[0]
+    for column in ("id", "created_at", "difficulty", "tags", "answer", "content"):
+        assert column in header_row
+
+
 def test_stats_endpoints(client):
     headers = _auth_header(client, "api_user", "secret1")
     dash = client.get("/api/stats/dashboard", headers=headers)

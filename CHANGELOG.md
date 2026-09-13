@@ -2,6 +2,43 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/)。
 
+## [2.2.0] - 2026-09-13
+
+### 新增
+- **键盘快捷键（复习页）**：空格/回车显示解析，1/2/3/4 对应四种评分
+- **复习页内编辑**：发现解析有误可直接修改（编辑表单抽取为共享组件）
+- **OCR 文字层（可选）**：录题时识别原图文字入库（`OCR_ENABLED=true` + `pip install rapidocr-onnxruntime`），原图手写题面可被关键词/语义搜索命中
+- **变式题一键入库**：举一反三的变式练习可存为新错题，进入复习循环
+- **搜索命中预览**：详情页显示关键词首个命中片段（转义高亮）
+- **学生周报（含环比）**：看板横幅展示本周录入/复习/正确率/活跃天数，附上周对比
+- **掌握度 30 天趋势曲线**：按天回放历史复习记录计算
+- **教师批注**：错题下的留言（`comments` 表 + 迁移 + 服务 + `GET/POST/DELETE /api/questions/{id}/comments`），作者本人或教师可删
+- **深色模式**：设置页会话级切换（MUJI 暗色 CSS 覆盖）
+- **PDF 导出**：reportlab + 内置 CID 中文字体，题目在前、卷末参考答案
+- **CSV 导出（API）**：`GET /api/questions/export/csv`（UTF-8 BOM）
+- **限流器接口化**：`RateLimiter` Protocol + `InMemoryRateLimiter` / `RedisRateLimiter`（多实例部署即插即用）
+- **PWA**：manifest + 最小 Service Worker（可添加到主屏幕）
+- **i18n 框架**：`frontend/i18n.py` 集中文案 + `t()` 回退机制（导航已接入）
+- **Sentry 接入点**：配置 `SENTRY_DSN` 即启用（可选依赖）
+
+### 变更
+- **QuestionService 拆分**：662 行单类按领域拆为 7 个 Mixin 组合（录入/查询/编辑标签/复习/备份/统计/核心），公共 API 零改动
+- **到期查询 SQL 下推**：`due_for_review` 不再全量加载后过滤
+- **列表检索 SQL 下推**：标签/关键词过滤下推到 SQL；JSON 列改用非转义 UTF-8 存储（修复中文标签 LIKE 失配）
+- **前端迁移**：37 处弃用的 `use_container_width` 全部迁移到 `width` API
+- 可复用展示组件集中到 `frontend/components.py`；文案集中到 `frontend/i18n.py`
+
+### 修复
+- `rag_top_k` 配置被 `semantic_search` 默认参数永久覆盖
+- 插入 Comment 模型时 `Question.is_due` 方法错位导致复习流程崩溃
+- 批注列表跨会话惰性加载抛 `DetachedInstanceError`（改为同查询取齐 role）
+- 教师看板「待复习/已掌握」混入学生错题的口径问题
+
+### 工程化
+- **Playwright E2E 入 CI**：登录/导航/教师页/AI 录题全流程/追问对话 5 条冒烟；失败自动截图上传 artifact——首跑即暴露 `streamlit-agraph` 缺失于 requirements 的打包问题
+- Alembic 迁移：baseline / ocr_text / comments 三个迁移 + 空库冒烟测试
+- CI 新增 boot-smoke 内 E2E 步骤与前端依赖版本诊断输出
+
 ## [2.1.0] - 2026-09-08 ~ 2026-09-13
 
 ### 新增

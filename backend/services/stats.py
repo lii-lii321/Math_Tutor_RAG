@@ -178,25 +178,33 @@ def build_accuracy_trend(logs: list, days: int = 30, today: dt.date | None = Non
 
 
 def weekly_report(questions: list, logs: list, today: dt.date | None = None) -> dict:
-    """本周（周一起）学习周报：录入量、复习量、正确率、活跃天数。
+    """本周（周一起）学习周报 + 上周对比。
 
     questions/logs 为含 created_at / reviewed_at / grade 属性的鸭子类型。
+    返回本周指标（created/reviews/accuracy/active_days）与 prev（上周同口径）。
     """
     today = today or dt.date.today()
-    monday = today - dt.timedelta(days=today.weekday())
-    created = [q for q in questions if q.created_at and _as_date(q.created_at) >= monday]
-    reviews = [log for log in logs if _as_date(log.reviewed_at) >= monday]
-    strong = sum(1 for log in reviews if log.grade in ("good", "easy"))
-    active_days = len(
-        {_as_date(q.created_at) for q in created}
-        | {_as_date(log.reviewed_at) for log in reviews}
-    )
-    return {
-        "created": len(created),
-        "reviews": len(reviews),
-        "accuracy": round(strong / len(reviews) * 100) if reviews else None,
-        "active_days": active_days,
-    }
+    this_monday = today - dt.timedelta(days=today.weekday())
+    last_monday = this_monday - dt.timedelta(days=7)
+
+    def _bucket(begin: dt.date, end: dt.date) -> dict:
+        created = [q for q in questions if q.created_at and begin <= _as_date(q.created_at) < end]
+        reviews = [log for log in logs if begin <= _as_date(log.reviewed_at) < end]
+        strong = sum(1 for log in reviews if log.grade in ("good", "easy"))
+        active_days = len(
+            {_as_date(q.created_at) for q in created}
+            | {_as_date(log.reviewed_at) for log in reviews}
+        )
+        return {
+            "created": len(created),
+            "reviews": len(reviews),
+            "accuracy": round(strong / len(reviews) * 100) if reviews else None,
+            "active_days": active_days,
+        }
+
+    this_week = _bucket(this_monday, today + dt.timedelta(days=1))
+    prev_week = _bucket(last_monday, this_monday)
+    return {**this_week, "prev": prev_week}
 
 
 def mastery_trend(
