@@ -26,6 +26,10 @@ st.set_page_config(
 )
 load_css()
 
+from frontend.theme import apply_theme  # noqa: E402  需在基础样式之后注入
+
+apply_theme()
+
 
 _PAGES = {
     "学情看板": "dashboard",

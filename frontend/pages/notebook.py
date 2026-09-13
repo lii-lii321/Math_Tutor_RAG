@@ -5,7 +5,7 @@ import datetime as dt
 
 import streamlit as st
 
-from backend.services.export import generate_word_exam
+from backend.services.export import generate_pdf_exam, generate_word_exam
 from backend.services.question_service import sanitize_tags
 from frontend.common import (
     edit_question_form,
@@ -121,7 +121,7 @@ def render_notebook_page(user: dict) -> None:
 
         st.markdown("<br>", unsafe_allow_html=True)
         if questions:
-            exp_col1, exp_col2 = st.columns(2)
+            exp_col1, exp_col2, exp_col3 = st.columns(3)
             with exp_col1:
                 redo_io = generate_word_exam(questions, "错题复习卷", mode="redo", answer_key=True)
                 st.download_button(
@@ -142,6 +142,16 @@ def render_notebook_page(user: dict) -> None:
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     width="stretch",
                     help="含完整解析、答案与变式练习",
+                )
+            with exp_col3:
+                pdf_io = generate_pdf_exam(questions, "错题复习卷")
+                st.download_button(
+                    "导出 PDF（打印友好）",
+                    data=pdf_io,
+                    file_name=f"错题复习卷_{dt.date.today():%Y%m%d}.pdf",
+                    mime="application/pdf",
+                    width="stretch",
+                    help="题目在前、卷末参考答案，任何设备可打开",
                 )
 
     if not questions:

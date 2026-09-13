@@ -22,6 +22,12 @@ def render_settings_page(user: dict) -> None:
 
     with col_account:
         with st.container(border=True):
+            st.markdown("#### 外观")
+            dark = st.toggle("深色模式", value=st.session_state.get("dark_mode", False))
+            if dark != st.session_state.get("dark_mode"):
+                st.session_state["dark_mode"] = dark
+                st.rerun()
+            st.caption("会话级设置，刷新后恢复默认浅色。")
             st.markdown("#### 账号")
             st.markdown(
                 f"""

@@ -84,3 +84,78 @@ def generate_word_exam(
     doc.save(stream)
     stream.seek(0)
     return stream
+
+
+def html_escape(text: str) -> str:
+    """HTML 转义并把换行转为 <br/>（reportlab Paragraph 需要）。"""
+    import html as _html
+
+    return _html.escape(text).replace("\n", "<br/>")
+
+
+def generate_pdf_exam(
+    questions: list[QuestionOut],
+    exam_title: str = "错题复习卷",
+    include_answers: bool = True,
+) -> io.BytesIO:
+    """PDF 复习卷：题目（原图/题面）在前，卷末参考答案。中文用内置 CID 字体。"""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import cm
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+    from reportlab.platypus import Image as RLImage
+    from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer
+
+    pdfmetrics.registerFont(UnicodeCIDFont("STSong-Light"))
+    stream = io.BytesIO()
+
+    doc = SimpleDocTemplate(stream, pagesize=A4, title=exam_title, author="MathMaster Edu")
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "CNTitle", parent=styles["Title"], fontName="STSong-Light", fontSize=18
+    )
+    body_style = ParagraphStyle(
+        "CNBody", parent=styles["Normal"], fontName="STSong-Light", fontSize=11, leading=16
+    )
+    meta_style = ParagraphStyle(
+        "CNMeta", parent=body_style, fontSize=9, textColor="#64748b"
+    )
+
+    story: list = [
+        Paragraph(exam_title, title_style),
+        Paragraph(
+            f"共 {len(questions)} 题 · MathMaster Edu 生成 · {dt.date.today():%Y-%m-%d}",
+            meta_style,
+        ),
+        Spacer(1, 0.5 * cm),
+    ]
+
+    for idx, question in enumerate(questions, 1):
+        story.append(
+            Paragraph(
+                f"<b>第 {idx} 题</b>　[{question.difficulty}]　{' / '.join(question.tags)}",
+                body_style,
+            )
+        )
+        if question.image_path and os.path.exists(question.image_path):
+            try:
+                story.append(RLImage(question.image_path, width=10 * cm, height=7 * cm))
+            except Exception:  # noqa: BLE001 - 图片损坏不阻断导出
+                story.append(Paragraph("(原图缺失)", body_style))
+        else:
+            story.append(Paragraph(html_escape(question.content_markdown[:600]), body_style))
+        story.append(Spacer(1, 0.8 * cm))
+
+    if include_answers:
+        story.append(PageBreak())
+        story.append(Paragraph("参考答案", title_style))
+        for idx, question in enumerate(questions, 1):
+            story.append(
+                Paragraph(f"<b>第 {idx} 题：</b>{html_escape(question.answer or '—')}", body_style)
+            )
+            story.append(Spacer(1, 0.25 * cm))
+
+    doc.build(story)
+    stream.seek(0)
+    return stream

@@ -97,6 +97,28 @@ def test_broken_image_does_not_break_export():
     assert data[:2] == b"PK"
 
 
+def test_pdf_export_with_answers():
+    from backend.services.export import generate_pdf_exam
+
+    questions = [
+        _question(1, ["几何"]).model_copy(update={"answer": "答案甲"}),
+        _question(2, ["代数"]).model_copy(update={"answer": "答案乙", "image_path": None}),
+    ]
+    data = generate_pdf_exam(questions, "PDF 测试卷", include_answers=True).getvalue()
+    assert data[:4] == b"%PDF"
+    assert len(data) > 1000
+
+
+def test_pdf_export_without_answers_smaller():
+    from backend.services.export import generate_pdf_exam
+
+    questions = [_question(1, ["几何"]).model_copy(update={"answer": "答案甲"})]
+    with_answers = generate_pdf_exam(questions, "t", include_answers=True).getvalue()
+    without = generate_pdf_exam(questions, "t", include_answers=False).getvalue()
+    assert without[:4] == b"%PDF"
+    assert len(without) < len(with_answers)
+
+
 def test_tag_stats_counts_and_mastery_default_zero():
     questions = [_question(1, ["几何"]), _question(2, ["几何", "代数"])]
     stats = build_tag_stats(questions)
