@@ -4,6 +4,7 @@ SQLAlchemy 2.0 风格；默认 SQLite 零配置启动，通过 DATABASE_URL 可�
 """
 from __future__ import annotations
 
+import json
 from collections.abc import Iterator
 from contextlib import contextmanager
 
@@ -20,7 +21,12 @@ logger = get_logger("database")
 
 
 def _build_engine(url: str) -> Engine:
-    kwargs: dict = {"pool_pre_ping": True, "future": True}
+    kwargs: dict = {
+        "pool_pre_ping": True,
+        "future": True,
+        # JSON 列以非转义 UTF-8 存储：可读，且 LIKE 检索能命中中文标签
+        "json_serializer": lambda obj: json.dumps(obj, ensure_ascii=False),
+    }
     if url.startswith("sqlite"):
         # busy timeout：多线程（Streamlit rerun / 并发请求）下等待写锁而非立刻报错
         kwargs["connect_args"] = {"check_same_thread": False, "timeout": 30}

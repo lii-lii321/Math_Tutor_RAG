@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     debug: bool = False
     data_dir: Path = PROJECT_ROOT / "data"
 
+    # ---------- 观测（可选）----------
+    # 配置 SENTRY_DSN 后自动启用错误上报（需 pip install sentry-sdk）
+    sentry_dsn: str = ""
+    sentry_traces_sample_rate: float = Field(default=0.0, ge=0.0, le=1.0)
+
     # ---------- 数据库 ----------
     # SQLite 开箱即用；切换 MySQL 示例：
     # DATABASE_URL=mysql+pymysql://user:password@localhost:3306/math_tutor?charset=utf8mb4

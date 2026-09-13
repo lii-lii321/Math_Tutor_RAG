@@ -1,0 +1,16 @@
+{
+  "name": "MathMaster Edu",
+  "short_name": "MathMaster",
+  "description": "基于视觉大模型与 RAG 的智能错题本",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "app/static/icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}

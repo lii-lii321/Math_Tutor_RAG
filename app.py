@@ -26,22 +26,45 @@ st.set_page_config(
 )
 load_css()
 
+from frontend.i18n import t  # noqa: E402
 from frontend.theme import apply_theme  # noqa: E402  需在基础样式之后注入
 
 apply_theme()
 
+# PWA：manifest 与 Service Worker（静态目录 .streamlit/static/）
+st.markdown(
+    '<link rel="manifest" href="app/static/manifest.json">',
+    unsafe_allow_html=True,
+)
+try:
+    import streamlit.components.v1 as components
+
+    components.html(
+        """
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('app/static/sw.js').catch(function () {});
+}
+</script>
+""",
+        height=0,
+    )
+except Exception:  # noqa: BLE001 - SW 注册失败不影响应用
+    pass
+
 
 _PAGES = {
-    "学情看板": "dashboard",
-    "AI 录题": "tutor",
-    "错题本": "notebook",
-    "今日复习": "review",
-    "知识图谱": "graph",
-    "设置": "settings",
+    t("nav.dashboard"): "dashboard",
+    t("nav.tutor"): "tutor",
+    t("nav.notebook"): "notebook",
+    t("nav.review"): "review",
+    t("nav.graph"): "graph",
+    t("nav.settings"): "settings",
 }
 
+
 _TEACHER_PAGES = {
-    "学生总览": "students",
+    t("nav.students"): "students",
 }
 
 
@@ -100,7 +123,7 @@ def _render_sidebar(user: dict) -> str:
             logout_user()
             st.rerun()
     all_pages = {**visible}
-    return all_pages.get(menu or "学情看板", "dashboard")
+    return all_pages.get(menu or t("nav.dashboard"), "dashboard")
 
 
 def main() -> None:

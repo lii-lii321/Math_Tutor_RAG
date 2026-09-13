@@ -9,11 +9,34 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.routers import auth, comments, questions, review, stats, tags
-from backend.config import get_settings
+from backend.config import Settings, get_settings
+from backend.utils.logging import get_logger
+
+logger = get_logger("api")
+
+
+def _init_sentry(settings: Settings) -> None:
+    """可选的错误上报：配置 SENTRY_DSN 后启用（依赖缺失时仅告警）。"""
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.fastapi import FastApiIntegration
+
+        sentry_sdk.init(
+            dsn=settings.sentry_dsn,
+            traces_sample_rate=settings.sentry_traces_sample_rate,
+            release=f"mathmaster@{settings.app_version}",
+            integrations=[FastApiIntegration()],
+        )
+        logger.info("Sentry 已启用")
+    except ImportError:
+        logger.warning("SENTRY_DSN 已配置但 sentry-sdk 未安装：pip install sentry-sdk[fastapi]")
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    if settings.sentry_dsn:
+        _init_sentry(settings)
+
     app = FastAPI(
         title=f"{settings.app_name} API",
         version=settings.app_version,

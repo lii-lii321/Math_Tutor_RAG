@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-from sqlalchemy import delete, select
+from sqlalchemy import String, delete, func, or_, select
 from sqlalchemy.orm import Session
 
 from backend.models.orm import Question, ReviewLog
@@ -118,6 +118,37 @@ class QuestionRepository:
             ).scalars()
         )
 
+    def _filtered_stmt(
+        self,
+        user_id: int,
+        *,
+        include_others: bool = False,
+        tag: str | None = None,
+        keyword: str | None = None,
+    ):
+        """构造带归属/标签/关键词过滤的查询（过滤全部下推到 SQL）。
+
+        tags / knowledge_points 为 JSON 列，SQLite 与 MySQL 均以文本存储，
+        用 LIKE 匹配带引号的标签即可精确命中。
+        """
+        stmt = select(Question).order_by(Question.created_at.desc())
+        if not include_others:
+            stmt = stmt.where(Question.user_id == user_id)
+        if tag:
+            stmt = stmt.where(Question.tags.cast(String).contains(f'"{tag}"'))
+        if keyword:
+            like = f"%{keyword}%"
+            stmt = stmt.where(
+                or_(
+                    Question.content_markdown.ilike(like),
+                    Question.answer.ilike(like),
+                    Question.ocr_text.ilike(like),
+                    Question.tags.cast(String).ilike(like),
+                    Question.knowledge_points.cast(String).ilike(like),
+                )
+            )
+        return stmt
+
     def list_for_user(
         self,
         user_id: int,
@@ -128,29 +159,14 @@ class QuestionRepository:
         offset: int = 0,
         limit: int | None = None,
     ) -> list[Question]:
-        stmt = select(Question).order_by(Question.created_at.desc())
-        if not include_others:
-            stmt = stmt.where(Question.user_id == user_id)
-        questions = list(self.session.execute(stmt).scalars())
-
-        if tag:
-            questions = [q for q in questions if tag in (q.tags or [])]
-        if keyword:
-            kw = keyword.lower()
-            questions = [
-                q
-                for q in questions
-                if kw in (q.content_markdown or "").lower()
-                or kw in (q.answer or "").lower()
-                or kw in (q.ocr_text or "").lower()
-                or any(kw in str(t).lower() for t in (q.tags or []))
-                or any(kw in str(t).lower() for t in (q.knowledge_points or []))
-            ]
+        stmt = self._filtered_stmt(
+            user_id, include_others=include_others, tag=tag, keyword=keyword
+        )
         if offset:
-            questions = questions[offset:]
+            stmt = stmt.offset(offset)
         if limit is not None:
-            questions = questions[:limit]
-        return questions
+            stmt = stmt.limit(limit)
+        return list(self.session.execute(stmt).scalars())
 
     def count_for_user(
         self,
@@ -160,12 +176,12 @@ class QuestionRepository:
         tag: str | None = None,
         keyword: str | None = None,
     ) -> int:
-        """与 list_for_user 相同口径的总数（供分页使用）。"""
-        return len(
-            self.list_for_user(
-                user_id, include_others=include_others, tag=tag, keyword=keyword
-            )
+        """与 list_for_user 相同口径的总数（供分页使用，SQL 计数）。"""
+        stmt = self._filtered_stmt(
+            user_id, include_others=include_others, tag=tag, keyword=keyword
         )
+        count_stmt = select(func.count()).select_from(stmt.subquery())
+        return int(self.session.execute(count_stmt).scalar_one())
 
     def due_for_review(self, user_id: int, now: dt.datetime | None = None) -> list[Question]:
         questions = self.list_for_user(user_id)
