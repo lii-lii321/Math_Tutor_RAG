@@ -11,7 +11,11 @@ import os
 import time
 
 import pytest
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
+try:
+    from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+except ImportError:  # 非 E2E 环境（未安装 playwright）仅收集不运行
+    PlaywrightTimeoutError = TimeoutError  # type: ignore[misc,assignment]
 
 pytestmark = [
     pytest.mark.e2e,
