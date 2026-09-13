@@ -71,7 +71,7 @@ def render_review_page(user: dict) -> None:
             days_ago = (dt.datetime.now(dt.timezone.utc) - last).days
             st.caption(f"上次复习：{days_ago} 天前 · 已连续记牢 {question.reps} 次")
         if question.image_path:
-            st.image(question.image_path, use_container_width=False, width=460)
+            st.image(question.image_path, width=460)
         else:
             st.markdown(question.content_markdown[:220], unsafe_allow_html=True)
             st.caption("（手动录入题，请先回忆解法）")
@@ -93,7 +93,7 @@ def render_review_page(user: dict) -> None:
                         ease=question.ease,
                         interval_days=question.interval_days,
                     )
-                    if st.button(_GRADE_LABELS[grade], key=f"grade_{grade}", use_container_width=True):
+                    if st.button(_GRADE_LABELS[grade], key=f"grade_{grade}", width="stretch"):
                         updated = service.grade_review(question.id, user["id"], grade)
                         st.session_state[reveal_key] = False
                         session_stats = st.session_state[session_key]
@@ -111,7 +111,7 @@ def render_review_page(user: dict) -> None:
         else:
             skip_col, _ = st.columns([1, 2])
             with skip_col:
-                if st.button("⏭️ 先跳过这道", use_container_width=True):
+                if st.button("⏭️ 先跳过这道", width="stretch"):
                     st.session_state[idx_key] = (cursor + 1) % len(due)
                     st.rerun()
 
@@ -134,7 +134,7 @@ def render_review_page(user: dict) -> None:
                 }
                 for h in history
             ]
-            st.dataframe(rows, use_container_width=True, hide_index=True)
+            st.dataframe(rows, width="stretch", hide_index=True)
 
     with st.expander("SM-2 评分说明"):
         st.markdown(

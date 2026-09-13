@@ -92,7 +92,7 @@ def _render_sidebar(user: dict) -> str:
             """,
             unsafe_allow_html=True,
         )
-        if st.button("退出登录", use_container_width=True):
+        if st.button("退出登录", width="stretch"):
             logout_user()
             st.rerun()
     all_pages = {**visible}

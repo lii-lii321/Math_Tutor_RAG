@@ -118,7 +118,7 @@ def render_notebook_page(user: dict) -> None:
                     data=redo_io,
                     file_name=f"错题复习卷_重做版_{dt.date.today():%Y%m%d}.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    use_container_width=True,
+                    width="stretch",
                     type="primary",
                     help="只含题目与答题留白，卷末附参考答案，适合打印重做",
                 )
@@ -129,7 +129,7 @@ def render_notebook_page(user: dict) -> None:
                     data=detail_io,
                     file_name=f"错题详解卷_{dt.date.today():%Y%m%d}.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    use_container_width=True,
+                    width="stretch",
                     help="含完整解析、答案与变式练习",
                 )
 
@@ -145,10 +145,10 @@ def render_notebook_page(user: dict) -> None:
         )
         c1, c2 = st.columns(2)
         with c1:
-            if st.button("📸 去 AI 录题", use_container_width=True):
+            if st.button("📸 去 AI 录题", width="stretch"):
                 go_to("tutor")
         with c2:
-            if st.button("清除筛选条件", use_container_width=True):
+            if st.button("清除筛选条件", width="stretch"):
                 st.session_state.pop("notebook_search", None)
                 st.session_state.pop("notebook_tag", None)
                 st.session_state.pop("notebook_page", None)
@@ -167,7 +167,7 @@ def render_notebook_page(user: dict) -> None:
 
     nav_l, nav_c, nav_r = st.columns([1, 2, 1])
     with nav_l:
-        if st.button("← 上一页", disabled=page_index == 0, use_container_width=True):
+        if st.button("← 上一页", disabled=page_index == 0, width="stretch"):
             st.session_state[page_key] -= 1
             st.rerun()
     with nav_c:
@@ -178,7 +178,7 @@ def render_notebook_page(user: dict) -> None:
         )
     with nav_r:
         if st.button(
-            "下一页 →", disabled=page_index >= page_count - 1, use_container_width=True
+            "下一页 →", disabled=page_index >= page_count - 1, width="stretch"
         ):
             st.session_state[page_key] += 1
             st.rerun()
@@ -220,7 +220,7 @@ def render_notebook_page(user: dict) -> None:
                 data=redo_io,
                 file_name="错题精选复习卷_重做版.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                use_container_width=True,
+                width="stretch",
             )
             detail_io = generate_word_exam(selected, "错题精选详解卷", mode="detailed")
             st.download_button(
@@ -228,13 +228,13 @@ def render_notebook_page(user: dict) -> None:
                 data=detail_io,
                 file_name="错题精选详解卷.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                use_container_width=True,
+                width="stretch",
             )
         with act_col3:
             new_tag = st.text_input(
                 "追加标签", placeholder="例如：月考重点", key="batch_tag"
             )
-            if st.button("为选中追加标签", use_container_width=True) and new_tag.strip():
+            if st.button("为选中追加标签", width="stretch") and new_tag.strip():
                 changed = service.add_tags_to_many(
                     selected_ids, user["id"], sanitize_tags(new_tag)
                 )
@@ -253,7 +253,7 @@ def _render_question_detail(service, q, user) -> None:
         img_col, content_col = st.columns([2, 3])
         with img_col:
             if q.image_path and os.path.exists(q.image_path):
-                st.image(q.image_path, use_container_width=True)
+                st.image(q.image_path, width="stretch")
             else:
                 st.caption("无原图（手动录入）")
             badges = " ".join(f"<span class='mm-badge'>{t}</span>" for t in q.tags)
@@ -280,7 +280,7 @@ def _render_question_detail(service, q, user) -> None:
             _grade_labels = {"again": "😵 忘了", "hard": "😅 勉强", "good": "🙂 记得", "easy": "😎 秒懂"}
             for col, grade in zip(grade_cols, ("again", "hard", "good", "easy"), strict=False):
                 with col:
-                    if st.button(_grade_labels[grade], key=f"nb_grade_{q.id}_{grade}", use_container_width=True):
+                    if st.button(_grade_labels[grade], key=f"nb_grade_{q.id}_{grade}", width="stretch"):
                         updated = service.grade_review(q.id, user["id"], grade)
                         if updated is None:
                             st.toast("只能重测自己的错题", icon="⚠️")

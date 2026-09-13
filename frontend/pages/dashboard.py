@@ -58,7 +58,7 @@ def _render_calendar(calendar: dict) -> None:
     )
     fig.update_xaxes(tickangle=0, tickfont=dict(size=9))
     fig.update_yaxes(tickfont=dict(size=9))
-    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
 
 def _render_accuracy_trend(trend: list[dict]) -> None:
@@ -81,7 +81,7 @@ def _render_accuracy_trend(trend: list[dict]) -> None:
         yaxis=dict(range=[0, 105], gridcolor="#e2e8f0"),
         xaxis=dict(showgrid=False),
     )
-    st.plotly_chart(line, use_container_width=True, config={"displayModeBar": False})
+    st.plotly_chart(line, width="stretch", config={"displayModeBar": False})
 
 
 def render_dashboard(user: dict) -> None:
@@ -112,13 +112,13 @@ def render_dashboard(user: dict) -> None:
 
     action_col1, action_col2, action_col3, _ = st.columns([1, 1, 1, 1])
     with action_col1:
-        if st.button("🎬 开始复习", type="primary", use_container_width=True, disabled=stats["due"] == 0):
+        if st.button("🎬 开始复习", type="primary", width="stretch", disabled=stats["due"] == 0):
             go_to("review")
     with action_col2:
-        if st.button("📸 录一道错题", use_container_width=True):
+        if st.button("📸 录一道错题", width="stretch"):
             go_to("tutor")
     with action_col3:
-        if st.button("📒 打开错题本", use_container_width=True):
+        if st.button("📒 打开错题本", width="stretch"):
             go_to("notebook")
 
     st.markdown("<br>", unsafe_allow_html=True)
@@ -149,7 +149,7 @@ def render_dashboard(user: dict) -> None:
             bar_fig.update_yaxes(autorange="reversed")
             event = st.plotly_chart(
                 bar_fig,
-                use_container_width=True,
+                width="stretch",
                 on_select="rerun",
                 key="tag_bar",
                 config={"displayModeBar": False},
@@ -179,7 +179,7 @@ def render_dashboard(user: dict) -> None:
                     """,
                     unsafe_allow_html=True,
                 )
-            if st.button("📚 去错题本复习最薄弱的知识点", use_container_width=True):
+            if st.button("📚 去错题本复习最薄弱的知识点", width="stretch"):
                 go_to("notebook", tag=stats["weak_tags"][0].tag)
         else:
             st.caption("复习几道题后，这里会生成掌握度分析。")
@@ -202,7 +202,7 @@ def render_dashboard(user: dict) -> None:
         xaxis=dict(type="category", showgrid=False),
         yaxis=dict(dtick=1, range=[0, max(3, max(a["count"] for a in activity) + 1)], gridcolor="#e2e8f0"),
     )
-    st.plotly_chart(bar, use_container_width=True, config={"displayModeBar": False})
+    st.plotly_chart(bar, width="stretch", config={"displayModeBar": False})
 
     cal_col, trend_col = st.columns([3, 2])
     with cal_col:

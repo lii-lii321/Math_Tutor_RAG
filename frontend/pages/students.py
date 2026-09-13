@@ -78,7 +78,7 @@ def render_students_page(user: dict) -> None:
         }
         for r in rows
     ]
-    st.dataframe(table_data, use_container_width=True, hide_index=True)
+    st.dataframe(table_data, width="stretch", hide_index=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
     page_header("逐个查看", "展开学生查看其知识点掌握情况，或直达其错题本视图")
@@ -90,7 +90,7 @@ def render_students_page(user: dict) -> None:
         with st.expander(f"👤 {r['username']} · {r['total']} 题 · 掌握度 {int(r['mastery'] * 100)}%"):
             col_btn, col_info = st.columns([1, 2])
             with col_btn:
-                if st.button("查看错题本", key=f"view_{r['user_id']}", use_container_width=True):
+                if st.button("查看错题本", key=f"view_{r['user_id']}", width="stretch"):
                     go_to("notebook", student=r["username"])
             with col_info:
                 questions = service.list_questions(r["user_id"], semantic=False)

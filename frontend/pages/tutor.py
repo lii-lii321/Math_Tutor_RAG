@@ -30,7 +30,7 @@ def render_tutor_page(user: dict) -> None:
                     preview_cols = st.columns(min(len(uploads), 4))
                     for i, upload in enumerate(uploads[:4]):
                         with preview_cols[i]:
-                            st.image(upload.getvalue(), use_container_width=True, caption=upload.name)
+                            st.image(upload.getvalue(), width="stretch", caption=upload.name)
                     if len(uploads) > 4:
                         st.caption(f"已选择 {len(uploads)} 张图片")
             with col_meta:
@@ -41,7 +41,7 @@ def render_tutor_page(user: dict) -> None:
                     height=68,
                 )
 
-            if uploads and st.button("开始 AI 解析", type="primary", use_container_width=True):
+            if uploads and st.button("开始 AI 解析", type="primary", width="stretch"):
                 _process_uploads(service, user, uploads, sanitize_tags(tags_input), hint)
 
     with tab_manual:
@@ -70,7 +70,7 @@ def _render_manual_entry(service, user) -> None:
                 value=False,
                 help="开启后 AI 会分析题目文本，补全答案、标签与考点（留空的字段才会被补全）",
             )
-            submitted = st.form_submit_button("存入错题本", type="primary", use_container_width=True)
+            submitted = st.form_submit_button("存入错题本", type="primary", width="stretch")
         if submitted:
             if not content.strip():
                 st.error("题目与解析不能为空")
@@ -134,7 +134,7 @@ def _process_uploads(service, user, uploads, tags: list[str], hint: str) -> None
 def _render_analysis(saved, analysis, service, user) -> None:
     img_col, content_col = st.columns([2, 3])
     with img_col:
-        st.image(saved.image_path, use_container_width=True)
+        st.image(saved.image_path, width="stretch")
         badges = " ".join(f'<span class="mm-badge">{t}</span>' for t in saved.tags)
         st.markdown(
             f"""<div style="margin-top:0.5rem">

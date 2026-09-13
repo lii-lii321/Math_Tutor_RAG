@@ -50,7 +50,7 @@ def render_auth_page() -> None:
         with st.form("login_form", clear_on_submit=False):
             username = st.text_input("用户名", placeholder="admin / demo")
             password = st.text_input("密码", type="password")
-            if st.form_submit_button("登录", type="primary", use_container_width=True):
+            if st.form_submit_button("登录", type="primary", width="stretch"):
                 if not username or not password:
                     st.warning("请输入用户名和密码")
                 else:
@@ -69,7 +69,7 @@ def render_auth_page() -> None:
             new_password = st.text_input("密码（至少 6 位）", type="password")
             new_password2 = st.text_input("确认密码", type="password")
             role = st.selectbox("角色", ["student", "teacher"], format_func=lambda v: "学生" if v == "student" else "教师")
-            if st.form_submit_button("创建账号", use_container_width=True):
+            if st.form_submit_button("创建账号", width="stretch"):
                 if new_password != new_password2:
                     st.error("两次输入的密码不一致")
                 else:

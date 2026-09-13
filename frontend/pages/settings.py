@@ -102,9 +102,9 @@ def render_settings_page(user: dict) -> None:
                 new_tag = st.text_input("重命名为（留空则不重命名）", placeholder="新标签名")
                 col_r, col_d = st.columns(2)
                 with col_r:
-                    rename_clicked = st.form_submit_button("重命名", use_container_width=True)
+                    rename_clicked = st.form_submit_button("重命名", width="stretch")
                 with col_d:
-                    delete_clicked = st.form_submit_button("删除标签", use_container_width=True)
+                    delete_clicked = st.form_submit_button("删除标签", width="stretch")
             if rename_clicked and new_tag.strip():
                 try:
                     changed = service.rename_tag(user["id"], old_tag, new_tag.strip())
@@ -129,7 +129,7 @@ def render_settings_page(user: dict) -> None:
                 data=json.dumps(backup_data, ensure_ascii=False, indent=2),
                 file_name=f"mathmaster_backup_{datetime.date.today():%Y%m%d}.json",
                 mime="application/json",
-                use_container_width=True,
+                width="stretch",
             )
             csv_data = service.export_user_csv(user["id"])
             st.download_button(
@@ -137,11 +137,11 @@ def render_settings_page(user: dict) -> None:
                 data=csv_data,
                 file_name=f"mathmaster_{datetime.date.today():%Y%m%d}.csv",
                 mime="text/csv",
-                use_container_width=True,
+                width="stretch",
             )
         with col_up:
             upload = st.file_uploader("导入备份", type=["json"], key="backup_import")
-            if upload is not None and st.button("开始导入", use_container_width=True):
+            if upload is not None and st.button("开始导入", width="stretch"):
                 try:
                     payload = json.loads(upload.getvalue().decode("utf-8"))
                     imported = service.import_user_data(user["id"], payload)
