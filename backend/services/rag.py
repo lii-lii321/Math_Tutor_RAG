@@ -130,7 +130,7 @@ class QuestionVectorStore:
         return self._query(query_text, user_ids=user_ids, exclude_id=exclude_id, top_k=top_k)
 
     def semantic_search(
-        self, query: str, *, user_ids: list[int], top_k: int = 20
+        self, query: str, *, user_ids: list[int], top_k: int | None = None
     ) -> list[RagHit]:
         return self._query(query, user_ids=user_ids, exclude_id=None, top_k=top_k)
 

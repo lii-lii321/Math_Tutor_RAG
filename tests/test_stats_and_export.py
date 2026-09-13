@@ -41,6 +41,62 @@ def test_word_export_modes_differ():
     assert len(detail) > len(redo)  # 详解版包含解析文本，体积更大
 
 
+def test_detailed_includes_note_and_followup():
+    import zipfile
+    from io import BytesIO
+
+    from backend.services.export import generate_word_exam
+
+    q = _question(1, ["几何"]).model_copy(update={"reps": 3, "interval_days": 21})
+    q = q.model_copy(update={"user_note": "我的易错备注", "followup_question": "变式题内容"})
+    detail = generate_word_exam([q], "详解", mode="detailed").getvalue()
+    # docx 是 zip，直接在压缩包字节里找 XML 文本片段
+    with zipfile.ZipFile(BytesIO(detail)) as zf:
+        document = b"".join(zf.read(n) for n in zf.namelist() if n.endswith("document.xml"))
+    assert "我的易错备注".encode() in document
+    assert "变式题内容".encode() in document
+
+
+def test_redo_answer_key_page_contains_answers():
+    import zipfile
+    from io import BytesIO
+
+    from backend.services.export import generate_word_exam
+
+    questions = [_question(1, ["几何"]), _question(2, ["代数"])]
+    questions[0] = questions[0].model_copy(update={"answer": "答案甲"})
+    questions[1] = questions[1].model_copy(update={"answer": "答案乙"})
+    redo = generate_word_exam(questions, "重做", mode="redo", answer_key=True).getvalue()
+    with zipfile.ZipFile(BytesIO(redo)) as zf:
+        document = b"".join(zf.read(n) for n in zf.namelist() if n.endswith("document.xml"))
+    assert "参考答案".encode() in document
+    assert "答案甲".encode() in document
+    assert "答案乙".encode() in document
+
+
+def test_text_fallback_when_no_image():
+    import zipfile
+    from io import BytesIO
+
+    from backend.services.export import generate_word_exam
+
+    q = _question(7, ["代数"]).model_copy(
+        update={"image_path": None, "content_markdown": "纯文本题面：解方程 x=1。"}
+    )
+    redo = generate_word_exam([q], "重做", mode="redo").getvalue()
+    with zipfile.ZipFile(BytesIO(redo)) as zf:
+        document = b"".join(zf.read(n) for n in zf.namelist() if n.endswith("document.xml"))
+    assert "纯文本题面".encode() in document
+
+
+def test_broken_image_does_not_break_export():
+    from backend.services.export import generate_word_exam
+
+    q = _question(8, ["几何"]).model_copy(update={"image_path": "Z:/not/exist.jpg"})
+    data = generate_word_exam([q], "缺图", mode="redo").getvalue()
+    assert data[:2] == b"PK"
+
+
 def test_tag_stats_counts_and_mastery_default_zero():
     questions = [_question(1, ["几何"]), _question(2, ["几何", "代数"])]
     stats = build_tag_stats(questions)
