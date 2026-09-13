@@ -6,7 +6,13 @@ import datetime as dt
 import streamlit as st
 
 from backend.services.review import GRADE_ORDER, format_interval
-from frontend.common import get_question_service, go_to, page_header
+from frontend.common import (
+    edit_question_form,
+    get_question_service,
+    go_to,
+    keyboard_shortcuts,
+    page_header,
+)
 
 _GRADE_LABELS = {"again": "😵 忘了", "hard": "😅 勉强", "good": "🙂 记得", "easy": "😎 秒懂"}
 
@@ -117,6 +123,11 @@ def render_review_page(user: dict) -> None:
 
     if st.session_state.get("last_schedule_msg"):
         st.caption(st.session_state["last_schedule_msg"])
+
+    with st.expander("✏️ 这道题解析有误？直接修改"):
+        edit_question_form(service, question, user)
+
+    keyboard_shortcuts()
 
     st.divider()
     with st.expander("复习历史（最近 20 次）"):

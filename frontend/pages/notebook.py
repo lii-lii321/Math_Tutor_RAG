@@ -8,7 +8,14 @@ import streamlit as st
 
 from backend.services.export import generate_word_exam
 from backend.services.question_service import sanitize_tags
-from frontend.common import followup_chat, get_question_service, go_to, page_header, pop_params
+from frontend.common import (
+    edit_question_form,
+    followup_chat,
+    get_question_service,
+    go_to,
+    page_header,
+    pop_params,
+)
 
 _PAGE_SIZE = 8
 
@@ -292,27 +299,4 @@ def _render_question_detail(service, q, user) -> None:
         _render_followup_chat(service, q, user)
 
     with tab_edit:
-        with st.form(f"edit_form_{q.id}"):
-            new_tags = st.text_input("标签（逗号分隔）", value="、".join(q.tags) if q.tags else "")
-            new_content = st.text_area("解析（Markdown）", value=q.content_markdown, height=260)
-            new_answer = st.text_input("答案", value=q.answer)
-            new_note = st.text_area(
-                "我的笔记（易错点、思路备忘）",
-                value=q.user_note or "",
-                height=80,
-                placeholder="例如：下次先看第二问的隐藏条件",
-            )
-            if st.form_submit_button("保存修改", type="primary"):
-                updated = service.update_question(
-                    q.id,
-                    user["id"],
-                    content_markdown=new_content,
-                    answer=new_answer,
-                    tags=sanitize_tags(new_tags.replace("、", ",")),
-                    user_note=new_note.strip() or None,
-                )
-                if updated is None:
-                    st.error("保存失败：只能编辑自己的错题（教师可查看但不可修改学生的题）")
-                else:
-                    st.success("已保存，向量索引同步更新")
-                    st.rerun()
+        edit_question_form(service, q, user)
