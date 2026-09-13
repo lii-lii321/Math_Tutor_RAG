@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import datetime as dt
-import os
 
 import streamlit as st
 
@@ -16,6 +15,7 @@ from frontend.common import (
     page_header,
     pop_params,
 )
+from frontend.components import question_detail_view, regrade_buttons
 
 _PAGE_SIZE = 8
 
@@ -257,43 +257,9 @@ def _render_followup_chat(service, q, user) -> None:
 def _render_question_detail(service, q, user) -> None:
     tab_view, tab_chat, tab_edit = st.tabs(["查看", "追问讲题", "编辑"])
     with tab_view:
-        img_col, content_col = st.columns([2, 3])
-        with img_col:
-            if q.image_path and os.path.exists(q.image_path):
-                st.image(q.image_path, width="stretch")
-            else:
-                st.caption("无原图（手动录入）")
-            badges = " ".join(f"<span class='mm-badge'>{t}</span>" for t in q.tags)
-            st.markdown(
-                f"<div><span class='mm-badge mm-badge--blue'>{q.difficulty}</span>{badges}</div>",
-                unsafe_allow_html=True,
-            )
-            if q.reps:
-                st.caption(f"已复习 {q.reps} 次 · 间隔 {q.interval_days:.0f} 天 ·难度系数 {q.ease:.2f}")
-            else:
-                st.caption("尚未复习")
-        with content_col:
-            if q.user_note:
-                st.info(f"📝 我的笔记：{q.user_note}")
-            st.markdown(q.content_markdown, unsafe_allow_html=True)
-            if q.answer:
-                st.markdown(f"**答案**：{q.answer}")
-            if q.followup_question:
-                with st.expander("举一反三 · 变式练习"):
-                    st.markdown(q.followup_question)
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.markdown("**重测本题**")
-            grade_cols = st.columns(4)
-            _grade_labels = {"again": "😵 忘了", "hard": "😅 勉强", "good": "🙂 记得", "easy": "😎 秒懂"}
-            for col, grade in zip(grade_cols, ("again", "hard", "good", "easy"), strict=False):
-                with col:
-                    if st.button(_grade_labels[grade], key=f"nb_grade_{q.id}_{grade}", width="stretch"):
-                        updated = service.grade_review(q.id, user["id"], grade)
-                        if updated is None:
-                            st.toast("只能重测自己的错题", icon="⚠️")
-                        else:
-                            st.toast("已按 SM-2 重新排期", icon="🔁")
-                        st.rerun()
+        question_detail_view(q)
+        st.markdown("<br>", unsafe_allow_html=True)
+        regrade_buttons(service, q, user)
 
     with tab_chat:
         _render_followup_chat(service, q, user)
