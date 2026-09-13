@@ -31,3 +31,4 @@ chromadb>=0.5.15
 # 文档与图像
 python-docx>=1.1
 Pillow>=10.3
+alembic>=1.13

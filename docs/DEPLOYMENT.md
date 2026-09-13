@@ -48,6 +48,26 @@ DATABASE_URL=mysql+pymysql://mathmaster:mathmaster@localhost:3306/math_tutor?cha
 - 取消 `docker-compose.yml` 中 mysql 服务的注释即可联动
 - 表结构由 SQLAlchemy `create_all` 自动创建；已有 SQLite 数据可用「设置 → 数据备份」导出 JSON 后在新库导入
 
+### 数据库迁移（Alembic）
+
+schema 变更通过 Alembic 管理（`migrations/`）：
+
+```bash
+# 全新环境：建表到最新版本
+alembic upgrade head
+
+# 已有的旧库（由 create_all 创建、无迁移记录）：补盖章后即可跟进后续迁移
+alembic stamp head
+
+# 修改 ORM 模型后生成迁移脚本
+alembic revision --autogenerate -m "描述变更"
+
+# 回退一个版本
+alembic downgrade -1
+```
+
+数据库 URL 优先级：`alembic -x url=...` > 环境变量 `DATABASE_URL` > `backend/config.py`。
+
 ## 4. AI 提供商配置
 
 任选一家 OpenAI 兼容服务（`.env`）：
