@@ -15,6 +15,17 @@ from backend.models.schemas import TagStat
 _GOOD_GRADES = {"good", "easy"}
 
 
+def build_difficulty_distribution(questions: list[Question]) -> dict[str, int]:
+    """难度分布：easy/medium/hard 计数（未知难度归入 medium）。"""
+    counts = {"easy": 0, "medium": 0, "hard": 0}
+    for question in questions:
+        difficulty = (question.difficulty or "medium").lower()
+        if difficulty not in counts:
+            difficulty = "medium"
+        counts[difficulty] += 1
+    return counts
+
+
 def build_tag_stats(
     questions: list[Question],
     logs_by_question: dict[int, list[tuple[str, float]]] | None = None,

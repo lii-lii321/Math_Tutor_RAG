@@ -30,6 +30,11 @@ def _build_engine(url: str) -> Engine:
     if url.startswith("sqlite"):
         # busy timeout：多线程（Streamlit rerun / 并发请求）下等待写锁而非立刻报错
         kwargs["connect_args"] = {"check_same_thread": False, "timeout": 30}
+    else:
+        # MySQL/PostgreSQL：连接池参数（SQLite 使用文件锁，不适用）
+        kwargs["pool_size"] = 10
+        kwargs["max_overflow"] = 20
+        kwargs["pool_recycle"] = 3600
     return create_engine(url, **kwargs)
 
 

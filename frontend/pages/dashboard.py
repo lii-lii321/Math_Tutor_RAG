@@ -84,6 +84,28 @@ def _render_accuracy_trend(trend: list[dict]) -> None:
     st.plotly_chart(line, width="stretch", config={"displayModeBar": False})
 
 
+def _render_difficulty(dist: dict) -> None:
+    if not dist or sum(dist.values()) == 0:
+        st.caption("还没有错题数据。")
+        return
+    color_map = {"easy": "#93c5fd", "medium": "#2563eb", "hard": "#1a365d"}
+    pie = px.pie(
+        names=[k for k in dist],
+        values=[dist[k] for k in dist],
+        hole=0.5,
+        color=[k for k in dist],
+        color_discrete_map=color_map,
+    )
+    pie.update_layout(
+        showlegend=True,
+        margin=dict(t=10, b=10, l=10, r=10),
+        height=240,
+        paper_bgcolor="rgba(0,0,0,0)",
+        font=dict(family="sans-serif", color="#334155"),
+    )
+    st.plotly_chart(pie, width="stretch", config={"displayModeBar": False})
+
+
 def _render_mastery_trend(trend: list[dict]) -> None:
     if not trend or all(p["mastery"] == 0 for p in trend):
         st.caption("复习几道题后，这里会出现掌握度成长曲线。")
@@ -253,5 +275,7 @@ def render_dashboard(user: dict) -> None:
     with trend_col:
         page_header("复习正确率", "近 30 天 · 记得/秒懂占比")
         _render_accuracy_trend(stats["accuracy_trend"])
-        page_header("掌握度变化", "近 30 天 · 平均掌握度走势")
-        _render_mastery_trend(stats.get("mastery_trend", []))
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    page_header("难度分布", "easy / medium / hard 错题构成")
+    _render_difficulty(stats.get("difficulty", {}))
