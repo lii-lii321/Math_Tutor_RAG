@@ -3,10 +3,13 @@ from __future__ import annotations
 
 import io
 
+import pytest
 from PIL import Image
 
 from backend.models.schemas import QuestionOut
-from backend.services.share_card import render_share_card
+from backend.services.share_card import has_cjk_font, render_share_card
+
+needs_cjk = pytest.mark.skipif(not has_cjk_font(), reason="无中文字体（Linux CI）")
 
 
 def _question() -> QuestionOut:
@@ -22,6 +25,7 @@ def _question() -> QuestionOut:
     )
 
 
+@needs_cjk
 def test_share_card_renders_png():
     stream = render_share_card(_question())
     data = stream.getvalue()
@@ -31,6 +35,7 @@ def test_share_card_renders_png():
     assert image.height >= 500  # 卡片有实际内容高度
 
 
+@needs_cjk
 def test_share_card_handles_long_content():
     question = _question().model_copy(
         update={"content_markdown": "这是一段很长的题面。" * 60, "answer": "长答案" * 30}

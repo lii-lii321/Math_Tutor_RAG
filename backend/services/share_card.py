@@ -39,7 +39,20 @@ def _font(size: int, bold: bool = False):
                 return ImageFont.truetype(path, size)
             except OSError:
                 continue
-    return ImageFont.load_default()
+    return ImageFont.load_default(size=size)
+
+
+def has_cjk_font() -> bool:
+    """当前环境是否有可渲染中文的字体（决定测试断言与卡片回退样式）。"""
+    return _font(20) is not None and any(
+        os.path.exists(p)
+        for p in (
+            r"C:\Windows\Fonts\msyh.ttc",
+            r"C:\Windows\Fonts\simhei.ttf",
+            "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+            "/System/Library/Fonts/PingFang.ttc",
+        )
+    )
 
 
 def _wrap(draw: ImageDraw.ImageDraw, text: str, font, max_width: int) -> list[str]:
