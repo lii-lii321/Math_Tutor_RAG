@@ -58,7 +58,7 @@ def test_full_tutor_flow(page, _sample_jpeg):
     page.get_by_role("button", name="开始 AI 解析").first.click()
 
     # mock 提供商固定返回含这些字段的解析
-    page.wait_for_selector("text=正确答案", timeout=30000)
+    page.wait_for_selector("text=已自动归档入错题本", timeout=30000)
     page.wait_for_selector("text=去错题本查看", timeout=15000)
 
     _goto(page, "错题本", "语义搜索")
@@ -73,7 +73,7 @@ def test_followup_chat_on_question(page, _sample_jpeg):
     file_input = page.locator('input[type="file"]').first
     file_input.set_input_files(_sample_jpeg)
     page.get_by_role("button", name="开始 AI 解析").first.click()
-    page.wait_for_selector("text=正确答案", timeout=30000)
+    page.wait_for_selector("text=已自动归档入错题本", timeout=30000)
 
     _goto(page, "错题本", "语义搜索")
     page.wait_for_timeout(1500)
