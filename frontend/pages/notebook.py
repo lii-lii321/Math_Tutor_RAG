@@ -266,6 +266,22 @@ def render_notebook_page(user: dict) -> None:
                 st.rerun()
 
 
+def _share_card_button(q) -> None:
+    """生成错题分享卡片 PNG。"""
+    from backend.services.share_card import render_share_card
+
+    if st.button("🖼️ 生成分享卡片", key=f"share_{q.id}", width="stretch"):
+        stream = render_share_card(q)
+        st.download_button(
+            "下载分享卡片",
+            data=stream,
+            file_name=f"错题卡片_{q.id}.png",
+            mime="image/png",
+            width="stretch",
+            key=f"share_dl_{q.id}",
+        )
+
+
 def _render_followup_chat(service, q, user) -> None:
     """历史保存在 session_state，按题隔离（组件实现在 common）。"""
     followup_chat(service, q, user)
@@ -281,6 +297,7 @@ def _render_question_detail(service, q, user) -> None:
             save_followup_button(service, q, user, q.followup_question)
         st.markdown("<br>", unsafe_allow_html=True)
         regrade_buttons(service, q, user)
+        _share_card_button(q)
 
     with tab_chat:
         _render_followup_chat(service, q, user)
