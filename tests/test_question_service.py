@@ -74,6 +74,29 @@ def test_persist_image_compresses_large_images(question_service, student_user):
     assert os.path.getsize(saved.image_path) < raw_size
 
 
+def test_analyze_and_save_dedup_returns_existing(question_service, student_user, db_session):
+    jpeg = _tiny_jpeg()
+    first_result = question_service.analyze_and_save_dedup(student_user.id, jpeg)
+    assert first_result.duplicated is False
+
+    second_result = question_service.analyze_and_save_dedup(student_user.id, jpeg)
+    assert second_result.duplicated is True
+    assert second_result.question.id == first_result.question.id  # 复用既有记录
+
+    all_questions = question_service.list_questions(student_user.id, semantic=False)
+    assert len([q for q in all_questions if q.id == first_result.question.id]) == 1
+
+    # 其他用户上传同图是独立错题（按用户隔离）
+    from backend.models.orm import User
+
+    other = User(username="dedup_other", password_hash="x", role="student")
+    db_session.add(other)
+    db_session.commit()
+    other_result = question_service.analyze_and_save_dedup(other.id, jpeg)
+    assert other_result.duplicated is False
+    assert other_result.question.id != first_result.question.id
+
+
 def test_update_and_delete(question_service, student_user):
     saved, _ = question_service.analyze_and_save(student_user.id, _tiny_jpeg())
     updated = question_service.update_question(

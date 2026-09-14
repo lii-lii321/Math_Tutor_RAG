@@ -72,6 +72,7 @@ class Question(Base):
     source: Mapped[str] = mapped_column(String(16), default="ai")  # ai / manual
     user_note: Mapped[str | None] = mapped_column(Text)
     ocr_text: Mapped[str | None] = mapped_column(Text)  # 原图 OCR 文字（可选特性）
+    image_hash: Mapped[str | None] = mapped_column(String(64), index=True)  # 原图 SHA-256，去重用
 
     # SM-2 调度状态
     reps: Mapped[int] = mapped_column(Integer, default=0)

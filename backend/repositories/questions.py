@@ -31,6 +31,7 @@ class QuestionRepository:
         image_path: str | None = None,
         source: str = "ai",
         ocr_text: str | None = None,
+        image_hash: str | None = None,
     ) -> Question:
         question = Question(
             user_id=user_id,
@@ -43,6 +44,7 @@ class QuestionRepository:
             image_path=image_path,
             source=source,
             ocr_text=ocr_text or None,
+            image_hash=image_hash,
         )
         self.session.add(question)
         self.session.flush()
@@ -107,6 +109,14 @@ class QuestionRepository:
     # ---------- 查询 ----------
     def get_owned(self, question_id: int, user_id: int) -> Question | None:
         return self._get_owned(question_id, user_id)
+
+    def find_by_image_hash(self, user_id: int, image_hash: str) -> Question | None:
+        """按原图哈希查找用户的既有错题（上传去重用）。"""
+        return self.session.execute(
+            select(Question)
+            .where(Question.user_id == user_id, Question.image_hash == image_hash)
+            .order_by(Question.created_at.desc())
+        ).scalars().first()
 
     def get_by_ids(self, ids: list[int]) -> list[Question]:
         """按 id 批量获取（不做归属过滤，调用方负责鉴权）。"""

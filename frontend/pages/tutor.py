@@ -104,12 +104,12 @@ def _process_uploads(service, user, uploads, tags: list[str], hint: str) -> None
         try:
             image_bytes = upload.getvalue()
             mime = upload.type or "image/jpeg"
-            saved, analysis = service.analyze_and_save(
+            entry = service.analyze_and_save_dedup(
                 user["id"], image_bytes, mime_type=mime, user_tags=tags, hint=hint
             )
-            results.append((upload.name, saved, analysis, None))
+            results.append((upload.name, entry, None))
         except Exception as exc:  # noqa: BLE001 - 单张失败不影响其余
-            results.append((upload.name, None, None, str(exc)))
+            results.append((upload.name, None, str(exc)))
     progress.progress(1.0, text="解析完成")
 
     ok_count = sum(1 for r in results if r[1] is not None)
@@ -121,14 +121,16 @@ def _process_uploads(service, user, uploads, tags: list[str], hint: str) -> None
             if st.button("📒 去错题本查看", type="primary"):
                 go_to("notebook")
 
-    for i, (name, saved, analysis, error) in enumerate(results):
+    for i, (name, result, error) in enumerate(results):
         with st.expander(
-            f"{'✅ ' if saved else '❌ '}{name}", expanded=(i == 0)
+            f"{'✅ ' if result else '❌ '}{name}", expanded=(i == 0)
         ):
             if error:
                 st.error(f"解析失败：{error}")
                 continue
-            assert saved is not None and analysis is not None
+            saved, analysis = result
+            if result.duplicated:
+                st.warning("检测到重复上传：已为你复用既有错题记录。")
             _render_analysis(saved, analysis, service, user)
 
 

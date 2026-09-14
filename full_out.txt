@@ -1,0 +1,64 @@
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________________ test_analyze_and_save_full_pipeline _____________________
+
+question_service = <backend.services.question_service.QuestionService object at 0x000001E817FA25F0>
+student_user = <backend.models.orm.User object at 0x000001E8180E1BD0>
+
+    def test_analyze_and_save_full_pipeline(question_service, student_user):
+>       saved, analysis = question_service.analyze_and_save(
+            student_user.id, _tiny_jpeg(), user_tags=["期末复习"], hint=""
+        )
+
+tests\test_question_service.py:19: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <backend.services.question_service.QuestionService object at 0x000001E817FA25F0>
+user_id = 2
+image_bytes = b'\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00\xff\xdb\x00C\x00\x08\x06\x06\x07\x06\x05\x08\x0...ea\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xff\xda\x00\x0c\x03\x01\x00\x02\x11\x03\x11\x00?\x00\xf5J(\xa2\xbdS\x9c\xff\xd9'
+mime_type = 'image/jpeg', user_tags = ['期末复习'], hint = '', image_hash = None
+
+    def analyze_and_save(
+        self,
+        user_id: int,
+        image_bytes: bytes,
+        *,
+        mime_type: str = "image/jpeg",
+        user_tags: list[str] | None = None,
+        hint: str = "",
+        image_hash: str | None = None,
+    ) -> tuple[QuestionOut, QuestionAnalysis]:
+        """完整录入链路：AI 解析 → 图片落盘 →（可选 OCR）→ 数据库 → 向量索引。
+    
+        image_hash：调用方（analyze_and_save_dedup）预算好的原图哈希，入库供去重。
+        """
+        analysis = self.ai.analyze_question(image_bytes, mime_type, hint)
+        tags = analysis.merged_tags(user_tags or [])
+    
+        image_path = self._persist_image(user_id, image_bytes)
+        from backend.services.ocr import extract_text
+    
+        ocr_text = extract_text(str(image_path))
+        with self._session() as repo:
+>           question = repo.create(
+                user_id,
+                content_markdown=analysis.analysis,
+                answer=analysis.answer,
+                knowledge_points=analysis.knowledge_points,
+                tags=tags,
+                difficulty=analysis.difficulty,
+                followup_question=analysis.followup_question,
+                image_path=str(image_path),
+                ocr_text=ocr_text,
+                image_hash=image_hash,
+            )
+E           TypeError: QuestionRepository.create() got an unexpected keyword argument 'image_hash'
+
+backend\services\question_mixins.py:240: TypeError
+---------------------------- Captured stdout setup ----------------------------
+2026-09-14 23:45:18 | INFO    | mathmaster.database | 数据库初始化完成，种子账号: admin / demo
+----------------------------- Captured log setup ------------------------------
+INFO     mathmaster.database:database.py:97 数据库初始化完成，种子账号: admin / demo
+=========================== short test summary info ===========================
+FAILED tests/test_question_service.py::test_analyze_and_save_full_pipeline - ...
+1 failed in 0.79s

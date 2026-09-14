@@ -6,6 +6,7 @@ QuestionService 由这些 Mixin 组合而成（见 question_service.py），
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import io
 import re
 import uuid
@@ -19,6 +20,7 @@ from backend.models.schemas import QuestionAnalysis, QuestionOut, TagStat
 from backend.repositories.questions import QuestionRepository
 from backend.services.ai import get_ai_service
 from backend.services.ai.base import BaseAIProvider
+from backend.services.entry_types import EntryResult
 from backend.services.rag import QuestionVectorStore
 from backend.services.review import ReviewScheduler
 from backend.services.stats import (
@@ -221,8 +223,12 @@ class EntryMixin:
         mime_type: str = "image/jpeg",
         user_tags: list[str] | None = None,
         hint: str = "",
+        image_hash: str | None = None,
     ) -> tuple[QuestionOut, QuestionAnalysis]:
-        """完整录入链路：AI 解析 → 图片落盘 →（可选 OCR）→ 数据库 → 向量索引。"""
+        """完整录入链路：AI 解析 → 图片落盘 →（可选 OCR）→ 数据库 → 向量索引。
+
+        image_hash：调用方（analyze_and_save_dedup）预算好的原图哈希，入库供去重。
+        """
         analysis = self.ai.analyze_question(image_bytes, mime_type, hint)
         tags = analysis.merged_tags(user_tags or [])
 
@@ -241,6 +247,7 @@ class EntryMixin:
                 followup_question=analysis.followup_question,
                 image_path=str(image_path),
                 ocr_text=ocr_text,
+                image_hash=image_hash,
             )
             out = QuestionOut.from_orm_model(question)
 
@@ -254,6 +261,43 @@ class EntryMixin:
             tags=tags,
         )
         return out, analysis
+
+    def analyze_and_save_dedup(
+        self,
+        user_id: int,
+        image_bytes: bytes,
+        *,
+        mime_type: str = "image/jpeg",
+        user_tags: list[str] | None = None,
+        hint: str = "",
+    ) -> EntryResult:
+        """带去重的录题：同图已录入时跳过 AI 调用，直接返回既有记录。"""
+        image_hash = hashlib.sha256(image_bytes).hexdigest()
+        with self._session() as repo:
+            existing = repo.find_by_image_hash(user_id, image_hash)
+        if existing is not None:
+            out = QuestionOut.from_orm_model(existing)
+            analysis = QuestionAnalysis(
+                knowledge_points=list(out.knowledge_points or []),
+                analysis=out.content_markdown,
+                answer=out.answer,
+                difficulty=out.difficulty,  # type: ignore[arg-type]
+                tags=list(out.tags or []),
+                mistake_cause="",
+                followup_question=out.followup_question or "",
+            )
+            logger.info("重复图片 question=%s user=%s，直接复用", out.id, user_id)
+            return EntryResult(question=out, analysis=analysis, duplicated=True)
+
+        out, analysis = self.analyze_and_save(
+            user_id,
+            image_bytes,
+            mime_type=mime_type,
+            user_tags=user_tags,
+            hint=hint,
+            image_hash=image_hash,
+        )
+        return EntryResult(question=out, analysis=analysis, duplicated=False)
 
 
 class QueryMixin:

@@ -46,6 +46,7 @@ def render_notebook_page(user: dict) -> None:
             )
             semantic = st.toggle("语义搜索", value=True, help="用向量检索理解语义，而非仅字面匹配")
             only_due = st.toggle("仅看待复习", value=False, help="隐藏已掌握和尚未到期的错题")
+            only_mastered = st.toggle("仅看已掌握 🏆", value=False, help="只显示已归档的熟题")
             sort_mode = st.selectbox(
                 "排序",
                 ["最新录入", "最早录入", "复习次数最少", "最近复习"],
@@ -106,6 +107,8 @@ def render_notebook_page(user: dict) -> None:
                 for q in questions
                 if q.due_at is None or _aware_dt(q.due_at) <= now_dt
             ]
+        if only_mastered:
+            questions = [q for q in questions if q.mastered]
 
         if sort_mode == "最早录入":
             questions.sort(
