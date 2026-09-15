@@ -148,10 +148,10 @@ class QuestionVectorStore:
         top_k = top_k or self.settings.rag_top_k
         where = {"user_id": {"$in": user_ids}} if user_ids else None
         try:
-            total = max(collection.count(where=where) if where else collection.count(), 1)
+            # where 过滤由 chromadb 在查询时执行，无需先 count
             result = collection.query(
                 query_texts=[query_text],
-                n_results=min(top_k + (1 if exclude_id else 0), total),
+                n_results=top_k + (1 if exclude_id else 0),
                 where=where,
             )
         except Exception as exc:  # noqa: BLE001

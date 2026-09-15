@@ -25,6 +25,7 @@ bcrypt>=4.1
 # AI 提供商
 openai>=1.40            # OpenAI 兼容接入（SiliconFlow / Qwen / GLM / DeepSeek / Ollama ...）
 google-genai>=1.0       # Gemini（新一代统一 SDK）
+mcp>=1.2                # MCP Server：让 Claude Desktop / Cursor 等客户端调用错题本
 
 # RAG 向量检索
 chromadb>=0.5.15
