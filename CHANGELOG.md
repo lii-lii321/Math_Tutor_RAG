@@ -5,6 +5,10 @@
 ## [2.3.0] - 2026-09-15
 
 ### 新增（Agent 化）
+- **SSE 流式对话**：`POST /api/agent/chat/stream`（text/event-stream）；`AgentSession.chat_stream`
+  流式解析增量文本与分片工具调用（按 index 聚合），前端 `st.write_stream` 打字机效果
+- **异步录题队列**：`POST /api/questions/analyze/async` 提交即返回 job_id（202），
+  后台线程执行，`GET /api/jobs/{id}` 轮询状态/结果；`jobs` 表 + 迁移；队列协议与 Celery 兼容可平滑替换
 - **MCP Server**（`mcp_server.py`）：错题本作为 Model Context Protocol 工具服务器，
   Claude Desktop / Cursor 等 MCP 客户端可直接调用（搜索/录题/评分/到期列表/周报/标签统计）。
   接入配置见模块文档；用户通过 `MM_USER_ID` / `MM_USERNAME` 绑定

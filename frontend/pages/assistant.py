@@ -79,6 +79,7 @@ def render_assistant_page(user: dict) -> None:
         with st.chat_message("assistant", avatar="🤖"):
             if demo:
                 reply = _demo_reply(prompt, service, user)
+                st.markdown(reply)
             else:
                 from backend.services.agent import AgentSession
 
@@ -86,10 +87,11 @@ def render_assistant_page(user: dict) -> None:
                 if agent_key not in st.session_state:
                     st.session_state[agent_key] = AgentSession(user_id=user["id"])
                 try:
-                    reply = st.session_state[agent_key].chat(prompt)
+                    # 流式输出：Agent 的文本增量直接打进聊天气泡
+                    reply = st.write_stream(st.session_state[agent_key].chat_stream(prompt))
                 except Exception as exc:  # noqa: BLE001 - 对话失败不崩溃页面
                     reply = f"⚠️ Agent 暂时不可用：{exc}"
-            st.markdown(reply)
+                    st.markdown(reply)
         st.session_state[history_key].append({"role": "assistant", "content": reply})
         st.rerun()
 

@@ -55,17 +55,11 @@ class AgentSession:
             return f"工具执行出错: {exc}"
 
     def chat(self, user_message: str) -> str:
-        """处理一条用户消息，返回 Agent 的最终文字回复。"""
+        """处理一条用户消息，返回 Agent 的最终文字回复（非流式）。"""
         self.history.append({"role": "user", "content": user_message})
 
-        from openai import OpenAI
-
         settings = get_settings()
-        client = OpenAI(
-            api_key=settings.ai_api_key or "not-configured",
-            base_url=settings.ai_base_url,
-            timeout=settings.ai_timeout_seconds,
-        )
+        client = self._client()
 
         for _ in range(MAX_TOOL_ROUNDS):
             response = client.chat.completions.create(
@@ -93,3 +87,82 @@ class AgentSession:
             return content
 
         return "这个需求比较复杂，我先做了一部分。你可以拆成几个小步骤再试试。"
+
+    def _client(self):
+        from openai import OpenAI
+
+        settings = get_settings()
+        return OpenAI(
+            api_key=settings.ai_api_key or "not-configured",
+            base_url=settings.ai_base_url,
+            timeout=settings.ai_timeout_seconds,
+        )
+
+    def chat_stream(self, user_message: str):
+        """流式处理一条用户消息：逐步 yield 文本增量，工具循环透明进行。
+
+        每轮流式解析增量文本与工具调用；工具调用轮不产出文本（静默执行后继续）。
+        """
+        self.history.append({"role": "user", "content": user_message})
+        settings = get_settings()
+        client = self._client()
+
+        for _ in range(MAX_TOOL_ROUNDS):
+            stream = client.chat.completions.create(
+                model=settings.ai_model,
+                messages=self.history,
+                tools=self._tool_schemas(),
+                stream=True,
+            )
+            content_parts: list[str] = []
+            tool_calls_acc: dict[int, dict] = {}
+
+            for chunk in stream:
+                if not chunk.choices:
+                    continue
+                delta = chunk.choices[0].delta
+                if delta is None:
+                    continue
+                if delta.content:
+                    content_parts.append(delta.content)
+                    yield delta.content
+                if delta.tool_calls:
+                    for tc in delta.tool_calls:
+                        acc = tool_calls_acc.setdefault(
+                            tc.index, {"id": "", "name": "", "arguments": ""}
+                        )
+                        if tc.id:
+                            acc["id"] = tc.id
+                        if tc.function and tc.function.name:
+                            acc["name"] += tc.function.name
+                        if tc.function and tc.function.arguments:
+                            acc["arguments"] += tc.function.arguments
+
+            content = "".join(content_parts)
+            if tool_calls_acc:
+                ordered = [tool_calls_acc[i] for i in sorted(tool_calls_acc)]
+                self.history.append(
+                    {
+                        "role": "assistant",
+                        "content": content or None,
+                        "tool_calls": [
+                            {
+                                "id": acc["id"],
+                                "type": "function",
+                                "function": {"name": acc["name"], "arguments": acc["arguments"]},
+                            }
+                            for acc in ordered
+                        ],
+                    }
+                )
+                for acc in ordered:
+                    result = self._execute_tool(acc["name"], acc["arguments"])
+                    self.history.append(
+                        {"role": "tool", "tool_call_id": acc["id"], "content": result}
+                    )
+                continue  # 工具结果回传后继续下一轮
+
+            self.history.append({"role": "assistant", "content": content})
+            return
+
+        yield "这个需求比较复杂，我先做了一部分。你可以拆成几个小步骤再试试。"

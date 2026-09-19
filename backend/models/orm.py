@@ -123,6 +123,24 @@ class Comment(Base):
     author: Mapped[User] = relationship()
 
 
+class Job(Base):
+    """异步任务记录（图片 AI 解析等耗时操作的队列追踪）。"""
+
+    __tablename__ = "jobs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)  # uuid4
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    type: Mapped[str] = mapped_column(String(32), default="analyze_image")
+    status: Mapped[str] = mapped_column(String(16), default="pending")  # pending/running/success/failed
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)  # 原始文件名/mime/参数
+    result: Mapped[dict | None] = mapped_column(JSON)
+    error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    finished_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class ReviewLog(Base):
     """一次复习动作的明细，SM-2 参数演进与掌握度统计的依据。"""
 

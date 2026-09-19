@@ -146,6 +146,38 @@ def import_questions(
     return ImportResult(imported=imported)
 
 
+@router.post("/analyze/async", status_code=202)
+async def analyze_question_async(
+    image: UploadFile = File(...),
+    tags: str = Form(default=""),
+    hint: str = Form(default=""),
+    user: User = Depends(get_current_user),
+) -> dict:
+    """提交异步解析任务，返回 job_id；用 GET /api/jobs/{job_id} 轮询结果。"""
+    if image.content_type not in _ALLOWED_MIME:
+        raise HTTPException(
+            status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            f"仅支持 {', '.join(sorted(_ALLOWED_MIME))}",
+        )
+    data = await image.read()
+    if not data:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "图片内容为空")
+    if len(data) > _MAX_IMAGE_BYTES:
+        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "图片不能超过 10MB")
+
+    from backend.services.job_service import JobService
+
+    job_id = JobService().submit_analyze(
+        user.id,
+        data,
+        filename=image.filename or "upload.jpg",
+        mime_type=image.content_type,
+        tags=sanitize_tags(tags),
+        hint=hint,
+    )
+    return {"job_id": job_id, "status": "pending"}
+
+
 @router.get("/export")
 def export_questions(user: User = Depends(get_current_user)) -> dict:
     """导出当前用户全部错题的 JSON 备份。"""
