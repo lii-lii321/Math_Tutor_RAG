@@ -7,6 +7,7 @@ import re
 
 from backend.config import Settings, get_settings
 from backend.models.schemas import AIProviderInfo, QuestionAnalysis
+from backend.services.ai.telemetry import track_ai_call
 from backend.utils.logging import get_logger
 
 logger = get_logger("ai")
@@ -80,7 +81,8 @@ class BaseAIProvider(abc.ABC):
             *history[-12:],  # 限制上下文长度，防止 token 超限
             {"role": "user", "content": user_question},
         ]
-        reply = self.chat(messages)
+        with track_ai_call("followup_chat"):
+            reply = self.chat(messages)
         if not reply or not reply.strip():
             raise AIMessageError("模型返回了空响应")
         return reply.strip()
@@ -92,9 +94,10 @@ class BaseAIProvider(abc.ABC):
             f"学生补充：{hint or '无'}\n\n"
             f"{JSON_INSTRUCTION}"
         )
-        raw = self.chat(
-            [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": prompt}]
-        )
+        with track_ai_call("analyze_text"):
+            raw = self.chat(
+                [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": prompt}]
+            )
         return parse_analysis(raw)
 
     def analyze_question(
@@ -105,12 +108,15 @@ class BaseAIProvider(abc.ABC):
         last_error: Exception | None = None
 
         for attempt in range(1, self.settings.ai_max_retries + 1):
-            try:
-                raw = self._complete(image_bytes, mime_type, prompt)
-                return parse_analysis(raw)
-            except Exception as exc:  # noqa: BLE001 - 统一进入重试
-                last_error = exc
-                logger.warning("AI 调用第 %s 次失败: %s", attempt, exc)
+            with track_ai_call("analyze_image") as ctx:
+                try:
+                    raw = self._complete(image_bytes, mime_type, prompt)
+                    analysis = parse_analysis(raw)
+                    ctx["ok"] = True
+                    return analysis
+                except Exception as exc:  # noqa: BLE001 - 统一进入重试
+                    last_error = exc
+                    logger.warning("AI 调用第 %s 次失败: %s", attempt, exc)
         raise AIMessageError(f"AI 解析失败（已重试 {self.settings.ai_max_retries} 次）: {last_error}")
 
 

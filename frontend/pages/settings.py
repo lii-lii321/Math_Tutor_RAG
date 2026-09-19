@@ -88,6 +88,24 @@ def render_settings_page(user: dict) -> None:
                     unsafe_allow_html=True,
                 )
 
+            st.markdown("#### AI 调用遥测（最近 200 次）")
+            from backend.services.ai import telemetry
+
+            summary = telemetry.summarize()
+            if summary["calls"] == 0:
+                st.caption("暂无 AI 调用记录。")
+            else:
+                st.markdown(
+                    f"""<div class="mm-muted">
+                    调用 <b>{summary['calls']}</b> 次 ·
+                    成功率 <b>{summary['success_rate']}%</b> ·
+                    平均延迟 <b>{summary['avg_latency_ms']} ms</b>
+                    </div>""",
+                    unsafe_allow_html=True,
+                )
+                for op, bucket in summary["by_operation"].items():
+                    st.caption(f"- {op}：{bucket['count']} 次，平均 {bucket['avg_ms']} ms")
+
             st.markdown("#### OCR（原图文字识别，可选）")
             if settings.ocr_enabled:
                 try:
