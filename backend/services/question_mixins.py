@@ -315,7 +315,7 @@ class QueryMixin:
         offset: int = 0,
         limit: int | None = None,
     ) -> list[QuestionOut]:
-        """关键词检索；开启语义搜索时用向量召回补充关键词未命中的题目。
+        """关键词检索；开启语义搜索时用 RRF 融合向量与关键词两路结果（可选重排）。
 
         offset/limit 在过滤后应用；不传 limit 返回全部（界面默认），API 层分页传入。
         """
@@ -332,13 +332,46 @@ class QueryMixin:
 
         if keyword and semantic:
             scope = self._search_scope(user_id, include_others)
-            hits = self.vector_store.semantic_search(keyword, user_ids=scope)
-            hit_ids = [h.question_id for h in hits if h.question_id not in set(results)]
-            if hit_ids:
+            vector_hits = self.vector_store.semantic_search(keyword, user_ids=scope)
+            keyword_ids = [q.id for q in primary]
+
+            from backend.services.fusion import rerank, rrf_fuse
+
+            fused_ids = rrf_fuse(
+                [h.question_id for h in vector_hits],
+                keyword_ids,
+                top_k=max(len(results), 20),
+            )
+
+            # 可选重排：仅对已加载的文档精排（配置 RERANK_BASE_URL 后生效）
+            if fused_ids and self.settings.rerank_base_url:
+                docs = [results[qid].content_markdown for qid in fused_ids if qid in results]
+                reranked = rerank(
+                    keyword,
+                    docs,
+                    base_url=self.settings.rerank_base_url,
+                    api_key=self.settings.rerank_api_key,
+                    model=self.settings.rerank_model,
+                    top_k=10,
+                )
+                if reranked:
+                    ordered = [fused_ids[i] for i, _ in reranked if i < len(fused_ids)]
+                    fused_ids = ordered + [q for q in fused_ids if q not in ordered]
+
+            # 语义召回可能带出关键词未命中的题，补加载（按可见范围过滤）
+            new_ids = [qid for qid in fused_ids if qid not in results]
+            if new_ids:
                 with self._session() as repo:
-                    for q in repo.get_by_ids(hit_ids):
+                    for q in repo.get_by_ids(new_ids):
                         if q.user_id == user_id or include_others:
                             results[q.id] = QuestionOut.from_orm_model(q)
+
+            # 融合排序覆盖默认时间排序（未入榜的题排在其后）
+            order = {qid: rank for rank, qid in enumerate(fused_ids)}
+            return sorted(
+                results.values(),
+                key=lambda q: (order.get(q.id, 9999), -(q.created_at.timestamp() if q.created_at else 0)),
+            )
 
         return sorted(
             results.values(),

@@ -72,6 +72,12 @@ class Settings(BaseSettings):
     embedding_api_key: str = ""
     rag_top_k: int = Field(default=3, ge=1, le=20)
 
+    # ---------- 重排（可选，混合检索精排）----------
+    # SiliconFlow: https://api.siliconflow.cn/v1 + BAAI/bge-reranker-v2-m3
+    rerank_base_url: str = ""
+    rerank_api_key: str = ""
+    rerank_model: str = "BAAI/bge-reranker-v2-m3"
+
     # ---------- OCR（可选）----------
     # 开启后录题时对原图做文字识别，识别文本参与语义/关键词搜索。
     # 需要：pip install rapidocr-onnxruntime
