@@ -2,5 +2,7 @@
 
 pytest>=9.1.1
 ruff>=0.6
-pytest-cov 
-locust>=2.30 -- 仅压测用 
+pytest-cov
+locust>=2.30
+playwright>=1.40
+psutil>=5.9
