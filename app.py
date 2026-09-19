@@ -59,6 +59,7 @@ _PAGES = {
     t("nav.notebook"): "notebook",
     t("nav.review"): "review",
     t("nav.graph"): "graph",
+    t("nav.assistant"): "assistant",
     t("nav.settings"): "settings",
 }
 
@@ -149,6 +150,10 @@ def main() -> None:
         from frontend.pages.students import render_students_page
 
         render_students_page(user)
+    elif page == "assistant":
+        from frontend.pages.assistant import render_assistant_page
+
+        render_assistant_page(user)
     elif page == "settings":
         render_settings_page(user)
 

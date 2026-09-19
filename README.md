@@ -21,6 +21,7 @@
 | 📸 **AI 拍照录题** | 上传手写作业/试卷照片，视觉大模型识别题目并输出**结构化解析**（考点、分步讲解、答案、难度、易错原因、变式题），基于 Pydantic Schema 约束输出并稳健解析 |
 | 🔁 **多模型提供商** | 统一 Provider 抽象：一套代码对接 **SiliconFlow / 通义千问 / 智谱 GLM / DeepSeek / OpenAI / Ollama / Gemini**，更换 `AI_BASE_URL` + `AI_MODEL` 即可切换；无 Key 时自动进入演示模式，克隆即可跑通 |
 | 🧠 **RAG 向量检索** | ChromaDB 持久化向量库：错题解析自动嵌入入库；**「举一反三」相似题召回**、错题本**语义搜索**（自然语言找题）；向量库故障自动降级为关键词检索 |
+| 🤖 **Agent + MCP** | Tool-use 对话 Agent（function calling 循环自主编排工具）+ MCP Server（Claude Desktop / Cursor 直接调用错题本）|
 | ⏰ **间隔重复复习** | 内置 **SM-2 算法**（Anki 同源）：闪卡式复习，按记忆质量自动调度下次复习时间，对抗遗忘曲线 |
 | 💬 **追问讲题** | 每道错题内置多轮对话（Chat UI）：带题目上下文的多轮讲题，上下文自动截断防超限 |
 | 📊 **学情看板** | 知识点分布、**标签级掌握度估算**（结合复习表现与调度间隔）、薄弱知识点 Top N、近 14 天录入趋势 |
@@ -88,6 +89,8 @@ flowchart LR
 | ![notebook](docs/screenshots/notebook.png) | ![review](docs/screenshots/review.png) |
 | **知识图谱（标签共现）** | **学生总览（教师端）** |
 | ![graph](docs/screenshots/graph.png) | ![students](docs/screenshots/students.png) |
+| **AI 助手（Agent 对话）** | |
+| ![assistant](docs/screenshots/assistant.png) | |
 | **知识图谱（标签共现）** | |
 | ![graph](docs/screenshots/graph.png) | |
 
@@ -140,6 +143,18 @@ curl -s -X POST http://localhost:8000/api/auth/login \
 ```
 
 > `.env` 中设置 `AUTH_SECRET` 为强随机密钥（≥ 32 字节）以保护 JWT 签名。
+
+### 启动 MCP Server（Claude Desktop / Cursor 接入）
+
+```bash
+pip install -r requirements.txt
+# Claude Desktop 的 claude_desktop_config.json 中添加：
+# "mcpServers": { "mathmaster": { "command": "python", "args": ["-m", "mcp_server"],
+#                 "cwd": "<项目路径>" } }
+python -m mcp_server   # stdio 传输，验证可用
+```
+
+接入后即可在 MCP 客户端中用自然语言：搜索错题、录入错题、评分复习、查周报。
 
 ### 启用真实 AI 模型
 

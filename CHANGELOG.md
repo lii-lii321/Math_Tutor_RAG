@@ -2,6 +2,20 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/)。
 
+## [2.3.0] - 2026-09-15
+
+### 新增（Agent 化）
+- **MCP Server**（`mcp_server.py`）：错题本作为 Model Context Protocol 工具服务器，
+  Claude Desktop / Cursor 等 MCP 客户端可直接调用（搜索/录题/评分/到期列表/周报/标签统计）。
+  接入配置见模块文档；用户通过 `MM_USER_ID` / `MM_USERNAME` 绑定
+- **Tool-use 对话 Agent**（`backend/services/agent.py`）：OpenAI function calling 循环
+  （最多 8 轮防死循环），LLM 自主编排错题本工具调用；工具执行异常回传 LLM 自纠
+- **「AI 助手」前端页**：自然语言驱动错题本；无 Key 时本地规则应答（周报/待复习/搜索三类意图），零配置可体验
+- **Agent 工具层**（`backend/services/agent_tools.py`）：`AgentTool`（openai_schema/mcp_schema/`__call__`）统一双协议定义，6 个工具按用户隔离
+
+### 修复
+- `semantic_search` 的 `rag_top_k` 配置被默认参数覆盖、chromadb `count(where=)` 兼容性 → 查询重构
+
 ## [2.2.0] - 2026-09-13
 
 ### 新增

@@ -14,6 +14,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "nav.review": "今日复习",
         "nav.graph": "知识图谱",
         "nav.students": "学生总览",
+        "nav.assistant": "AI 助手",
         "nav.settings": "设置",
         "nav.logout": "退出登录",
         "page.dashboard.title": "学情看板",
