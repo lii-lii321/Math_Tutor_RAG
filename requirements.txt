@@ -10,7 +10,7 @@ plotly>=7.0.0
 # REST API 网关（多端复用）
 fastapi>=0.141.1
 uvicorn[standard]>=0.53.0
-python-multipart>=0.0.9
+python-multipart>=0.0.32
 PyJWT>=2.8
 
 # 数据层
