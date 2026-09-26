@@ -28,7 +28,7 @@ google-genai>=2.23.0       # Gemini（新一代统一 SDK）
 mcp>=1.2                # MCP Server：让 Claude Desktop / Cursor 等客户端调用错题本
 
 # RAG 向量检索
-chromadb>=0.5.15
+chromadb>=1.5.9
 
 # 文档与图像
 python-docx>=1.1
