@@ -4,5 +4,5 @@ pytest>=9.1.1
 ruff>=0.16.7
 pytest-cov
 locust>=2.30
-playwright>=1.40
+playwright>=1.63.0
 psutil>=5.9
