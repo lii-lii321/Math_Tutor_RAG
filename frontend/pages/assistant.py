@@ -1,7 +1,8 @@
-"""AI 助手页：自然语言驱动的错题本 Agent 对话。
+"""AI 助手页：自然语言驱动的错题本 AI Tutor 对话。
 
 演示模式（无 API Key）下提供本地规则应答，保证零配置可体验；
 配置 Key 后由 OpenAI function calling 循环驱动真实工具调用。
+Batch 07：对话服务端持久化——可切换/恢复历史对话，跨端继续学习。
 """
 from __future__ import annotations
 
@@ -51,28 +52,76 @@ def _demo_reply(user_message: str, service: QuestionService, user: dict) -> str:
     )
 
 
+def _conversation_bar(user: dict, history_key: str, agent_key: str) -> None:
+    """历史对话选择条：新建 / 恢复（仅 Agent 模式，演示模式无服务端会话）。"""
+    from backend.services.conversation_service import ConversationService
+
+    conversations = ConversationService().list_for_user(user["id"], limit=20)
+    cols = st.columns([3, 1])
+    with cols[0]:
+        options = {"（当前对话）": None}
+        options.update(
+            {
+                f"{c['title']}（{c['message_count']} 条）": c["id"]
+                for c in conversations
+            }
+        )
+        current = st.session_state.get(f"agent_conv_id_{user['id']}")
+        default_label = next(
+            (label for label, cid in options.items() if cid == current), "（当前对话）"
+        )
+        labels = list(options)
+        picked = st.selectbox(
+            "历史对话",
+            labels,
+            index=labels.index(default_label) if default_label in labels else 0,
+            label_visibility="collapsed",
+        )
+    with cols[1]:
+        new_chat = st.button("🆕 新对话", width="stretch")
+
+    if new_chat:
+        conversation = ConversationService().create(user["id"])
+        st.session_state[f"agent_conv_id_{user['id']}"] = conversation["id"]
+        st.session_state[history_key] = []
+        st.session_state.pop(agent_key, None)
+        st.rerun()
+
+    picked_id = options.get(picked)
+    if picked_id and picked_id != current:
+        st.session_state[f"agent_conv_id_{user['id']}"] = picked_id
+        history = ConversationService().history_for_agent(picked_id, user["id"]) or []
+        st.session_state[history_key] = list(history)
+        st.session_state.pop(agent_key, None)
+        st.rerun()
+
+
 def render_assistant_page(user: dict) -> None:
     service = get_question_service()
     settings = get_settings()
-    page_header("AI 助手", "自然语言驱动错题本 · Agent 自主编排工具调用")
+    page_header("AI 助手", "自然语言驱动错题本 · Agent 自主编排工具调用 · 对话云端留存")
 
     demo = not settings.ai_api_key
     if demo:
         st.markdown('<span class="mm-badge mm-badge--warn">演示模式 · 本地规则应答</span>', unsafe_allow_html=True)
     else:
         st.markdown(
-            f'<span class="mm-badge mm-badge--ok">Agent 模式 · {settings.ai_model}</span>',
+            f'<span class="mm-badge mm-badge--ok">AI Tutor · {settings.ai_model}</span>',
             unsafe_allow_html=True,
         )
 
     history_key = f"agent_chat_{user['id']}"
+    agent_key = f"agent_session_{user['id']}"
     st.session_state.setdefault(history_key, [])
+
+    if not demo:
+        _conversation_bar(user, history_key, agent_key)
 
     for message in st.session_state[history_key]:
         with st.chat_message(message["role"], avatar="🧑‍🎓" if message["role"] == "user" else "🤖"):
             st.markdown(message["content"])
 
-    if prompt := st.chat_input("例如：本周学习报告 / 今天有哪些要复习的 / 搜索 判别式"):
+    if prompt := st.chat_input("例如：我最近哪里最薄弱？/ 生成 5 题练习卷 / 搜索 判别式"):
         st.session_state[history_key].append({"role": "user", "content": prompt})
         with st.chat_message("user", avatar="🧑‍🎓"):
             st.markdown(prompt)
@@ -83,9 +132,17 @@ def render_assistant_page(user: dict) -> None:
             else:
                 from backend.services.agent import AgentSession
 
-                agent_key = f"agent_session_{user['id']}"
                 if agent_key not in st.session_state:
-                    st.session_state[agent_key] = AgentSession(user_id=user["id"])
+                    conversation_id = st.session_state.get(f"agent_conv_id_{user['id']}")
+                    if conversation_id is None:
+                        from backend.services.conversation_service import ConversationService
+
+                        conversation = ConversationService().create(user["id"])
+                        st.session_state[f"agent_conv_id_{user['id']}"] = conversation["id"]
+                        conversation_id = conversation["id"]
+                    st.session_state[agent_key] = AgentSession(
+                        user_id=user["id"], conversation_id=conversation_id
+                    )
                 try:
                     # 流式输出：Agent 的文本增量直接打进聊天气泡
                     reply = st.write_stream(st.session_state[agent_key].chat_stream(prompt))

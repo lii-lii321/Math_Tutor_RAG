@@ -21,7 +21,7 @@ def upgrade() -> None:
     with op.batch_alter_table('questions', schema=None) as batch_op:
         batch_op.add_column(sa.Column('verification_status', sa.String(length=16), nullable=True))
         batch_op.add_column(sa.Column('verification_confidence', sa.Float(), nullable=True))
-        batch_op.add_column(sa.Column('verification_methods', sa.JSON(), nullable=False))
+        batch_op.add_column(sa.Column('verification_methods', sa.JSON(), nullable=True))
         batch_op.add_column(sa.Column('verified_at', sa.DateTime(timezone=True), nullable=True))
 
     # ### end Alembic commands ###

@@ -8,7 +8,17 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routers import agent, auth, comments, jobs, questions, review, stats, tags
+from api.routers import (
+    agent,
+    auth,
+    comments,
+    conversations,
+    jobs,
+    questions,
+    review,
+    stats,
+    tags,
+)
 from backend.config import Settings, get_settings
 from backend.utils.logging import get_logger
 
@@ -58,6 +68,7 @@ def create_app() -> FastAPI:
     app.include_router(tags.router, prefix=settings.api_prefix)
     app.include_router(comments.router, prefix=settings.api_prefix)
     app.include_router(agent.router, prefix=settings.api_prefix)
+    app.include_router(conversations.router, prefix=settings.api_prefix)
     app.include_router(jobs.router, prefix=settings.api_prefix)
 
     @app.get("/health", tags=["meta"])

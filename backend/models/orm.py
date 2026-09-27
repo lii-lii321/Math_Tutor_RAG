@@ -79,7 +79,7 @@ class Question(Base):
         String(16)
     )  # verified / failed / uncertain
     verification_confidence: Mapped[float | None] = mapped_column(Float)
-    verification_methods: Mapped[list] = mapped_column(JSON, default=list)
+    verification_methods: Mapped[list | None] = mapped_column(JSON, default=list)
     verified_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
 
     # SM-2 调度状态
@@ -201,3 +201,46 @@ class ReviewLog(Base):
     )
 
     question: Mapped[Question] = relationship(back_populates="review_logs")
+
+
+class Conversation(Base):
+    """AI Tutor 对话（Batch 07）：服务端持久化，支持跨端「继续刚才的学习」。"""
+
+    __tablename__ = "conversations"
+    __table_args__ = (Index("ix_conversations_user_updated", "user_id", "updated_at"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)  # uuid4
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(128), default="新对话")
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    messages: Mapped[list[ConversationMessage]] = relationship(
+        back_populates="conversation",
+        cascade="all, delete-orphan",
+        order_by="ConversationMessage.created_at",
+    )
+
+
+class ConversationMessage(Base):
+    """对话消息明细：user / assistant 原文，tool 行记录工具调用审计。"""
+
+    __tablename__ = "conversation_messages"
+    __table_args__ = (Index("ix_convmsg_conv_created", "conversation_id", "created_at"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    conversation_id: Mapped[str] = mapped_column(
+        ForeignKey("conversations.id", ondelete="CASCADE"), index=True
+    )
+    role: Mapped[str] = mapped_column(String(16))  # user / assistant / tool
+    content: Mapped[str] = mapped_column(Text, default="")
+    tool_name: Mapped[str | None] = mapped_column(String(64))  # role=tool 时记录
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    conversation: Mapped[Conversation] = relationship(back_populates="messages")

@@ -2,6 +2,24 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/)。
 
+## [2.5.0] - 2026-09-27
+
+### 新增（Agent → AI Tutor，Batch 07）
+- **对话持久化**：`conversations` / `conversation_messages` 两张表（迁移 `74fbffade73a`）——
+  用户/助手原文 + 工具调用审计行（tool_name），支持跨端「继续刚才的学习」；
+  对话标题取首条用户消息自动生成；单对话 400 条防御性上限
+- **AgentSession 会话绑定**：`AgentSession(user_id, conversation_id=...)` 从服务端历史重建 LLM 上下文
+  （仅回放 user/assistant 文本，工具行不进上下文）；`chat` / `chat_stream` 结束后自动落库，
+  持久化失败仅告警不影响对话
+- **Tutor 工具 +5**（Agent/MCP 共 13 个）：`get_learning_profile`（画像总览）、
+  `get_weak_knowledge_points`、`get_recent_mistakes`、`get_review_history`、
+  `generate_practice_set`（指定知识点专项卷 / 自适应卷）；系统提示词升级为 AI Tutor 角色
+- **对话 API**：`POST/GET /api/conversations`、`GET /api/conversations/{id}/messages`、
+  `DELETE /api/conversations/{id}`、`POST /api/conversations/{id}/chat/stream`（SSE + 服务端持久化）
+- **AI 助手页**：历史对话选择条（新建/恢复），恢复时从服务端载入消息与 Agent 上下文
+- 模型修正：`questions.verification_methods` ORM 与 `7d967aaa71b5` 迁移统一为可空列，
+  消除后续 autogenerate 的常驻伪 diff
+
 ## [2.4.0] - 2026-09-27
 
 ### 新增（知识点掌握度引擎 + 自适应复习）

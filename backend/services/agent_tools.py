@@ -161,6 +161,107 @@ def build_tools(service: QuestionService, user_id: int) -> list[AgentTool]:
             }
         )
 
+    # ---------- AI Tutor 工具（Batch 07） ----------
+
+    def get_learning_profile() -> str:
+        """学习画像总览：错题量/到期/已掌握/连续打卡 + 周报 + 薄弱知识点 Top5。"""
+        stats = service.dashboard_stats(user_id)
+        profile = service.mastery_profile(user_id, limit=5)
+        return _clean(
+            {
+                "total": stats["total"],
+                "due": stats["due"],
+                "mastered": stats["mastered"],
+                "streak": stats["streak"],
+                "weekly": stats["weekly"],
+                "weak_knowledge_points": [
+                    {
+                        "name": item.knowledge_point,
+                        "mastery": round(item.mastery, 3),
+                        "status": item.status_label,
+                    }
+                    for item in profile
+                    if item.status != "solid"
+                ],
+            }
+        )
+
+    def get_weak_knowledge_points() -> str:
+        """薄弱知识点列表：掌握度 < 0.7 的全部知识点，按掌握度升序。"""
+        items = [
+            item
+            for item in service.mastery_profile(user_id)
+            if item.status != "solid"
+        ]
+        return _clean(
+            {
+                "count": len(items),
+                "knowledge_points": [
+                    {
+                        "name": item.knowledge_point,
+                        "mastery": round(item.mastery, 3),
+                        "question_count": item.question_count,
+                        "due_count": item.due_count,
+                        "status": item.status_label,
+                    }
+                    for item in items
+                ],
+            }
+        )
+
+    def get_recent_mistakes(limit: int = 5) -> str:
+        """最近录入的错题（新→旧），供分析近期问题。"""
+        recent = service.list_questions(user_id, semantic=False, limit=min(int(limit), 20))
+        return _clean(
+            {
+                "count": len(recent),
+                "questions": [
+                    {
+                        "id": q.id,
+                        "snippet": q.content_markdown[:80],
+                        "knowledge_points": q.knowledge_points,
+                        "tags": q.tags,
+                        "difficulty": q.difficulty,
+                        "date": q.created_at.strftime("%Y-%m-%d") if q.created_at else "",
+                    }
+                    for q in recent
+                ],
+            }
+        )
+
+    def get_review_history(limit: int = 10) -> str:
+        """最近复习记录：评分、间隔与题目摘要（新→旧）。"""
+        rows = service.recent_reviews(user_id, limit=min(int(limit), 30))
+        return _clean({"count": len(rows), "reviews": rows})
+
+    def generate_practice_set(size: int = 5, knowledge_point: str = "") -> str:
+        """生成练习小卷：指定知识点取该组错题；未指定则按薄弱知识点 + 到期优先组卷。"""
+        if knowledge_point.strip():
+            questions = service.list_questions(
+                user_id, tag=knowledge_point.strip(), semantic=False, limit=min(int(size), 20)
+            )
+            reason = f"知识点专项：{knowledge_point.strip()}"
+        else:
+            plan = service.today_plan(user_id, size=min(int(size), 20))
+            questions = [item.question for item in plan]
+            reason = "自适应组卷（薄弱知识点 + 到期优先）"
+        return _clean(
+            {
+                "basis": reason,
+                "count": len(questions),
+                "questions": [
+                    {
+                        "id": q.id,
+                        "snippet": q.content_markdown[:80],
+                        "knowledge_points": q.knowledge_points,
+                        "tags": q.tags,
+                        "difficulty": q.difficulty,
+                    }
+                    for q in questions
+                ],
+            }
+        )
+
     return [
         AgentTool(
             name="search_questions",
@@ -240,5 +341,51 @@ def build_tools(service: QuestionService, user_id: int) -> list[AgentTool]:
                 },
             },
             handler=today_review_plan,
+        ),
+        AgentTool(
+            name="get_learning_profile",
+            description="获取学习画像总览（错题量/到期/已掌握/连续打卡/周报/薄弱知识点）",
+            parameters={"type": "object", "properties": {}},
+            handler=get_learning_profile,
+        ),
+        AgentTool(
+            name="get_weak_knowledge_points",
+            description="获取薄弱知识点列表（掌握度未达 0.7，按掌握度升序）",
+            parameters={"type": "object", "properties": {}},
+            handler=get_weak_knowledge_points,
+        ),
+        AgentTool(
+            name="get_recent_mistakes",
+            description="获取最近录入的错题列表",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "limit": {"type": "integer", "description": "返回条数上限，默认 5"},
+                },
+            },
+            handler=get_recent_mistakes,
+        ),
+        AgentTool(
+            name="get_review_history",
+            description="获取最近的复习记录（评分/间隔/摘要）",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "limit": {"type": "integer", "description": "返回条数上限，默认 10"},
+                },
+            },
+            handler=get_review_history,
+        ),
+        AgentTool(
+            name="generate_practice_set",
+            description="生成练习小卷（可指定知识点，否则按薄弱知识点+到期自适应组卷）",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "size": {"type": "integer", "description": "题量，默认 5"},
+                    "knowledge_point": {"type": "string", "description": "知识点名称（可选）"},
+                },
+            },
+            handler=generate_practice_set,
         ),
     ]
