@@ -68,6 +68,27 @@ alembic downgrade -1
 
 数据库 URL 优先级：`alembic -x url=...` > 环境变量 `DATABASE_URL` > `backend/config.py`。
 
+## 4. 异步任务队列（Batch 08）
+
+AI 录题等耗时任务的执行后端由 `REDIS_URL` 决定：
+
+- **未配置（默认）**：进程内 daemon 线程执行，单实例部署零依赖
+- **配置 Redis**：任务经 RQ 队列进入 Redis，由独立 Worker 进程消费，Web 与 Worker 可各自横向扩容
+
+```bash
+pip install -r requirements-queue.txt      # rq + redis（可选依赖）
+
+# .env
+REDIS_URL=redis://localhost:6379/0
+
+# 启动 Worker（与 Web 进程共享同一份代码与数据库配置）
+python -m backend.jobs.worker
+```
+
+- 任务状态机：`pending → running → success / failed / cancelled`，`jobs` 表是唯一状态源
+- Worker 取任务时二次校验状态，已取消的任务直接跳过；`POST /api/jobs/{id}/cancel` 仅可取消 pending 任务
+- CI 用 fakeredis 离线验证 RQ 链路（入队 → burst 消费 → 状态落库），无需真实 Redis
+
 ## 4. AI 提供商配置
 
 任选一家 OpenAI 兼容服务（`.env`）：

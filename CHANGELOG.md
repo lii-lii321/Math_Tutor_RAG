@@ -2,6 +2,20 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/)。
 
+## [2.6.0] - 2026-09-27
+
+### 新增（异步任务生产化，Batch 08）
+- **JobQueue 后端抽象**（`backend/jobs/`）：`JobQueue` Protocol + 双实现——
+  默认 `ThreadedJobQueue`（进程内线程，单实例零依赖）；配置 `REDIS_URL` 切换 `RQJobQueue`
+  （任务入 Redis，独立 Worker 消费，Web/Worker 各自横向扩容），可选依赖缺失时告警回退线程
+- **任务执行与队列解耦**：`backend/jobs/tasks.py` 模块级任务函数（Worker 按点分路径调用），
+  双后端共用同一份执行逻辑；`python -m backend.jobs.worker` 一键拉起 RQ Worker
+- **任务取消**：`POST /api/jobs/{id}/cancel`（仅 pending 可取消，409 兜底）+ Worker 取任务时
+  二次校验状态的双重取消语义；状态机补齐 `cancelled`
+- **离线验证**：fakeredis + RQ `SimpleWorker` burst 模式在 CI 内全链路验证
+  （入队 → 消费 → jobs 表落终态 / 已取消任务被跳过），无需真实 Redis；
+  `rq/redis/fakeredis` 进 requirements-dev，生产可选依赖单独 `requirements-queue.txt`
+
 ## [2.5.0] - 2026-09-27
 
 ### 新增（Agent → AI Tutor，Batch 07）

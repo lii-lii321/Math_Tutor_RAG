@@ -24,7 +24,7 @@ class Settings(BaseSettings):
 
     # ---------- 应用 ----------
     app_name: str = "MathMaster Edu"
-    app_version: str = "2.5.0"
+    app_version: str = "2.6.0"
     debug: bool = False
     data_dir: Path = PROJECT_ROOT / "data"
 
@@ -85,6 +85,12 @@ class Settings(BaseSettings):
     # 开启后录题时对原图做文字识别，识别文本参与语义/关键词搜索。
     # 需要：pip install rapidocr-onnxruntime
     ocr_enabled: bool = False
+
+    # ---------- 异步任务队列（Batch 08）----------
+    # 留空：进程内线程执行（单实例默认）。
+    # 配置如 redis://localhost:6379/0：任务走 RQ 队列，由独立 Worker 消费
+    # （python -m backend.jobs.worker；需要 pip install -r requirements-queue.txt）。
+    redis_url: str = ""
 
     # ---------- 复习算法 (SM-2) ----------
     review_default_ease: float = Field(default=2.5, ge=1.3)

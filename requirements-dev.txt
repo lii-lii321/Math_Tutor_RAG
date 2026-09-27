@@ -6,3 +6,7 @@ pytest-cov
 locust>=2.30
 playwright>=1.40
 psutil>=5.9
+# Batch 08 任务队列：RQ 后端 + fakeredis 离线测试
+rq>=2.5
+redis>=6.0
+fakeredis>=1.30

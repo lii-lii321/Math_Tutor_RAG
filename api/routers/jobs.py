@@ -16,3 +16,10 @@ def get_job(job_id: str, user: User = Depends(get_current_user)) -> dict:
     if job is None:
         raise HTTPException(404, "任务不存在")
     return job
+
+
+@router.post("/{job_id}/cancel", status_code=204)
+def cancel_job(job_id: str, user: User = Depends(get_current_user)) -> None:
+    """取消 pending 任务；已开始执行或已结束返回 409。"""
+    if not JobService().cancel(job_id, user.id):
+        raise HTTPException(409, "任务不存在或已开始执行/结束")

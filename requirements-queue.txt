@@ -1,0 +1,5 @@
+# 可选：异步任务队列（Batch 08）
+# 配置 REDIS_URL 后，任务经 RQ 队列由独立 Worker 消费：
+#   python -m backend.jobs.worker
+rq>=2.5
+redis>=6.0
