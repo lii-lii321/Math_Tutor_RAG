@@ -1,14 +1,14 @@
 # 📘 MathMaster Edu — 基于视觉大模型与 RAG 的智能错题本
 
-> **让错题管理像呼吸一样简单。** 拍照录入 → AI 结构化解析 → 向量归档 → 间隔重复复习 → 学情看板。
+> **让错题管理像呼吸一样简单。** 拍照录入 → AI 结构化解析 → 数学验证 → 向量归档 → 掌握度画像 → 自适应复习。
 >
-> A production-grade Smart Wrong-Question Notebook powered by a Vision LLM, RAG retrieval, and spaced-repetition scheduling.
+> A production-grade Smart Wrong-Question Notebook powered by a Vision LLM, RAG retrieval, math verification, mastery tracking, and spaced-repetition scheduling.
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776ab)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.49%2B-ff4b4b)
 ![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-d71f00)
 ![ChromaDB](https://img.shields.io/badge/RAG-ChromaDB-4051b5)
-![Tests](https://img.shields.io/badge/tests-197%20passing%20%2B%205%20E2E-2ea44f)
+![Tests](https://img.shields.io/badge/tests-239%20passing%20%2B%205%20E2E-2ea44f)
 [![CI](https://github.com/lii-lii321/Math_Tutor_RAG/actions/workflows/ci.yml/badge.svg)](https://github.com/lii-lii321/Math_Tutor_RAG/actions/workflows/ci.yml)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -34,7 +34,7 @@
 | 📅 **学习日历** | 90 天热力图 + 复习正确率趋势 + 掌握度成长曲线 + 连续学习打卡 + 周报环比 |
 | ⌨️ **高效复习** | 键盘快捷键（空格/1-4）、评分间隔预览、跳过、掌握归档（🏆）、复习历史 |
 | 🌙 **体验细节** | 深色模式、PWA 可安装、OCR 原图搜索（可选）、MUJI 极简界面 |
-| 🧪 **工程化** | pytest 190+ 用例 + Playwright E2E、ruff、覆盖率 ~90%、CI（lint + 3 版本矩阵 + 启动冒烟 + E2E + Docker）、Alembic 迁移、Docker Compose 一键部署 |
+| 🧪 **工程化** | pytest 230+ 用例 + Playwright E2E、ruff、覆盖率 ~90%、CI（lint + 3 版本矩阵 + 启动冒烟 + E2E + Docker）、Alembic 迁移（9 个版本）、Docker Compose 一键部署、RAG 离线评测与 AI 遥测 |
 
 ## 🏗️ 架构 (Architecture)
 
@@ -45,38 +45,53 @@ flowchart LR
         A1 --> A3[AI 录题]
         A1 --> A4[错题本]
         A1 --> A5[今日复习]
-        A1 --> A6[设置]
+        A1 --> A7[能力画像]
+        A1 --> A8[AI 助手 · Tutor]
+    end
+
+    subgraph API["FastAPI 网关 · JWT 双令牌"]
+        G1[Auth/RBAC] --> G2[REST + SSE]
+        G3[班级多租户] --> G2
+        G4[请求限流] --> G2
     end
 
     subgraph Services["backend/services · 应用服务层"]
-        S1[QuestionService\n编排层]
-        S2[AuthService]
-        S3[ReviewScheduler\nSM-2]
-        S4[ExportService]
+        S1[QuestionService\n七领域 Mixin]
+        S2[ReviewScheduler\nSM-2]
+        S3[MasteryEngine\n掌握度+自适应]
+        S4[AgentSession\nTutor + 会话持久化]
+        S5[ConversationService]
+        S6[JobService\n异步任务]
     end
 
     subgraph AI["AI 抽象层"]
         P1[OpenAI 兼容\nSiliconFlow/Qwen/GLM/DeepSeek]
-        P2[Gemini\ngoogle-genai]
+        P2[Gemini]
         P3[Mock 演示模式]
+        P4[Math Verification\nSymPy]
     end
 
     subgraph Data["数据层"]
         R1[(SQLite / MySQL\nSQLAlchemy ORM)]
         R2[(ChromaDB\n向量库)]
         R3[图片文件存储]
+        R4[(Redis · 可选队列)]
     end
 
-    A3 --> S1
-    A4 --> S1
-    A5 --> S3
     A2 --> S1
+    A3 --> S6
+    A5 --> S2
+    A7 --> S3
+    A8 --> S4
+    G2 --> S1
+    S4 --> S5
     S1 --> P1 & P2 & P3
-    S1 --> R2
+    S1 --> P4
     S1 --> R1
+    S1 --> R2
     S1 --> R3
-    S1 --> S3
-    A4 --> S4
+    S6 --> R4
+    S6 --> R1
 ```
 
 **分层原则**：界面层（`frontend/`）只依赖应用服务（`QuestionService` 等）；服务层通过 Repository 访问数据库；AI 提供商与向量库均可替换/降级。配置集中在 `backend/config.py`（pydantic-settings 校验）。

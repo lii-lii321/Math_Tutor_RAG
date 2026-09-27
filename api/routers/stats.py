@@ -52,3 +52,41 @@ def tag_graph(user: User = Depends(get_current_user)) -> list[CooccurrenceEdge]:
         CooccurrenceEdge(source=a, target=b, weight=count)
         for (a, b), count in edges.most_common()
     ]
+
+
+@router.get("/observability")
+def observability(
+    limit: int = 200, user: User = Depends(get_current_user)
+) -> dict:
+    """运行观测摘要（手册 §十一）：AI 延迟/错误率 + 异步任务失败率。
+
+    遥测来自本地 JSONL（data/telemetry/ai_calls.jsonl），
+    任务失败率取最近 limit 条 jobs 记录。
+    """
+    from sqlalchemy import func, select
+
+    from backend.database import SessionLocal
+    from backend.models.orm import Job
+    from backend.services.ai.telemetry import summarize
+
+    summary = summarize(limit=min(limit, 1000))
+    with SessionLocal() as session:
+        total_jobs = (
+            session.execute(select(func.count()).select_from(Job)).scalar_one()
+        )
+        failed_jobs = (
+            session.execute(
+                select(func.count())
+                .select_from(Job)
+                .where(Job.status == "failed")
+            )
+            .scalar_one()
+        )
+    return {
+        "ai": summary,
+        "jobs": {
+            "total": total_jobs,
+            "failed": failed_jobs,
+            "failure_rate": round(failed_jobs / total_jobs * 100, 1) if total_jobs else None,
+        },
+    }

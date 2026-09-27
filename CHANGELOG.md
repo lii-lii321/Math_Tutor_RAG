@@ -5,6 +5,8 @@
 ## [2.7.0] - 2026-09-27
 
 ### 新增（安全加固 + 多租户，Batch 10）
+- **观测摘要**：`GET /api/stats/observability`——AI 调用次数/成功率/平均延迟（遥测 JSONL 汇总）
+  + 异步任务失败率（jobs 表统计），对应手册 §十一的可观测性最小闭环
 - **双令牌**：access 默认 30 分钟 + refresh 默认 7 天（`REFRESH_TOKEN_EXPIRE_DAYS`）；
   `POST /api/auth/refresh` 换新令牌对（rotation-lite）；令牌携带 `typ` 声明，
   refresh 不能当 access 用、反之亦然；历史令牌按 access 平滑兼容
