@@ -14,7 +14,7 @@ from fastapi import (
 )
 from pydantic import BaseModel, Field
 
-from api.deps import get_current_user
+from api.deps import get_current_user, rate_limit
 from backend.models.orm import User
 from backend.models.schemas import QuestionAnalysis, QuestionOut
 from backend.services.export import generate_word_exam
@@ -93,6 +93,7 @@ async def analyze_question(
     tags: str = Form(default=""),
     hint: str = Form(default=""),
     user: User = Depends(get_current_user),
+    _: None = Depends(rate_limit("analyze")),
 ) -> AnalyzeResult:
     """上传错题图片，返回结构化解析并自动归档（含向量索引）。"""
     if image.content_type not in _ALLOWED_MIME:
@@ -153,6 +154,7 @@ async def analyze_question_async(
     tags: str = Form(default=""),
     hint: str = Form(default=""),
     user: User = Depends(get_current_user),
+    _: None = Depends(rate_limit("analyze")),
 ) -> dict:
     """提交异步解析任务，返回 job_id；用 GET /api/jobs/{job_id} 轮询结果。"""
     if image.content_type not in _ALLOWED_MIME:

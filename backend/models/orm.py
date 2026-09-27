@@ -226,6 +226,41 @@ class Conversation(Base):
     )
 
 
+class SchoolClass(Base):
+    """班级（Batch 10 多租户）：教师拥有的学生分组，决定教师的可见范围。"""
+
+    __tablename__ = "classes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(64))
+    teacher_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    members: Mapped[list[ClassMember]] = relationship(
+        back_populates="school_class", cascade="all, delete-orphan"
+    )
+
+
+class ClassMember(Base):
+    """班级成员：学生 ↔ 班级 多对多。"""
+
+    __tablename__ = "class_members"
+    __table_args__ = (Index("ix_classmember_student_class", "student_id", "class_id"),)
+
+    class_id: Mapped[int] = mapped_column(
+        ForeignKey("classes.id", ondelete="CASCADE"), primary_key=True
+    )
+    student_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+
+    school_class: Mapped[SchoolClass] = relationship(back_populates="members")
+
+
 class ConversationMessage(Base):
     """对话消息明细：user / assistant 原文，tool 行记录工具调用审计。"""
 

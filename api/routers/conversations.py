@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from api.deps import get_current_user
+from api.deps import get_current_user, rate_limit
 from backend.models.orm import User
 from backend.services.agent import AgentSession
 from backend.services.conversation_service import ConversationService
@@ -64,6 +64,7 @@ def conversation_chat_stream(
     conversation_id: str,
     payload: ConversationChatRequest,
     user: User = Depends(get_current_user),
+    _: None = Depends(rate_limit("agent")),
 ):
     """SSE 流式对话（服务端持久化）：历史从 conversation_messages 重建。"""
 

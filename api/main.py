@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.routers import (
     agent,
     auth,
+    classes,
     comments,
     conversations,
     jobs,
@@ -57,7 +58,13 @@ def create_app() -> FastAPI:
     )
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # 部署时通过反向代理收紧
+        # 生产通过 CORS_ORIGINS 环境变量收紧，如 https://app.example.com,https://m.example.com
+        allow_origins=[
+            origin.strip()
+            for origin in settings.cors_origins.split(",")
+            if origin.strip()
+        ]
+        or ["*"],
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -67,6 +74,7 @@ def create_app() -> FastAPI:
     app.include_router(stats.router, prefix=settings.api_prefix)
     app.include_router(tags.router, prefix=settings.api_prefix)
     app.include_router(comments.router, prefix=settings.api_prefix)
+    app.include_router(classes.router, prefix=settings.api_prefix)
     app.include_router(agent.router, prefix=settings.api_prefix)
     app.include_router(conversations.router, prefix=settings.api_prefix)
     app.include_router(jobs.router, prefix=settings.api_prefix)

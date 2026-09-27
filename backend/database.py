@@ -104,6 +104,12 @@ def init_db(seed_users: bool = True) -> None:
         _settings.seed_admin_username,
         _settings.seed_demo_username,
     )
+    if _settings.seed_admin_password == "admin123" or _settings.seed_demo_password == "demo123":
+        # 种子口令可通过环境变量覆盖（SEED_ADMIN_PASSWORD / SEED_DEMO_PASSWORD）
+        logger.warning(
+            "检测到默认种子口令（admin123/demo123）——仅限本地开发；"
+            "生产部署请通过 SEED_ADMIN_PASSWORD / SEED_DEMO_PASSWORD 覆盖！"
+        )
 
 
 def check_connection() -> bool:

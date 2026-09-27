@@ -2,6 +2,24 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/)。
 
+## [2.7.0] - 2026-09-27
+
+### 新增（安全加固 + 多租户，Batch 10）
+- **双令牌**：access 默认 30 分钟 + refresh 默认 7 天（`REFRESH_TOKEN_EXPIRE_DAYS`）；
+  `POST /api/auth/refresh` 换新令牌对（rotation-lite）；令牌携带 `typ` 声明，
+  refresh 不能当 access 用、反之亦然；历史令牌按 access 平滑兼容
+- **CORS 环境化**：`CORS_ORIGINS` 逗号分隔指定来源，默认 `*`（仅限开发）
+- **核心端点请求限流**：滑动窗口计数器（`backend/utils/request_limiter.py`）+
+  依赖工厂 `rate_limit(scope)`——agent 对话 10 次/分、AI 录题 20 次/分
+  （`RATE_LIMIT_AGENT_PER_MIN` / `RATE_LIMIT_ANALYZE_PER_MIN`，0 关闭），超限 429
+- **默认口令治理**：种子口令可用 `SEED_ADMIN_PASSWORD` / `SEED_DEMO_PASSWORD` 覆盖；
+  检测到默认口令时启动告警
+- **班级多租户**（10.5 简化：单组织，班级即可见性单元）：`classes` / `class_members`
+  两张表（迁移 `55c91901b5d9`）+ `ClassService` + `POST/GET /api/classes`、
+  `POST /api/classes/{id}/members`、`DELETE .../members/{student_id}`、`DELETE /api/classes/{id}`
+  （仅教师，403 兜底）；教师建立班级后，语义检索范围与学生总览收紧为「自己班级的学生」，
+  未建班教师保持旧的「全部学生」行为（向后兼容）
+
 ## [2.6.0] - 2026-09-27
 
 ### 新增（异步任务生产化，Batch 08）

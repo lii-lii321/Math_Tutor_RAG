@@ -24,7 +24,7 @@ class Settings(BaseSettings):
 
     # ---------- 应用 ----------
     app_name: str = "MathMaster Edu"
-    app_version: str = "2.6.0"
+    app_version: str = "2.7.0"
     debug: bool = False
     data_dir: Path = PROJECT_ROOT / "data"
 
@@ -48,8 +48,16 @@ class Settings(BaseSettings):
     # ---------- API 网关 (JWT) ----------
     # 生产环境务必通过 .env 设置强随机密钥（>= 32 字节）
     auth_secret: str = "dev-only-secret-change-me-0123456789abcdef"
-    access_token_expire_minutes: int = Field(default=7 * 24 * 60, ge=1)
+    # 双令牌（Batch 10）：短效 access + 长效 refresh（POST /api/auth/refresh 换新）
+    access_token_expire_minutes: int = Field(default=30, ge=1)
+    refresh_token_expire_days: int = Field(default=7, ge=1, le=30)
+    # 生产环境逗号分隔指定来源，如 https://app.example.com；留 * 仅限开发
+    cors_origins: str = "*"
     api_prefix: str = "/api"
+
+    # ---------- 核心端点请求限流（次/分钟，0 = 不限制）----------
+    rate_limit_agent_per_min: int = Field(default=10, ge=0)
+    rate_limit_analyze_per_min: int = Field(default=20, ge=0)
 
     # ---------- AI 提供商 ----------
     # openai_compatible: 任何兼容 OpenAI Chat Completions 的服务

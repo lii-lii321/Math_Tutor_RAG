@@ -123,15 +123,18 @@ class CoreMixin:
             session.close()
 
     def _search_scope(self, user_id: int, include_others: bool) -> list[int]:
-        """语义检索的可见范围：普通用户仅自己；教师为 自己 + 全部学生。"""
+        """语义检索的可见范围：普通用户仅自己；教师为 自己 + 所教班级学生。
+
+        教师尚未建立班级时保持旧行为（可见全部学生），保证向后兼容。
+        """
         if not include_others:
             return [user_id]
+        from backend.services.class_service import ClassService
+
         with self._user_session() as users:
-            return [
-                u.id
-                for u in users.list_users()
-                if u.role == "student" or u.id == user_id
-            ]
+            all_students = [u.id for u in users.list_users() if u.role == "student"]
+        class_students = ClassService().student_ids_for_teacher(user_id)
+        return [user_id, *(class_students or all_students)]
 
     def _persist_image(self, user_id: int, image_bytes: bytes) -> Path:
         """图片落盘：压缩到最长边 1600px 的 JPEG，节省存储并加快导出。"""
@@ -818,6 +821,13 @@ class StatsMixin:
             logs = repo.all_review_logs()
 
         outs = [QuestionOut.from_orm_model(q) for q in questions]
+        # 多租户收紧：教师建了班级后，总览仅覆盖自己班级的学生（无班级保持全量）
+        from backend.services.class_service import ClassService
+
+        class_students = ClassService().student_ids_for_teacher(teacher_id)
+        if class_students:
+            outs = [o for o in outs if o.user_id in class_students]
+            students = [u for u in students if u.id in class_students]
         by_user: dict[int, list[QuestionOut]] = {}
         for out in outs:
             by_user.setdefault(out.user_id, []).append(out)
