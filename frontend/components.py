@@ -32,6 +32,12 @@ def question_detail_view(q, show_hit: bool = True) -> None:
     with content_col:
         if q.user_note:
             st.info(f"📝 我的笔记：{q.user_note}")
+        if q.verification_status == "verified":
+            st.success(f"✓ 数学一致性已验证（{q.verification_confidence:.0%}）")
+        elif q.verification_status == "failed":
+            st.warning("⚠️ 验证未通过：答案疑似有误，请人工确认")
+        elif q.verification_status == "uncertain":
+            st.caption("⚠️ 当前答案无法自动验证，请人工确认")
         st.markdown(q.content_markdown, unsafe_allow_html=True)
         if q.answer:
             st.markdown(f"**答案**：{q.answer}")

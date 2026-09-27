@@ -74,6 +74,14 @@ class Question(Base):
     ocr_text: Mapped[str | None] = mapped_column(Text)  # 原图 OCR 文字（可选特性）
     image_hash: Mapped[str | None] = mapped_column(String(64), index=True)  # 原图 SHA-256，去重用
 
+    # 数学验证（Batch 03）
+    verification_status: Mapped[str | None] = mapped_column(
+        String(16)
+    )  # verified / failed / uncertain
+    verification_confidence: Mapped[float | None] = mapped_column(Float)
+    verification_methods: Mapped[list] = mapped_column(JSON, default=list)
+    verified_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+
     # SM-2 调度状态
     reps: Mapped[int] = mapped_column(Integer, default=0)
     ease: Mapped[float] = mapped_column(Float, default=lambda: get_settings().review_default_ease)

@@ -63,6 +63,9 @@ class QuestionOut(BaseModel):
     source: str = "ai"
     user_note: str | None = None
     ocr_text: str | None = None
+    verification_status: str | None = None
+    verification_confidence: float | None = None
+    verification_methods: list[str] = Field(default_factory=list)
     reps: int = 0
     ease: float = 2.5
     interval_days: float = 0
@@ -85,6 +88,9 @@ class QuestionOut(BaseModel):
             source=q.source,
             user_note=q.user_note,
             ocr_text=q.ocr_text,
+            verification_status=q.verification_status,
+            verification_confidence=q.verification_confidence,
+            verification_methods=list(q.verification_methods or []),
             reps=q.reps,
             ease=q.ease,
             interval_days=q.interval_days,

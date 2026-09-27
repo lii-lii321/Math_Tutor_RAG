@@ -170,6 +170,65 @@ class CoreMixin:
 class EntryMixin:
     """错题录入：手动文本与拍照 AI 解析两条链路。"""
 
+    def _verify_analysis(self, analysis: QuestionAnalysis) -> dict:
+        """对 AI 解析结果运行数学验证，返回 repo.create 可用的 verification 字典。"""
+        from backend.services.math_verifier import verify_answer
+
+        try:
+            result = verify_answer(analysis.analysis, "", analysis.answer)
+        except Exception as exc:  # noqa: BLE001 - 验证失败不影响保存
+            logger.warning("数学验证异常: %s", exc)
+            return {
+                "status": "uncertain",
+                "confidence": 0.0,
+                "methods": [],
+                "verified_at": dt.datetime.now(dt.timezone.utc),
+            }
+        return {
+            "status": result.status,
+            "confidence": result.confidence,
+            "methods": result.methods,
+            "details": result.details,
+            "verified_at": dt.datetime.now(dt.timezone.utc),
+        }
+
+    def analyze_and_save_dedup(
+        self,
+        user_id: int,
+        image_bytes: bytes,
+        *,
+        mime_type: str = "image/jpeg",
+        user_tags: list[str] | None = None,
+        hint: str = "",
+    ) -> EntryResult:
+        """带去重的录题：同图已录入时跳过 AI 调用，直接返回既有记录。"""
+        image_hash = hashlib.sha256(image_bytes).hexdigest()
+        with self._session() as repo:
+            existing = repo.find_by_image_hash(user_id, image_hash)
+        if existing is not None:
+            out = QuestionOut.from_orm_model(existing)
+            analysis = QuestionAnalysis(
+                knowledge_points=list(out.knowledge_points or []),
+                analysis=out.content_markdown,
+                answer=out.answer,
+                difficulty=out.difficulty,  # type: ignore[arg-type]
+                tags=list(out.tags or []),
+                mistake_cause="",
+                followup_question=out.followup_question or "",
+            )
+            logger.info("重复图片 question=%s user=%s，直接复用", out.id, user_id)
+            return EntryResult(question=out, analysis=analysis, duplicated=True)
+
+        out, analysis = self.analyze_and_save(
+            user_id,
+            image_bytes,
+            mime_type=mime_type,
+            user_tags=user_tags,
+            hint=hint,
+            image_hash=image_hash,
+        )
+        return EntryResult(question=out, analysis=analysis, duplicated=False)
+
     def create_manual_question(
         self,
         user_id: int,
@@ -227,13 +286,14 @@ class EntryMixin:
         hint: str = "",
         image_hash: str | None = None,
     ) -> tuple[QuestionOut, QuestionAnalysis]:
-        """完整录入链路：AI 解析 → 图片落盘 →（可选 OCR）→ 数据库 → 向量索引。
+        """完整录入链路：AI 解析 → 数学验证 → 图片落盘 → 数据库 → 向量索引。
 
         image_hash：调用方（analyze_and_save_dedup）预算好的原图哈希，入库供去重。
         """
         analysis = self.ai.analyze_question(image_bytes, mime_type, hint)
         tags = analysis.merged_tags(user_tags or [])
 
+        verification = self._verify_analysis(analysis)
         image_path = self._persist_image(user_id, image_bytes)
         from backend.services.ocr import extract_text
 
@@ -250,6 +310,7 @@ class EntryMixin:
                 image_path=str(image_path),
                 ocr_text=ocr_text,
                 image_hash=image_hash,
+                verification=verification,
             )
             out = QuestionOut.from_orm_model(question)
 
@@ -264,42 +325,34 @@ class EntryMixin:
         )
         return out, analysis
 
-    def analyze_and_save_dedup(
-        self,
-        user_id: int,
-        image_bytes: bytes,
-        *,
-        mime_type: str = "image/jpeg",
-        user_tags: list[str] | None = None,
-        hint: str = "",
-    ) -> EntryResult:
-        """带去重的录题：同图已录入时跳过 AI 调用，直接返回既有记录。"""
-        image_hash = hashlib.sha256(image_bytes).hexdigest()
-        with self._session() as repo:
-            existing = repo.find_by_image_hash(user_id, image_hash)
-        if existing is not None:
-            out = QuestionOut.from_orm_model(existing)
-            analysis = QuestionAnalysis(
-                knowledge_points=list(out.knowledge_points or []),
-                analysis=out.content_markdown,
-                answer=out.answer,
-                difficulty=out.difficulty,  # type: ignore[arg-type]
-                tags=list(out.tags or []),
-                mistake_cause="",
-                followup_question=out.followup_question or "",
-            )
-            logger.info("重复图片 question=%s user=%s，直接复用", out.id, user_id)
-            return EntryResult(question=out, analysis=analysis, duplicated=True)
 
-        out, analysis = self.analyze_and_save(
-            user_id,
-            image_bytes,
-            mime_type=mime_type,
-            user_tags=user_tags,
-            hint=hint,
-            image_hash=image_hash,
-        )
-        return EntryResult(question=out, analysis=analysis, duplicated=False)
+class EntryResultMixin:
+    """dedup 录题结果类型挂载点（保持 EntryResult 从 entry_types 导入）。"""
+
+
+def _verify_analysis(analysis: QuestionAnalysis) -> dict:
+    """对 AI 解析结果运行数学验证，返回 repo.create 可用的 verification 字典。"""
+    from backend.services.math_verifier import verify_answer
+
+    question_text = analysis.analysis
+    answer_text = analysis.answer
+    try:
+        result = verify_answer(question_text, "", answer_text)
+    except Exception as exc:  # noqa: BLE001 - 验证失败不影响保存
+        logger.warning("数学验证异常: %s", exc)
+        return {
+            "status": "uncertain",
+            "confidence": 0.0,
+            "methods": [],
+            "verified_at": dt.datetime.now(dt.timezone.utc),
+        }
+    return {
+        "status": result.status,
+        "confidence": result.confidence,
+        "methods": result.methods,
+        "details": result.details,
+        "verified_at": dt.datetime.now(dt.timezone.utc),
+    }
 
 
 class QueryMixin:

@@ -32,6 +32,7 @@ class QuestionRepository:
         source: str = "ai",
         ocr_text: str | None = None,
         image_hash: str | None = None,
+        verification: dict | None = None,
     ) -> Question:
         question = Question(
             user_id=user_id,
@@ -45,6 +46,10 @@ class QuestionRepository:
             source=source,
             ocr_text=ocr_text or None,
             image_hash=image_hash,
+            verification_status=(verification or {}).get("status"),
+            verification_confidence=(verification or {}).get("confidence"),
+            verification_methods=(verification or {}).get("methods", []),
+            verified_at=(verification or {}).get("verified_at"),
         )
         self.session.add(question)
         self.session.flush()
