@@ -58,30 +58,31 @@ def list_questions(
     response: Response,
     tag: str | None = None,
     keyword: str | None = None,
+    difficulty: str | None = None,
     semantic: bool = True,
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=100),
     user: User = Depends(get_current_user),
 ) -> list[QuestionOut]:
-    """分页列出错题（按创建时间倒序）；X-Total-Count 为过滤后的总数。"""
+    """分页列出错题；X-Total-Count 为过滤后的总数。"""
     service = _service()
     items = service.list_questions(
         user.id,
         include_others=user.role == "teacher",
         tag=tag,
         keyword=keyword,
+        difficulty=difficulty,
         semantic=semantic,
         offset=offset,
         limit=limit,
     )
-    total = len(items)
-    if offset or total == limit:
-        total = service.count_for_user(
-            user.id,
-            include_others=user.role == "teacher",
-            tag=tag,
-            keyword=keyword,
-        )
+    total = service.count_for_user(
+        user.id,
+        include_others=user.role == "teacher",
+        tag=tag,
+        keyword=keyword,
+        difficulty=difficulty,
+    )
     response.headers["X-Total-Count"] = str(total)
     return items
 

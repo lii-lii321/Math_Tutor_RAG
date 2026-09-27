@@ -135,8 +135,9 @@ class QuestionRepository:
         include_others: bool = False,
         tag: str | None = None,
         keyword: str | None = None,
+        difficulty: str | None = None,
     ):
-        """构造带归属/标签/关键词过滤的查询（过滤全部下推到 SQL）。
+        """构造带归属/标签/关键词/难度过滤的查询（过滤全部下推到 SQL）。
 
         tags / knowledge_points 为 JSON 列，SQLite 与 MySQL 均以文本存储，
         用 LIKE 匹配带引号的标签即可精确命中。
@@ -146,6 +147,8 @@ class QuestionRepository:
             stmt = stmt.where(Question.user_id == user_id)
         if tag:
             stmt = stmt.where(Question.tags.cast(String).contains(f'"{tag}"'))
+        if difficulty:
+            stmt = stmt.where(Question.difficulty == difficulty)
         if keyword:
             like = f"%{keyword}%"
             stmt = stmt.where(
@@ -166,11 +169,16 @@ class QuestionRepository:
         include_others: bool = False,
         tag: str | None = None,
         keyword: str | None = None,
+        difficulty: str | None = None,
         offset: int = 0,
         limit: int | None = None,
     ) -> list[Question]:
         stmt = self._filtered_stmt(
-            user_id, include_others=include_others, tag=tag, keyword=keyword
+            user_id,
+            include_others=include_others,
+            tag=tag,
+            keyword=keyword,
+            difficulty=difficulty,
         )
         if offset:
             stmt = stmt.offset(offset)
@@ -185,10 +193,15 @@ class QuestionRepository:
         include_others: bool = False,
         tag: str | None = None,
         keyword: str | None = None,
+        difficulty: str | None = None,
     ) -> int:
         """与 list_for_user 相同口径的总数（供分页使用，SQL 计数）。"""
         stmt = self._filtered_stmt(
-            user_id, include_others=include_others, tag=tag, keyword=keyword
+            user_id,
+            include_others=include_others,
+            tag=tag,
+            keyword=keyword,
+            difficulty=difficulty,
         )
         count_stmt = select(func.count()).select_from(stmt.subquery())
         return int(self.session.execute(count_stmt).scalar_one())

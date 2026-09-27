@@ -9,6 +9,7 @@ import datetime as dt
 import hashlib
 import io
 import re
+import time
 import uuid
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -21,7 +22,7 @@ from backend.repositories.questions import QuestionRepository
 from backend.services.ai import get_ai_service
 from backend.services.ai.base import BaseAIProvider
 from backend.services.entry_types import EntryResult
-from backend.services.rag import QuestionVectorStore
+from backend.services.rag import QuestionVectorStore, _log_pipeline, _similarity
 from backend.services.review import ReviewScheduler
 from backend.services.stats import (
     build_accuracy_trend,
@@ -311,73 +312,134 @@ class QueryMixin:
         include_others: bool = False,
         tag: str | None = None,
         keyword: str | None = None,
+        difficulty: str | None = None,
         semantic: bool = True,
         offset: int = 0,
         limit: int | None = None,
     ) -> list[QuestionOut]:
-        """关键词检索；开启语义搜索时用 RRF 融合向量与关键词两路结果（可选重排）。
+        """关键词检索；开启语义搜索时执行完整混合管线：
+        Keyword Top-N + Dense Top-N → RRF → Hydrate 全候选 → 可选 Rerank → 阈值过滤。
 
-        offset/limit 在过滤后应用；不传 limit 返回全部（界面默认），API 层分页传入。
+        offset/limit 在管线末端应用；不传 limit 返回全部（界面默认），API 层分页传入。
         """
+        started = time.perf_counter()
+        settings = self.settings
+        candidate_k = settings.rag_candidate_k
+
         with self._session() as repo:
+            # Keyword 通道：SQL 下推过滤，取深候选池
             primary = repo.list_for_user(
                 user_id,
                 include_others=include_others,
                 tag=tag,
                 keyword=keyword,
-                offset=offset,
-                limit=limit,
+                difficulty=difficulty,
+                limit=candidate_k if (keyword and semantic) else None,
             )
             results = {q.id: QuestionOut.from_orm_model(q) for q in primary}
-
-        if keyword and semantic:
-            scope = self._search_scope(user_id, include_others)
-            vector_hits = self.vector_store.semantic_search(keyword, user_ids=scope)
             keyword_ids = [q.id for q in primary]
 
-            from backend.services.fusion import rerank, rrf_fuse
-
-            fused_ids = rrf_fuse(
-                [h.question_id for h in vector_hits],
-                keyword_ids,
-                top_k=max(len(results), 20),
+        if not (keyword and semantic):
+            # 纯关键词/无关键词：保持时间排序，管线末端应用分页
+            ordered = sorted(
+                (q for q in results.values() if difficulty is None or q.difficulty == difficulty),
+                key=lambda q: q.created_at or dt.datetime.min.replace(tzinfo=dt.timezone.utc),
+                reverse=True,
             )
+            if offset:
+                ordered = ordered[offset:]
+            if limit is not None:
+                ordered = ordered[:limit]
+            return ordered
 
-            # 可选重排：仅对已加载的文档精排（配置 RERANK_BASE_URL 后生效）
-            if fused_ids and self.settings.rerank_base_url:
+        # Dense 通道：深候选池 + 相似度阈值
+        scope = self._search_scope(user_id, include_others)
+        vector_hits = self.vector_store.hybrid_dense_search(
+            keyword,
+            user_ids=scope,
+            candidate_k=candidate_k,
+            min_similarity=settings.rag_min_similarity or None,
+        )
+        vector_ids = [h.question_id for h in vector_hits]
+
+        # RRF 融合两路候选
+        from backend.services.fusion import rerank, rrf_fuse
+
+        fused_ids = rrf_fuse(vector_ids, keyword_ids, top_k=candidate_k)
+
+        # Hydrate：一次性取出全部融合候选（reranker 必须看到完整候选集）
+        missing = [qid for qid in fused_ids if qid not in results]
+        if missing:
+            with self._session() as repo:
+                for q in repo.get_by_ids(missing):
+                    if q.user_id == user_id or include_others:
+                        results[q.id] = QuestionOut.from_orm_model(q)
+
+        # 重排：在完整候选集上精排（未配置则直通融合排序；失败降级为融合序）
+        reranked_ids: list[int] | None = None
+        if settings.rerank_base_url and fused_ids:
+            try:
                 docs = [results[qid].content_markdown for qid in fused_ids if qid in results]
                 reranked = rerank(
                     keyword,
                     docs,
-                    base_url=self.settings.rerank_base_url,
-                    api_key=self.settings.rerank_api_key,
-                    model=self.settings.rerank_model,
-                    top_k=10,
+                    base_url=settings.rerank_base_url,
+                    api_key=settings.rerank_api_key,
+                    model=settings.rerank_model,
+                    top_k=settings.rag_top_k,
                 )
                 if reranked:
                     ordered = [fused_ids[i] for i, _ in reranked if i < len(fused_ids)]
-                    fused_ids = ordered + [q for q in fused_ids if q not in ordered]
+                    reranked_ids = ordered + [qid for qid in fused_ids if qid not in ordered]
+                    fused_ids = reranked_ids
+            except Exception as exc:  # noqa: BLE001 - 重排失败降级为融合排序
+                logger.warning("重排失败，使用融合排序: %s", exc)
 
-            # 语义召回可能带出关键词未命中的题，补加载（按可见范围过滤）
-            new_ids = [qid for qid in fused_ids if qid not in results]
-            if new_ids:
-                with self._session() as repo:
-                    for q in repo.get_by_ids(new_ids):
-                        if q.user_id == user_id or include_others:
-                            results[q.id] = QuestionOut.from_orm_model(q)
+        # 相似度阈值：仅过滤「只来自向量路」且低于阈值的候选
+        pre_filter_fused = list(fused_ids)
+        if settings.rag_min_similarity > 0:
+            sim_by_id = {h.question_id: _similarity(h.distance) for h in vector_hits}
+            vector_only = set(vector_ids) - set(keyword_ids)
+            fused_ids = [
+                qid
+                for qid in fused_ids
+                if qid not in vector_only
+                or sim_by_id.get(qid, 1.0) >= settings.rag_min_similarity
+            ]
 
-            # 融合排序覆盖默认时间排序（未入榜的题排在其后）
-            order = {qid: rank for rank, qid in enumerate(fused_ids)}
-            return sorted(
-                results.values(),
-                key=lambda q: (order.get(q.id, 9999), -(q.created_at.timestamp() if q.created_at else 0)),
-            )
+        latency_ms = round((time.perf_counter() - started) * 1000)
+        _log_pipeline(
+            settings.rag_debug_log,
+            query=keyword,
+            user_id=user_id,
+            dense_ids=vector_ids,
+            keyword_ids=keyword_ids,
+            fused_ids=fused_ids,
+            reranked=reranked_ids is not None,
+            latency_ms=latency_ms,
+        )
 
-        return sorted(
-            results.values(),
+        # 管线末端应用 offset/limit；融合外候选（理论不存在）按时间排尾，保证不丢题。
+        # rest 基于过滤前的候选集，但被阈值/过滤明确剔除的题不会回流。
+        ordered_results = [results[qid] for qid in fused_ids if qid in results]
+        filtered_out = set(pre_filter_fused) - set(fused_ids)
+        fused_set = set(fused_ids)
+        rest = sorted(
+            (
+                q
+                for qid, q in results.items()
+                if qid not in fused_set and qid not in filtered_out
+            ),
             key=lambda q: q.created_at or dt.datetime.min.replace(tzinfo=dt.timezone.utc),
             reverse=True,
         )
+        ordered_results.extend(rest)
+
+        if offset:
+            ordered_results = ordered_results[offset:]
+        if limit is not None:
+            ordered_results = ordered_results[:limit]
+        return ordered_results
 
     def count_for_user(
         self,
@@ -386,6 +448,7 @@ class QueryMixin:
         include_others: bool = False,
         tag: str | None = None,
         keyword: str | None = None,
+        difficulty: str | None = None,
     ) -> int:
         """过滤口径下的错题总数（API 分页用）。"""
         with self._session() as repo:
@@ -394,6 +457,7 @@ class QueryMixin:
                 include_others=include_others,
                 tag=tag,
                 keyword=keyword,
+                difficulty=difficulty,
             )
 
     def get_question(self, question_id: int, user_id: int) -> QuestionOut | None:

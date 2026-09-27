@@ -70,7 +70,10 @@ class Settings(BaseSettings):
     embedding_model: str = "BAAI/bge-m3"
     embedding_base_url: str = ""  # 留空则使用 ChromaDB 内置本地嵌入模型
     embedding_api_key: str = ""
-    rag_top_k: int = Field(default=3, ge=1, le=20)
+    rag_top_k: int = Field(default=10, ge=1, le=50)  # 最终返回条数
+    rag_candidate_k: int = Field(default=50, ge=5, le=200)  # 每路候选池深度（融合前）
+    rag_min_similarity: float = Field(default=0.0, ge=0.0, le=1.0)  # 向量相似度阈值（0=不过滤）
+    rag_debug_log: bool = False  # 记录检索管线调试日志（query/各路/融合/延迟）
 
     # ---------- 重排（可选，混合检索精排）----------
     # SiliconFlow: https://api.siliconflow.cn/v1 + BAAI/bge-reranker-v2-m3

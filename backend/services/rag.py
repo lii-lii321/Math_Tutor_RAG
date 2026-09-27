@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import json
 from dataclasses import dataclass, field
 
 from backend.config import Settings, get_settings
@@ -28,6 +29,27 @@ class RagHit:
     distance: float
     tags: list[str] = field(default_factory=list)
     snippet: str = ""
+
+
+@dataclass
+class SearchResult:
+    """统一检索结果：上层不接触 ChromaDB 原始结构。"""
+
+    question_id: int
+    score: float  # 相似度（1 - cosine distance），越高越相关
+    source: str  # "dense" | "keyword" | "hybrid"
+    rank: int
+
+
+def _similarity(distance: float) -> float:
+    """cosine 距离 → 相似度（0~1，越高越相关）。"""
+    return max(0.0, min(1.0, 1.0 - distance))
+
+
+def _log_pipeline(debug_enabled: bool, **payload) -> None:
+    """RAG 管线调试日志：query/各路结果/融合/重排/延迟一次记录。"""
+    if debug_enabled:
+        logger.info("rag_pipeline %s", json.dumps(payload, ensure_ascii=False, default=str))
 
 
 class QuestionVectorStore:
@@ -130,9 +152,35 @@ class QuestionVectorStore:
         return self._query(query_text, user_ids=user_ids, exclude_id=exclude_id, top_k=top_k)
 
     def semantic_search(
-        self, query: str, *, user_ids: list[int], top_k: int | None = None
+        self,
+        query: str,
+        *,
+        user_ids: list[int],
+        top_k: int | None = None,
+        min_similarity: float | None = None,
     ) -> list[RagHit]:
-        return self._query(query, user_ids=user_ids, exclude_id=None, top_k=top_k)
+        """向量检索：支持候选池深度与相似度阈值过滤。"""
+        hits = self._query(query, user_ids=user_ids, exclude_id=None, top_k=top_k)
+        threshold = self.settings.rag_min_similarity if min_similarity is None else min_similarity
+        if threshold > 0:
+            hits = [h for h in hits if _similarity(h.distance) >= threshold]
+        return hits
+
+    def hybrid_dense_search(
+        self,
+        query: str,
+        *,
+        user_ids: list[int],
+        candidate_k: int | None = None,
+        min_similarity: float | None = None,
+    ) -> list[RagHit]:
+        """深候选池向量检索（融合前取 Dense Top candidate_k，而非最终 top_k）。"""
+        return self.semantic_search(
+            query,
+            user_ids=user_ids,
+            top_k=candidate_k or self.settings.rag_candidate_k,
+            min_similarity=min_similarity,
+        )
 
     def _query(
         self,
