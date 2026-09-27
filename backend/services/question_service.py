@@ -13,6 +13,7 @@ from backend.services.question_mixins import (
     CoreMixin,
     EditTagMixin,
     EntryMixin,
+    MasteryMixin,
     QueryMixin,
     ReviewMixin,
     StatsMixin,
@@ -29,6 +30,7 @@ class QuestionService(
     ReviewMixin,
     BackupMixin,
     StatsMixin,
+    MasteryMixin,
     CoreMixin,
 ):
     """错题领域门面：组合各领域 Mixin，保持既有调用方零改动。"""

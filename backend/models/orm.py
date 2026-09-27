@@ -131,6 +131,37 @@ class Comment(Base):
     author: Mapped[User] = relationship()
 
 
+class KnowledgePoint(Base):
+    """知识点实体（规范化名称，支持后续依赖图谱扩展）。"""
+
+    __tablename__ = "knowledge_points"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    subject: Mapped[str | None] = mapped_column(String(32))
+    description: Mapped[str | None] = mapped_column(Text)
+    parent_id: Mapped[int | None] = mapped_column(
+        ForeignKey("knowledge_points.id", ondelete="SET NULL")
+    )
+
+
+class QuestionKnowledgePoint(Base):
+    """错题 ↔ 知识点 多对多关联。"""
+
+    __tablename__ = "question_knowledge_points"
+    __table_args__ = (
+        Index("ix_qkp_question_kp", "question_id", "knowledge_point_id", unique=True),
+        Index("ix_qkp_kp_question", "knowledge_point_id", "question_id"),
+    )
+
+    question_id: Mapped[int] = mapped_column(
+        ForeignKey("questions.id", ondelete="CASCADE"), primary_key=True
+    )
+    knowledge_point_id: Mapped[int] = mapped_column(
+        ForeignKey("knowledge_points.id", ondelete="CASCADE"), primary_key=True
+    )
+
+
 class Job(Base):
     """异步任务记录（图片 AI 解析等耗时操作的队列追踪）。"""
 

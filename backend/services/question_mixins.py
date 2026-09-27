@@ -22,6 +22,7 @@ from backend.repositories.questions import QuestionRepository
 from backend.services.ai import get_ai_service
 from backend.services.ai.base import BaseAIProvider
 from backend.services.entry_types import EntryResult
+from backend.services.mastery import KPMastery, MasteryEngine, PlanItem
 from backend.services.rag import QuestionVectorStore, _log_pipeline, _similarity
 from backend.services.review import ReviewScheduler
 from backend.services.stats import (
@@ -75,6 +76,13 @@ class CoreMixin:
         self.ai: BaseAIProvider = get_ai_service(self.settings)
         self.vector_store = QuestionVectorStore(self.settings)
         self.scheduler = ReviewScheduler(self.settings)
+        self.mastery = MasteryEngine(session_factory)
+
+    def _sync_kp_links(self, repo: QuestionRepository, question_id: int, names: list[str]) -> None:
+        """把题目上的知识点名称同步进规范化 M2M（在当前事务内执行）。"""
+        from backend.services.mastery import sync_question_links
+
+        sync_question_links(repo.session, question_id, names)
 
     @contextmanager
     def _session(self) -> Iterator[QuestionRepository]:
@@ -266,6 +274,7 @@ class EntryMixin:
                 followup_question=followup,
                 source=source,
             )
+            self._sync_kp_links(repo, question.id, clean_points)
             out = QuestionOut.from_orm_model(question)
 
         self.vector_store.upsert_question(
@@ -312,6 +321,7 @@ class EntryMixin:
                 image_hash=image_hash,
                 verification=verification,
             )
+            self._sync_kp_links(repo, question.id, analysis.knowledge_points)
             out = QuestionOut.from_orm_model(question)
 
         embed_text = self._embeddable_text(analysis)
@@ -549,6 +559,7 @@ class EditTagMixin:
         content_markdown: str | None = None,
         answer: str | None = None,
         tags: list[str] | None = None,
+        knowledge_points: list[str] | None = None,
         user_note: str | None = None,
     ) -> QuestionOut | None:
         with self._session() as repo:
@@ -558,8 +569,11 @@ class EditTagMixin:
                 content_markdown=content_markdown,
                 answer=answer,
                 tags=tags,
+                knowledge_points=knowledge_points,
                 user_note=user_note,
             )
+            if question is not None and knowledge_points is not None:
+                self._sync_kp_links(repo, question.id, knowledge_points)
             out = QuestionOut.from_orm_model(question) if question else None
 
         if out is not None:
@@ -611,6 +625,8 @@ class EditTagMixin:
                 if new_tags != tags or new_points != points:
                     question.tags = new_tags
                     question.knowledge_points = new_points
+                    if new_points != points:
+                        self._sync_kp_links(repo, question.id, new_points)
                     changed += 1
                     self._reindex_owned(question)
         return changed
@@ -628,6 +644,8 @@ class EditTagMixin:
                 if tags != (question.tags or []) or points != (question.knowledge_points or []):
                     question.tags = tags
                     question.knowledge_points = points
+                    if points != (question.knowledge_points or []):
+                        self._sync_kp_links(repo, question.id, points)
                     changed += 1
                     self._reindex_owned(question)
         return changed
@@ -892,3 +910,15 @@ class StatsMixin:
             "weak_tags": weak_tags(tag_stats),
             "activity": build_activity(outs),
         }
+
+
+class MasteryMixin:
+    """知识点掌握度画像与自适应复习计划（Batch 04/05 门面）。"""
+
+    def mastery_profile(self, user_id: int, limit: int | None = None) -> list[KPMastery]:
+        """知识点掌握度画像，薄弱者排前。"""
+        return self.mastery.profile(user_id, limit=limit)
+
+    def today_plan(self, user_id: int, size: int = 10) -> list[PlanItem]:
+        """今日复习计划：SM-2 到期优先 + 薄弱知识点加固。"""
+        return self.mastery.today_plan(user_id, size=size)

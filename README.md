@@ -8,7 +8,7 @@
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.49%2B-ff4b4b)
 ![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-d71f00)
 ![ChromaDB](https://img.shields.io/badge/RAG-ChromaDB-4051b5)
-![Tests](https://img.shields.io/badge/tests-140%20passing%20%2B%203%20E2E-2ea44f)
+![Tests](https://img.shields.io/badge/tests-197%20passing%20%2B%205%20E2E-2ea44f)
 [![CI](https://github.com/lii-lii321/Math_Tutor_RAG/actions/workflows/ci.yml/badge.svg)](https://github.com/lii-lii321/Math_Tutor_RAG/actions/workflows/ci.yml)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -22,6 +22,7 @@
 | 🔁 **多模型提供商** | 统一 Provider 抽象：一套代码对接 **SiliconFlow / 通义千问 / 智谱 GLM / DeepSeek / OpenAI / Ollama / Gemini**，更换 `AI_BASE_URL` + `AI_MODEL` 即可切换；无 Key 时自动进入演示模式，克隆即可跑通 |
 | 🧠 **RAG 向量检索** | ChromaDB 持久化向量库：错题解析自动嵌入入库；**「举一反三」相似题召回**、错题本**语义搜索**（自然语言找题）；向量库故障自动降级为关键词检索 |
 | 🤖 **Agent + MCP** | Tool-use 对话 Agent（function calling 循环自主编排工具）+ MCP Server（Claude Desktop / Cursor 直接调用错题本）|
+| 🎯 **能力画像与自适应复习** | 规范化知识点模型 + 掌握度引擎（复习日志时间加权评估），每日计划自动组合「SM-2 到期优先 + 薄弱知识点加固」 |
 | ⏰ **间隔重复复习** | 内置 **SM-2 算法**（Anki 同源）：闪卡式复习，按记忆质量自动调度下次复习时间，对抗遗忘曲线 |
 | 💬 **追问讲题** | 每道错题内置多轮对话（Chat UI）：带题目上下文的多轮讲题，上下文自动截断防超限 |
 | 📊 **学情看板** | 知识点分布、**标签级掌握度估算**（结合复习表现与调度间隔）、薄弱知识点 Top N、近 14 天录入趋势 |
@@ -33,7 +34,7 @@
 | 📅 **学习日历** | 90 天热力图 + 复习正确率趋势 + 掌握度成长曲线 + 连续学习打卡 + 周报环比 |
 | ⌨️ **高效复习** | 键盘快捷键（空格/1-4）、评分间隔预览、跳过、掌握归档（🏆）、复习历史 |
 | 🌙 **体验细节** | 深色模式、PWA 可安装、OCR 原图搜索（可选）、MUJI 极简界面 |
-| 🧪 **工程化** | pytest 140 用例 + Playwright E2E、ruff、覆盖率 ~92%、CI（lint + 3 版本矩阵 + 启动冒烟 + E2E + Docker）、Alembic 迁移、Docker Compose 一键部署 |
+| 🧪 **工程化** | pytest 190+ 用例 + Playwright E2E、ruff、覆盖率 ~90%、CI（lint + 3 版本矩阵 + 启动冒烟 + E2E + Docker）、Alembic 迁移、Docker Compose 一键部署 |
 
 ## 🏗️ 架构 (Architecture)
 

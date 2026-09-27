@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 from api.deps import get_current_user
 from backend.models.orm import User
-from backend.models.schemas import QuestionOut
+from backend.models.schemas import KPMasteryOut, QuestionOut, ReviewPlanItemOut
 from backend.services.question_service import QuestionService
 from backend.services.review import GRADE_ORDER
 
@@ -43,6 +43,42 @@ def review_history(
 @router.get("/due", response_model=list[QuestionOut])
 def due_questions(user: User = Depends(get_current_user)) -> list[QuestionOut]:
     return _service().due_questions(user.id)
+
+
+@router.get("/mastery", response_model=list[KPMasteryOut])
+def mastery_profile(
+    limit: int | None = None, user: User = Depends(get_current_user)
+) -> list[KPMasteryOut]:
+    """知识点掌握度画像，薄弱者排前（Batch 04）。"""
+    items = _service().mastery_profile(user.id, limit=limit)
+    return [
+        KPMasteryOut(
+            knowledge_point=item.knowledge_point,
+            mastery=round(item.mastery, 4),
+            question_count=item.question_count,
+            due_count=item.due_count,
+            status=item.status,
+            status_label=item.status_label,
+        )
+        for item in items
+    ]
+
+
+@router.get("/today", response_model=list[ReviewPlanItemOut])
+def today_plan(
+    size: int = 10, user: User = Depends(get_current_user)
+) -> list[ReviewPlanItemOut]:
+    """今日自适应复习计划：SM-2 到期优先 + 薄弱知识点加固（Batch 05）。"""
+    size = max(1, min(size, 50))
+    items = _service().today_plan(user.id, size=size)
+    return [
+        ReviewPlanItemOut(
+            question=item.question,
+            reason=item.reason,
+            priority=round(item.priority, 4),
+        )
+        for item in items
+    ]
 
 
 @router.post("/{question_id}/grade", response_model=QuestionOut)

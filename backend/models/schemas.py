@@ -112,6 +112,25 @@ class TagStat(BaseModel):
     mastery: float = Field(ge=0.0, le=1.0, default=0.0)
 
 
+class KPMasteryOut(BaseModel):
+    """知识点掌握度画像条目（Batch 04）。"""
+
+    knowledge_point: str
+    mastery: float = Field(ge=0.0, le=1.0)
+    question_count: int
+    due_count: int
+    status: Literal["weak", "shaky", "solid"]
+    status_label: str
+
+
+class ReviewPlanItemOut(BaseModel):
+    """今日复习计划条目（Batch 05）：题目 + 推荐理由 + 优先级。"""
+
+    question: QuestionOut
+    reason: str
+    priority: float
+
+
 class RegisterInput(BaseModel):
     username: str = Field(min_length=2, max_length=32)
     password: str = Field(min_length=6, max_length=64)

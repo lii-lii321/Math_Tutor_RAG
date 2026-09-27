@@ -103,6 +103,7 @@ section[data-testid="stSidebar"] {
 }
 .mm-badge--blue { color: var(--blue); border-color: #bfdbfe; background: var(--blue-soft); }
 .mm-badge--warn { color: #b45309; border-color: #fde68a; background: #fffbeb; }
+.mm-badge--bad  { color: #b91c1c; border-color: #fecaca; background: #fef2f2; }
 .mm-badge--ok   { color: #047857; border-color: #a7f3d0; background: #ecfdf5; }
 
 /* ---------------- 知识点掌握条 ---------------- */

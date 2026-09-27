@@ -2,6 +2,25 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/)。
 
+## [2.4.0] - 2026-09-27
+
+### 新增（知识点掌握度引擎 + 自适应复习）
+- **知识点规范化建模**：`knowledge_points` 表（唯一名称、自引用父级）+ `question_knowledge_points` 多对多关联（迁移 `b09bda59c235`）；
+  录入（手动 / 拍照 AI）、编辑、标签重命名 / 删除时自动同步关联（get-or-create，幂等）
+- **掌握度引擎**（`backend/services/mastery.py`）：单题掌握度 = 复习日志的时间加权平均
+  （again 0 / hard 0.6 / good 0.85 / easy 1.0，最近一次权重 1.0、向前按 0.65 衰减，未复习计 0.2）；
+  知识点掌握度 = 关联题目均值；三档状态 薄弱 / 不稳固 / 已掌握（0.4 / 0.7 分界）
+- **自适应今日计划**：SM-2 到期题优先（逾期越久优先级越高），剩余名额由薄弱知识点加固补齐；
+  已掌握归档题（reps≥3 且 interval≥21 天）不进入计划；到期池 SQL 下推（`due_at IS NULL OR due_at <= now`）
+- **能力画像前端页**：知识点掌握度横条 + 状态徽标（新增 `mm-badge--bad`）+ 到期计数；
+  右栏生成今日计划（可调题数），一键进入复习模式
+- **API**：`GET /api/review/mastery`（画像，薄弱排前）、`GET /api/review/today?size=`（计划条目含推荐理由与优先级）
+- **Agent 工具 +2**：`get_mastery_profile` / `get_today_review_plan`（Tool-use Agent 与 MCP Server 同步可用，共 8 个工具）
+
+### 修复
+- 迁移 `b09bda59c235` 曾被 autogenerate 误 diff 出 `verification_methods/verified_at` 重复 DDL
+  （开发库当时缺列所致），全新库升级必炸——已移除，验证列由 `7d967aaa71b5` 唯一负责
+
 ## [2.3.0] - 2026-09-15
 
 ### 新增（Agent 化）

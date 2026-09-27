@@ -124,6 +124,43 @@ def build_tools(service: QuestionService, user_id: int) -> list[AgentTool]:
         """标签用量统计：每个标签的错题数量，按题数降序。"""
         return _clean(service.tag_usage(user_id))
 
+    def mastery_profile() -> str:
+        """知识点掌握度画像：每个知识点的掌握度、题数与薄弱状态。"""
+        items = service.mastery_profile(user_id)
+        return _clean(
+            {
+                "count": len(items),
+                "knowledge_points": [
+                    {
+                        "name": item.knowledge_point,
+                        "mastery": round(item.mastery, 3),
+                        "question_count": item.question_count,
+                        "due_count": item.due_count,
+                        "status": item.status_label,
+                    }
+                    for item in items
+                ],
+            }
+        )
+
+    def today_review_plan(size: int = 10) -> str:
+        """今日自适应复习计划：到期题优先 + 薄弱知识点加固，附推荐理由。"""
+        plan = service.today_plan(user_id, size=min(int(size), 30))
+        return _clean(
+            {
+                "count": len(plan),
+                "items": [
+                    {
+                        "id": item.question.id,
+                        "reason": item.reason,
+                        "tags": item.question.tags,
+                        "difficulty": item.question.difficulty,
+                    }
+                    for item in plan
+                ],
+            }
+        )
+
     return [
         AgentTool(
             name="search_questions",
@@ -186,5 +223,22 @@ def build_tools(service: QuestionService, user_id: int) -> list[AgentTool]:
             description="获取标签用量统计",
             parameters={"type": "object", "properties": {}},
             handler=tag_usage,
+        ),
+        AgentTool(
+            name="get_mastery_profile",
+            description="获取知识点掌握度画像（每个知识点的掌握度与薄弱状态）",
+            parameters={"type": "object", "properties": {}},
+            handler=mastery_profile,
+        ),
+        AgentTool(
+            name="get_today_review_plan",
+            description="获取今日自适应复习计划（SM-2 到期优先 + 薄弱知识点加固）",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "size": {"type": "integer", "description": "计划条数上限，默认 10"},
+                },
+            },
+            handler=today_review_plan,
         ),
     ]
