@@ -29,6 +29,29 @@ def test_tools_have_valid_schema(tools):
         assert schema["function"]["description"]
         mcp = tool.mcp_schema()
         assert mcp["inputSchema"] == tool.parameters
+        assert mcp["name"] == tool.name
+        assert mcp["description"]
+
+
+def test_tutor_tools_registered(tools):
+    """Batch 07/10 工具清单：Agent 与 MCP 共用同一份定义，共 13 个。"""
+    expected = {
+        "search_questions",
+        "add_text_question",
+        "grade_question",
+        "list_due_questions",
+        "get_weekly_report",
+        "get_tag_usage",
+        "get_mastery_profile",
+        "get_today_review_plan",
+        "get_learning_profile",
+        "get_weak_knowledge_points",
+        "get_recent_mistakes",
+        "get_review_history",
+        "generate_practice_set",
+    }
+    assert expected <= set(tools)
+    assert len(tools) == 13
 
 
 def test_add_and_search_roundtrip(tools, student_user):

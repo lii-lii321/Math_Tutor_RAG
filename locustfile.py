@@ -43,6 +43,10 @@ class MathMasterUser(HttpUser):
         self.client.get("/api/review/due", headers=self.headers, name="/api/review/due [read]")
 
     @task(1)
+    def mastery_profile(self):
+        self.client.get("/api/review/mastery", headers=self.headers, name="/api/review/mastery [read]")
+
+    @task(1)
     def search_semantic(self):
         keyword = random.choice(["判别式", "几何", "函数", "方程", "概率"])
         self.client.get(
