@@ -61,6 +61,14 @@ class TestClassService:
         assert service.remove_student(teacher.id, klass["id"], students[0].id) is True
         assert service.student_ids_for_teacher(teacher.id) == []
 
+    def test_class_student_ids_scoped(self, teacher, students):
+        """class_student_ids 只返回该班成员；他人班级返回空。"""
+        service = ClassService()
+        klass = service.create_class(teacher.id, "范围班")
+        service.add_student(teacher.id, klass["id"], students[0].id)
+        assert service.class_student_ids(teacher.id, klass["id"]) == [students[0].id]
+        assert service.class_student_ids(teacher.id, klass["id"] + 999) == []
+
     def test_cannot_add_non_student(self, teacher, students):
         service = ClassService()
         klass = service.create_class(teacher.id, "班级B")

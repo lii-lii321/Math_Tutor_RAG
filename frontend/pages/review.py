@@ -110,7 +110,7 @@ def render_review_page(user: dict) -> None:
                             msg = f"下次复习：{when}"
                             if updated.mastered:
                                 msg += " · 🎉 已掌握归档，移出复习池"
-                            st.session_state["last_schedule_msg"] = msg
+                            st.toast(msg, icon="⏰")
                         st.session_state[idx_key] = cursor
                         st.rerun()
                     st.caption(format_interval(preview.next_interval))  # 评分后该题移出待复习队列，游标原地指向下一题
@@ -120,9 +120,6 @@ def render_review_page(user: dict) -> None:
                 if st.button("⏭️ 先跳过这道", width="stretch"):
                     st.session_state[idx_key] = (cursor + 1) % len(due)
                     st.rerun()
-
-    if st.session_state.get("last_schedule_msg"):
-        st.caption(st.session_state["last_schedule_msg"])
 
     with st.expander("✏️ 这道题解析有误？直接修改"):
         edit_question_form(service, question, user)

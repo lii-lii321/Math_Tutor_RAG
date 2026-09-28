@@ -1,6 +1,8 @@
 """学情看板：统计卡、知识点分布、掌握度排行、活跃度趋势。"""
 from __future__ import annotations
 
+import datetime as dt
+
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
@@ -129,6 +131,17 @@ def _render_mastery_trend(trend: list[dict]) -> None:
     st.plotly_chart(line, width="stretch", config={"displayModeBar": False})
 
 
+def _greeting() -> str:
+    hour = dt.datetime.now().hour
+    if 5 <= hour < 11:
+        return "早上好"
+    if 11 <= hour < 14:
+        return "中午好"
+    if 14 <= hour < 18:
+        return "下午好"
+    return "晚上好"
+
+
 def render_dashboard(user: dict) -> None:
     service = get_question_service()
     stats = service.dashboard_stats(user["id"], include_others=user["role"] == "teacher")
@@ -136,7 +149,7 @@ def render_dashboard(user: dict) -> None:
     st.markdown(
         f"""
         <div class="mm-welcome">
-            <h1>你好，{user['username']}</h1>
+            <h1>{_greeting()}，{user['username']}</h1>
             <p>今天有 {stats['due']} 道错题等待复习 · 保持节奏，把每一道错题变成得分点。</p>
             <p style="margin-top:0.4rem">🔥 连续学习 {stats.get('streak', 0)} 天　🏆 已掌握 {stats.get('mastered', 0)} 题</p>
             <div style="margin-top:0.8rem">{provider_badges()}</div>
@@ -155,7 +168,7 @@ def render_dashboard(user: dict) -> None:
     with col4:
         stat_card(stats["due"], "待复习", accent=True)
 
-    action_col1, action_col2, action_col3, _ = st.columns([1, 1, 1, 1])
+    action_col1, action_col2, action_col3, action_col4 = st.columns(4)
     with action_col1:
         if st.button("🎬 开始复习", type="primary", width="stretch", disabled=stats["due"] == 0):
             go_to("review")
@@ -165,6 +178,9 @@ def render_dashboard(user: dict) -> None:
     with action_col3:
         if st.button("📒 打开错题本", width="stretch"):
             go_to("notebook")
+    with action_col4:
+        if st.button("🎯 今日计划", width="stretch"):
+            go_to("mastery")
 
     weekly = stats.get("weekly", {})
     if weekly:

@@ -17,7 +17,13 @@ h1, h2, h3, h4 { color: #f1f5f9 !important; }
 .mm-welcome { background: linear-gradient(135deg, #1e3a8a 0%, #172554 100%) !important; }
 .mm-badge { background: #1e293b; color: #94a3b8; border-color: #334155; }
 .mm-badge--blue { background: #172554; color: #93c5fd; border-color: #1e40af; }
+.mm-badge--warn { background: #3b2f12; color: #fcd34d; border-color: #92400e; }
+.mm-badge--bad  { background: #3f1d1d; color: #fca5a5; border-color: #991b1b; }
+.mm-badge--ok   { background: #0f2e24; color: #6ee7b7; border-color: #065f46; }
 .mm-mastery__track { background: #334155; }
+.mm-mastery__row { color: #cbd5e1 !important; }
+.mm-flashcard { background: #1e293b !important; border-color: #334155 !important; }
+.mm-empty { color: #94a3b8 !important; }
 div[data-testid="stExpander"] details > summary { color: #e2e8f0; }
 .stTextInput input, textarea { background: #0f172a !important; color: #e2e8f0 !important; }
 hr { border-top-color: #334155 !important; }

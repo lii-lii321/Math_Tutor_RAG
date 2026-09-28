@@ -162,6 +162,32 @@ class TestProfile:
     def test_profile_empty_user(self, engine):
         assert engine.profile(4_242_424) == []
 
+    def test_profile_backfills_legacy_links(self, service, kp_user, engine):
+        """旧版数据（知识点只在 JSON 列、无 M2M）首次访问画像时自动补建关联。"""
+        from backend.database import SessionLocal as _SL
+        from backend.models.orm import Question as _Q
+        from backend.models.orm import QuestionKnowledgePoint as _QKP
+
+        with _SL() as session:
+            legacy = _Q(
+                user_id=kp_user.id,
+                content_markdown="旧版录入的题",
+                knowledge_points=["_legacy_旧知识点"],
+                tags=[],
+            )
+            session.add(legacy)
+            session.commit()
+            legacy_id = legacy.id
+
+        profile = engine.profile(kp_user.id)
+        assert any(item.knowledge_point == "_legacy_旧知识点" for item in profile)
+
+        with _SL() as session:
+            link = (
+                session.query(_QKP).filter_by(question_id=legacy_id).one_or_none()
+            )
+        assert link is not None, "画像访问后应补建 M2M 关联"
+
 
 class TestTodayPlan:
     def test_plan_empty(self, engine):

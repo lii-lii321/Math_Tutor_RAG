@@ -121,7 +121,23 @@ def render_assistant_page(user: dict) -> None:
         with st.chat_message(message["role"], avatar="🧑‍🎓" if message["role"] == "user" else "🤖"):
             st.markdown(message["content"])
 
-    if prompt := st.chat_input("例如：我最近哪里最薄弱？/ 生成 5 题练习卷 / 搜索 判别式"):
+    quick_prompt = None
+    if not st.session_state[history_key]:
+        st.caption("可以这样开始：")
+        chip_cols = st.columns(3)
+        with chip_cols[0]:
+            if st.button("🔍 我最近哪里最薄弱？", width="stretch"):
+                quick_prompt = "我最近哪里最薄弱？帮我分析一下并给出建议。"
+        with chip_cols[1]:
+            if st.button("📝 生成 5 题练习卷", width="stretch"):
+                quick_prompt = "根据我的薄弱知识点生成 5 道题的练习卷。"
+        with chip_cols[2]:
+            if st.button("📅 今天的复习安排", width="stretch"):
+                quick_prompt = "今天的复习计划是什么？"
+
+    prompt = st.chat_input("例如：我最近哪里最薄弱？/ 生成 5 题练习卷 / 搜索 判别式")
+    prompt = prompt or quick_prompt
+    if prompt:
         st.session_state[history_key].append({"role": "user", "content": prompt})
         with st.chat_message("user", avatar="🧑‍🎓"):
             st.markdown(prompt)

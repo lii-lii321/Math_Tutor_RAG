@@ -11,16 +11,39 @@ _STATUS_BADGE = {
     "weak": "mm-badge mm-badge--bad",
 }
 _STATUS_ICON = {"solid": "🟦", "shaky": "🟨", "weak": "🟥"}
+_FILL_COLOR = {"solid": "#2563eb", "shaky": "#94a3b8", "weak": "#dc2626"}
+_RADAR_MAX = 8
 
 
-def _mastery_bar(mastery: float) -> str:
-    """单条掌握度横条：MUJI 配色（蓝→灰→红），纯 CSS 无动画。"""
-    pct = round(mastery * 100)
-    color = "#2563eb" if mastery >= 0.7 else ("#94a3b8" if mastery >= 0.4 else "#dc2626")
-    return (
-        f'<div style="background:#e2e8f0;border-radius:4px;height:8px;width:100%">'
-        f'<div style="background:{color};border-radius:4px;height:8px;width:{pct}%"></div></div>'
+def _render_radar(profile) -> None:
+    """薄弱知识点雷达图：取掌握度最低的至多 8 个，MUJI 配色。"""
+    import plotly.graph_objects as go
+
+    items = profile[:_RADAR_MAX]
+    if len(items) < 3:
+        return  # 少于 3 个维度雷达图没有信息量
+    fig = go.Figure(
+        go.Scatterpolar(
+            r=[round(item.mastery * 100) for item in items],
+            theta=[item.knowledge_point for item in items],
+            fill="toself",
+            fillcolor="rgba(37, 99, 235, 0.12)",
+            line_color="#2563eb",
+            name="掌握度%",
+        )
     )
+    fig.update_layout(
+        margin=dict(t=16, b=16, l=40, r=40),
+        height=330,
+        paper_bgcolor="rgba(0,0,0,0)",
+        font=dict(family="sans-serif", color="#334155", size=11),
+        polar=dict(
+            radialaxis=dict(range=[0, 100], gridcolor="#e2e8f0", showticklabels=False),
+            angularaxis=dict(gridcolor="#e2e8f0"),
+        ),
+        showlegend=False,
+    )
+    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
 
 def render_mastery_page(user: dict) -> None:
@@ -37,24 +60,33 @@ def render_mastery_page(user: dict) -> None:
     with left:
         st.subheader("知识点掌握度")
         if not profile:
-            st.info("还没有知识点数据：录入错题并填写知识点后，这里会生成你的掌握度画像。")
+            st.markdown(
+                """<div class="mm-empty">
+                <div class="mm-empty__icon">🎯</div>
+                还没有知识点数据。<br>录入错题并填写知识点后，这里会生成你的掌握度画像。
+                </div>""",
+                unsafe_allow_html=True,
+            )
         else:
             weak_count = sum(1 for item in profile if item.status != "solid")
-            st.caption(
-                f"共 {len(profile)} 个知识点 · 其中 {weak_count} 个待巩固"
-            )
+            st.caption(f"共 {len(profile)} 个知识点 · 其中 {weak_count} 个待巩固 · 点击「📝」直达该知识点错题")
+            _render_radar(profile)
             for item in profile:
                 with st.container(border=True):
-                    cols = st.columns([5, 2, 2], vertical_alignment="center")
+                    cols = st.columns([4, 2, 2, 1], vertical_alignment="center")
                     with cols[0]:
                         st.markdown(f"**{item.knowledge_point}**")
-                        st.markdown(_mastery_bar(item.mastery), unsafe_allow_html=True)
-                    with cols[1]:
-                        st.metric(
-                            "掌握度",
-                            f"{item.mastery:.0%}",
-                            label_visibility="collapsed",
+                        pct = max(round(item.mastery * 100), 3)
+                        st.markdown(
+                            f"""<div class="mm-mastery">
+                            <div class="mm-mastery__track">
+                              <div class="mm-mastery__fill" style="width:{pct}%;background:{_FILL_COLOR[item.status]}"></div>
+                            </div></div>""",
+                            unsafe_allow_html=True,
                         )
+                    with cols[1]:
+                        st.markdown(f"**{item.mastery:.0%}**")
+                        st.caption("掌握度")
                     with cols[2]:
                         st.markdown(
                             f'<span class="{_STATUS_BADGE[item.status]}">'
@@ -62,6 +94,9 @@ def render_mastery_page(user: dict) -> None:
                             unsafe_allow_html=True,
                         )
                         st.caption(f"{item.question_count} 题 · {item.due_count} 题到期")
+                    with cols[3]:
+                        if st.button("📝", key=f"kp_go_{item.knowledge_point}", help="在错题本中查看"):
+                            go_to("notebook", tag=item.knowledge_point)
 
     with right:
         st.subheader("今日复习计划")

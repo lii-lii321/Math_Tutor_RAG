@@ -19,7 +19,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 
-from sqlalchemy import delete, or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from backend.models.orm import KnowledgePoint, Question, QuestionKnowledgePoint, ReviewLog
@@ -144,7 +144,26 @@ class MasteryEngine:
         finally:
             session.close()
 
+    def _ensure_links(self, session: Session, user_id: int) -> None:
+        """老数据自愈：旧版题目知识点只存在 JSON 列、M2M 为空时补建关联（一次性）。"""
+        linked = session.execute(
+            select(func.count())
+            .select_from(QuestionKnowledgePoint)
+            .join(Question, Question.id == QuestionKnowledgePoint.question_id)
+            .where(Question.user_id == user_id)
+        ).scalar_one()
+        if linked:
+            return
+        for question in session.execute(
+            select(Question).where(Question.user_id == user_id)
+        ).scalars():
+            points = list(question.knowledge_points or [])
+            if points:
+                sync_question_links(session, question.id, points)
+        logger.info("已为 user=%s 补建知识点 M2M 关联（老数据回填）", user_id)
+
     def _compute_profile(self, session: Session, user_id: int) -> list[KPMastery]:
+        self._ensure_links(session, user_id)
         links = session.execute(
             select(QuestionKnowledgePoint, Question)
             .join(Question, Question.id == QuestionKnowledgePoint.question_id)

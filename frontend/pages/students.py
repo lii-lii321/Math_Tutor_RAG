@@ -1,11 +1,12 @@
-"""学生总览（教师专属）：全班错题与复习情况一目了然。"""
+"""学生总览（教师专属）：班级管理 + 全班错题与复习情况一目了然。"""
 from __future__ import annotations
 
 import datetime as dt
 
 import streamlit as st
 
-from frontend.common import get_question_service, page_header
+from backend.services.class_service import ClassService
+from frontend.common import get_question_service, go_to, page_header
 
 
 def _fmt_time(value: dt.datetime | None) -> str:
@@ -24,15 +25,95 @@ def _fmt_time(value: dt.datetime | None) -> str:
     return f"{days // 30} 个月前"
 
 
+def _render_class_manager(teacher_id: int, class_service: ClassService, name_to_id: dict[str, int]) -> None:
+    """班级管理：建班 / 加学生 / 移出 / 删班（教师专属）。"""
+    with st.expander("🏫 班级管理", expanded=not class_service.list_for_teacher(teacher_id)):
+        st.caption("建班后，「学生总览」与教师检索范围自动收紧为你所教班级的学生。")
+        classes = class_service.list_for_teacher(teacher_id)
+
+        new_name = st.text_input("新班级名称", placeholder="例如：高三（2）班", key="class_new_name")
+        if st.button("创建班级", type="primary") and new_name.strip():
+            try:
+                class_service.create_class(teacher_id, new_name)
+                st.toast(f"已创建班级「{new_name.strip()}」", icon="🏫")
+                st.rerun()
+            except ValueError as exc:
+                st.error(str(exc))
+
+        if not classes:
+            st.caption("还没有班级。创建后即可把学生分组管理。")
+            return
+
+        for klass in classes:
+            member_ids = set(class_service.class_student_ids(teacher_id, klass["id"]))
+            with st.container(border=True):
+                head_col, del_col = st.columns([4, 1])
+                with head_col:
+                    st.markdown(f"**{klass['name']}**　{klass['member_count']} 名学生")
+                with del_col:
+                    if st.button("删班", key=f"class_del_{klass['id']}"):
+                        class_service.delete_class(teacher_id, klass["id"])
+                        st.toast("班级已删除", icon="🗑️")
+                        st.rerun()
+
+                add_col, rm_col = st.columns(2)
+                with add_col:
+                    candidates = sorted(name_to_id)
+                    picked = st.selectbox(
+                        "添加学生",
+                        candidates or ["（暂无学生）"],
+                        key=f"class_add_sel_{klass['id']}",
+                    )
+                    if st.button("加入班级", key=f"class_add_btn_{klass['id']}") and candidates:
+                        try:
+                            class_service.add_student(teacher_id, klass["id"], name_to_id[picked])
+                            st.toast(f"已把 {picked} 加入班级", icon="✅")
+                            st.rerun()
+                        except ValueError as exc:
+                            st.error(str(exc))
+                with rm_col:
+                    id_to_name = {uid: name for name, uid in name_to_id.items()}
+                    members = sorted(id_to_name.get(uid, f"#{uid}") for uid in member_ids)
+                    target = st.selectbox(
+                        "移出学生",
+                        members or ["（班级无成员）"],
+                        key=f"class_rm_sel_{klass['id']}",
+                    )
+                    if st.button("移出班级", key=f"class_rm_btn_{klass['id']}") and members:
+                        removed = class_service.remove_student(
+                            teacher_id, klass["id"], name_to_id.get(target, -1)
+                        )
+                        if removed:
+                            st.toast(f"已把 {target} 移出班级", icon="👋")
+                            st.rerun()
+
+
 def render_students_page(user: dict) -> None:
     service = get_question_service()
-    page_header("学生总览", "全班错题量、复习进度与掌握度 · 帮你定位需要关注的学生")
+    class_service = ClassService()
+    page_header("学生总览", "班级错题量、复习进度与掌握度 · 帮你定位需要关注的学生")
 
     try:
         rows = service.students_overview(user["id"])
     except PermissionError:
         st.error("仅教师可以查看学生总览。")
         st.stop()
+
+    name_to_id = {r["username"]: r["user_id"] for r in rows}
+    _render_class_manager(user["id"], class_service, name_to_id)
+
+    # 班级筛选：默认聚焦第一个班级；也可看全部（含未分班学生）
+    classes = class_service.list_for_teacher(user["id"])
+    if classes:
+        options = ["全部学生"] + [c["name"] for c in classes]
+        picked_class = st.selectbox("按班级筛选", options, key="overview_class_filter")
+        if picked_class != "全部学生":
+            klass = next(c for c in classes if c["name"] == picked_class)
+            member_ids = set(class_service.class_student_ids(user["id"], klass["id"]))
+            rows = [r for r in rows if r["user_id"] in member_ids]
+            if not rows:
+                st.info(f"「{picked_class}」还没有成员或成员暂无数据。去上方「班级管理」添加学生。")
+                return
 
     if not rows:
         st.info("还没有学生注册。学生注册后这里会自动出现他们的学习概况。")
@@ -53,14 +134,14 @@ def render_students_page(user: dict) -> None:
         st.markdown(
             f"""<div class="mm-stat">
             <div class="mm-stat__value">{total_questions}</div>
-            <div class="mm-stat__label">全班累计错题</div></div>""",
+            <div class="mm-stat__label">累计错题</div></div>""",
             unsafe_allow_html=True,
         )
     with c3:
         st.markdown(
             f"""<div class="mm-stat">
             <div class="mm-stat__value">{total_due}</div>
-            <div class="mm-stat__label">全班待复习</div></div>""",
+            <div class="mm-stat__label">待复习</div></div>""",
             unsafe_allow_html=True,
         )
 
@@ -82,7 +163,6 @@ def render_students_page(user: dict) -> None:
 
     st.markdown("<br>", unsafe_allow_html=True)
     page_header("逐个查看", "展开学生查看其知识点掌握情况，或直达其错题本视图")
-    from frontend.common import go_to
 
     for r in rows:
         if r["total"] == 0:

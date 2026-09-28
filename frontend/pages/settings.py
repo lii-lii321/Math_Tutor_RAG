@@ -135,6 +135,16 @@ def render_settings_page(user: dict) -> None:
             )
             st.caption("默认 SQLite 零配置；配置 DATABASE_URL 可切换 MySQL / PostgreSQL。")
 
+            st.markdown("#### 关于")
+            st.markdown(
+                f"<span class='mm-muted'>📘 MathMaster Edu v{settings.app_version}</span>",
+                unsafe_allow_html=True,
+            )
+            st.caption(
+                "视觉大模型 × RAG 智能错题本 · SM-2 间隔重复 · 掌握度画像 · AI Tutor。"
+                "部署与配置见 docs/DEPLOYMENT.md。"
+            )
+
     with st.container(border=True):
         st.markdown("#### 标签管理")
         usage = service.tag_usage(user["id"])

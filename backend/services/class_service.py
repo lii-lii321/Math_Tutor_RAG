@@ -136,6 +136,17 @@ class ClassService:
             ).all()
         return sorted({row[0] for row in rows})
 
+    def class_student_ids(self, teacher_id: int, class_id: int) -> list[int]:
+        """单个班级的学生 ID 集（校验班级归属，非本人班级返回空）。"""
+        with self._session() as session:
+            klass = self._get_owned(session, class_id, teacher_id)
+            if klass is None:
+                return []
+            rows = session.execute(
+                select(ClassMember.student_id).where(ClassMember.class_id == class_id)
+            ).all()
+        return sorted({row[0] for row in rows})
+
     @staticmethod
     def _to_dict(klass: SchoolClass, member_count: int) -> dict:
         return {
