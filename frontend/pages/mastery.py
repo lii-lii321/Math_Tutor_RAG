@@ -122,5 +122,5 @@ def render_mastery_page(user: dict) -> None:
                     with cols[1]:
                         if st.button("复习", key=f"plan_go_{item.question.id}", width="stretch"):
                             go_to("review", question_id=item.question.id)
-            if st.button("进入复习模式", type="primary", width="stretch"):
-                go_to("review")
+            if st.button("进入复习模式（按今日计划）", type="primary", width="stretch"):
+                go_to("review", mode="plan")

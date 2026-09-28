@@ -287,6 +287,18 @@ def _render_followup_chat(service, q, user) -> None:
     followup_chat(service, q, user)
 
 
+def _single_question_export(q) -> None:
+    """单题导出：详解版 Word（含原图与答案），方便单独打印或归档。"""
+    detail_io = generate_word_exam([q], f"错题详解 · #{q.id}", mode="detailed")
+    st.download_button(
+        "📄 导出本题 Word（详解版）",
+        data=detail_io.getvalue(),
+        file_name=f"错题_{q.id}.docx",
+        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        width="stretch",
+    )
+
+
 def _render_question_detail(service, q, user) -> None:
     tab_view, tab_chat, tab_comment, tab_edit = st.tabs(
         ["查看", "追问讲题", "批注", "编辑"]
@@ -297,6 +309,7 @@ def _render_question_detail(service, q, user) -> None:
             save_followup_button(service, q, user, q.followup_question)
         st.markdown("<br>", unsafe_allow_html=True)
         regrade_buttons(service, q, user)
+        _single_question_export(q)
         _share_card_button(q)
 
     with tab_chat:

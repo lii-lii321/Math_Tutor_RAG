@@ -1,4 +1,4 @@
-"""间隔重复复习页：闪卡式复习，SM-2 调度。"""
+"""间隔重复复习页：闪卡式复习，SM-2 调度；支持「今日计划」自适应队列模式。"""
 from __future__ import annotations
 
 import datetime as dt
@@ -12,6 +12,7 @@ from frontend.common import (
     go_to,
     keyboard_shortcuts,
     page_header,
+    pop_params,
 )
 
 _GRADE_LABELS = {"again": "😵 忘了", "hard": "😅 勉强", "good": "🙂 记得", "easy": "😎 秒懂"}
@@ -19,9 +20,20 @@ _GRADE_LABELS = {"again": "😵 忘了", "hard": "😅 勉强", "good": "🙂 �
 
 def render_review_page(user: dict) -> None:
     service = get_question_service()
-    page_header("今日复习", "SM-2 间隔重复调度 · 按记忆掌握程度评分，自动安排下次复习时间")
+    plan_mode = pop_params("mode").get("mode") == "plan"
+    if plan_mode:
+        page_header(
+            "今日复习 · 计划模式",
+            "按掌握度引擎生成的今日计划复习：到期题优先，其余为薄弱知识点加固",
+        )
+        plan = service.today_plan(user["id"], size=12)
+        due = [item.question for item in plan]
+        reasons = {item.question.id: item.reason for item in plan}
+    else:
+        page_header("今日复习", "SM-2 间隔重复调度 · 按记忆掌握程度评分，自动安排下次复习时间")
+        due = service.due_questions(user["id"])
+        reasons = {}
 
-    due = service.due_questions(user["id"])
     if not due:
         summary = st.session_state.pop("review_session", None)
         if summary and summary.get("graded"):
@@ -35,6 +47,10 @@ def render_review_page(user: dict) -> None:
             )
             if st.button("返回学情看板", type="primary"):
                 go_to("dashboard")
+        elif plan_mode:
+            st.success("🎉 今日计划已全部处理完，去「能力画像」看看掌握度变化。")
+            if st.button("查看能力画像", type="primary"):
+                go_to("mastery")
         else:
             st.success("🎉 今日复习任务已清空，错题本处于健康状态。")
         return
@@ -67,6 +83,11 @@ def render_review_page(user: dict) -> None:
         </div>""",
         unsafe_allow_html=True,
     )
+    if question.id in reasons:
+        st.markdown(
+            f'<span class="mm-badge mm-badge--warn">🎯 {reasons[question.id]}</span>',
+            unsafe_allow_html=True,
+        )
 
     with st.container(border=True):
         reveal_key = f"reveal_{question.id}"  # 按题隔离，避免上一题状态泄漏
