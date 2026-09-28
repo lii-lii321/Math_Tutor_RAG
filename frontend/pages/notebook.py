@@ -244,14 +244,48 @@ def render_notebook_page(user: dict) -> None:
 
     if selected_ids:
         st.warning(f"已选中 {len(selected_ids)} 题")
-        act_col1, act_col2, act_col3 = st.columns([1, 1.4, 1.6])
-        with act_col1:
-            if st.button("批量删除选中错题", type="primary"):
+        selected = [q for q in questions if q.id in set(selected_ids)]
+        act1, act2, act3, act4 = st.columns(4)
+        with act1:
+            if st.button("🗑️ 批量删除", type="primary", width="stretch"):
                 service.delete_questions(selected_ids, user["id"])
                 st.toast(f"已删除 {len(selected_ids)} 题", icon="🗑️")
                 st.rerun()
-        with act_col2:
-            selected = [q for q in questions if q.id in set(selected_ids)]
+        with act2:
+            new_diff = st.selectbox(
+                "批量改难度",
+                ["easy", "medium", "hard"],
+                format_func=lambda v: {"easy": "简单", "medium": "中等", "hard": "困难"}[v],
+                key="batch_diff",
+                label_visibility="collapsed",
+            )
+            if st.button("应用难度", width="stretch"):
+                changed = service.set_difficulty_many(selected_ids, user["id"], new_diff)
+                st.toast(f"已把 {changed} 题难度改为 {new_diff}", icon="🎚️")
+                st.rerun()
+        with act3:
+            removable = sorted({t for q in selected for t in (q.tags or [])})
+            if not removable:
+                st.caption("选中题目暂无标签")
+            else:
+                rm_tag = st.selectbox("批量移除标签", removable, key="batch_rm_tag", label_visibility="collapsed")
+                if st.button("移除该标签", width="stretch"):
+                    changed = service.remove_tag_from_many(selected_ids, user["id"], rm_tag)
+                    st.toast(f"已从 {changed} 题移除「{rm_tag}」", icon="✂️")
+                    st.rerun()
+        with act4:
+            new_tag = st.text_input(
+                "追加标签", placeholder="例如：月考重点", key="batch_tag", label_visibility="collapsed"
+            )
+            if st.button("为选中追加标签", width="stretch") and new_tag.strip():
+                changed = service.add_tags_to_many(
+                    selected_ids, user["id"], sanitize_tags(new_tag)
+                )
+                st.toast(f"已为 {changed} 题追加标签", icon="🏷️")
+                st.rerun()
+
+        exp_col1, exp_col2 = st.columns(2)
+        with exp_col1:
             redo_io = generate_word_exam(selected, "错题精选复习卷", mode="redo")
             st.download_button(
                 "导出选中（重做版）",
@@ -260,6 +294,7 @@ def render_notebook_page(user: dict) -> None:
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 width="stretch",
             )
+        with exp_col2:
             detail_io = generate_word_exam(selected, "错题精选详解卷", mode="detailed")
             st.download_button(
                 "导出选中（详解版）",
@@ -268,16 +303,6 @@ def render_notebook_page(user: dict) -> None:
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 width="stretch",
             )
-        with act_col3:
-            new_tag = st.text_input(
-                "追加标签", placeholder="例如：月考重点", key="batch_tag"
-            )
-            if st.button("为选中追加标签", width="stretch") and new_tag.strip():
-                changed = service.add_tags_to_many(
-                    selected_ids, user["id"], sanitize_tags(new_tag)
-                )
-                st.toast(f"已为 {changed} 题追加标签", icon="🏷️")
-                st.rerun()
 
 
 def _share_card_button(q) -> None:

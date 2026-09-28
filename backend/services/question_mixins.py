@@ -602,6 +602,34 @@ class EditTagMixin:
                     self._reindex_owned(question)
         return changed
 
+    def set_difficulty_many(
+        self, question_ids: list[int], user_id: int, difficulty: str
+    ) -> int:
+        """批量为错题设置难度（校验取值，SQL 下推），返回处理数量。"""
+        if difficulty not in {"easy", "medium", "hard"}:
+            raise ValueError("难度只能是 easy / medium / hard")
+        if not question_ids:
+            return 0
+        with self._session() as repo:
+            return repo.set_difficulty_many(question_ids, user_id, difficulty)
+
+    def remove_tag_from_many(
+        self, question_ids: list[int], user_id: int, tag: str
+    ) -> int:
+        """从一组错题移除指定标签（含知识点同名项）并同步向量元数据，返回处理数量。"""
+        tag = (tag or "").strip()
+        if not tag:
+            raise ValueError("标签名不能为空")
+        if not question_ids:
+            return 0
+        with self._session() as repo:
+            changed = repo.remove_tag_many(question_ids, user_id, tag)
+            for qid in question_ids:
+                question = repo.get_owned(qid, user_id)
+                if question is not None:
+                    self._reindex_owned(question)
+        return changed
+
     def tag_usage(self, user_id: int) -> dict[str, int]:
         """用户错题标签使用统计：{标签: 题数}，按题数降序。"""
         questions = self.list_questions(user_id, semantic=False)

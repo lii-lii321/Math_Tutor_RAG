@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-from sqlalchemy import String, delete, func, or_, select
+from sqlalchemy import String, delete, func, or_, select, update
 from sqlalchemy.orm import Session
 
 from backend.models.orm import Question, ReviewLog
@@ -97,6 +97,38 @@ class QuestionRepository:
                     merged.append(tag)
             if merged != (question.tags or []):
                 question.tags = merged
+            changed += 1
+        self.session.flush()
+        return changed
+
+    def set_difficulty_many(
+        self, question_ids: list[int], user_id: int, difficulty: str
+    ) -> int:
+        """批量为错题设置难度（SQL 下推），返回处理数量。"""
+        if not question_ids:
+            return 0
+        result = self.session.execute(
+            update(Question)
+            .where(Question.id.in_(question_ids), Question.user_id == user_id)
+            .values(difficulty=difficulty)
+        )
+        self.session.flush()
+        return int(result.rowcount or 0)
+
+    def remove_tag_many(
+        self, question_ids: list[int], user_id: int, tag: str
+    ) -> int:
+        """从一组错题移除指定标签（同步清理知识点中的同名项），返回处理数量。"""
+        changed = 0
+        for qid in question_ids:
+            question = self._get_owned(qid, user_id)
+            if question is None:
+                continue
+            tags = [t for t in (question.tags or []) if t != tag]
+            points = [t for t in (question.knowledge_points or []) if t != tag]
+            if tags != (question.tags or []) or points != (question.knowledge_points or []):
+                question.tags = tags
+                question.knowledge_points = points
             changed += 1
         self.session.flush()
         return changed
