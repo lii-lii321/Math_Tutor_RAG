@@ -174,6 +174,50 @@ def render_settings_page(user: dict) -> None:
             st.caption("当前使用情况：" + "、".join(f"{k}({v})" for k, v in usage.items()))
 
     with st.container(border=True):
+        st.markdown("#### 数据体检")
+        st.caption("核对向量索引与数据库的一致性、扫描孤儿图片；发现问题可一键修复。")
+        from backend.services.data_health import DataHealthService
+
+        health_service = DataHealthService()
+        if st.button("🩺 开始体检", width="stretch"):
+            with st.spinner("体检中…"):
+                st.session_state["health_report"] = health_service.check(user["id"])
+            st.toast("体检完成", icon="🩺")
+
+        report = st.session_state.get("health_report")
+        if report:
+            ok = report["issues"] == 0
+            badge = (
+                '<span class="mm-badge mm-badge--ok">全部健康</span>'
+                if ok
+                else f'<span class="mm-badge mm-badge--warn">发现 {report["issues"]} 处问题</span>'
+            )
+            st.markdown(
+                f"""<div class="mm-muted" style="margin:0.4rem 0">
+                错题 <b>{report['question_count']}</b> 道　{badge}<br>
+                向量库：{'可用' if report['vector_available'] else '不可用（降级关键词检索）'}<br>
+                缺失索引 <b>{report['missing_index']}</b>　残留索引 <b>{report['stale_index']}</b>　孤儿图片 <b>{report['orphan_image_count']}</b> 张（{report['orphan_image_mb']} MB）
+                </div>""",
+                unsafe_allow_html=True,
+            )
+            if report["missing_index"] or report["stale_index"]:
+                if st.button("🔧 修复向量索引（重建缺失 + 清理残留）", width="stretch"):
+                    with st.spinner("重建索引中…"):
+                        result = health_service.repair_index(user["id"])
+                    st.toast(f"已重建 {result['reindexed']} 题、清理 {result['removed']} 条残留", icon="🔧")
+                    st.session_state["health_report"] = health_service.check(user["id"])
+                    st.rerun()
+            if report["orphan_image_count"]:
+                if st.button(
+                    f"🧹 清理 {report['orphan_image_count']} 张孤儿图片（{report['orphan_image_mb']} MB）",
+                    width="stretch",
+                ):
+                    removed = health_service.cleanup_orphan_images(user["id"])
+                    st.toast(f"已清理 {removed} 张", icon="🧹")
+                    st.session_state["health_report"] = health_service.check(user["id"])
+                    st.rerun()
+
+    with st.container(border=True):
         st.markdown("#### 数据备份")
         st.caption("导出全部错题为 JSON 备份文件；导入时按手动错题恢复，已含解析、标签与考点。")
         backup_data = service.export_user_data(user["id"])

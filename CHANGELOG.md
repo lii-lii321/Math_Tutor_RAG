@@ -2,6 +2,19 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/)。
 
+## [2.9.0] - 2026-09-28
+
+### 新增（运维自愈 + AI 评测）
+- **数据体检与修复**（设置页）：一键核对三类真实使用中最常见的数据漂移——
+  向量索引缺失（语义搜索召回不到）、向量索引残留（题目已删索引还在）、孤儿图片文件；
+  支持一键修复（重建缺失索引 + 清理残留 + 可选清理孤儿图片，仅作用于本人数据）。
+  新增 `DataHealthService`（`backend/services/data_health.py`）与
+  `QuestionVectorStore.indexed_ids_for_user()`；5 个测试覆盖「漂移注入 → 体检发现 → 修复归零」闭环
+- **AI Tutor 评测脚手架**（`scripts/eval_tutor.py`，手册 §十二 AI Evaluation）：
+  4 个预置场景（薄弱诊断/今日计划/练习卷/找题）跑真实 function calling 全流程，
+  校验工具编排命中，LLM-as-judge 四维评分（正确/工具/可操作/清晰），JSON 报告落
+  `data/eval_tutor_report.json`；未配置 Key 时明确退出，评分自评局限性已在脚本头注明
+
 ## [2.8.0] - 2026-09-28
 
 ### 体验升级（真实用户视角的功能 / 交互 / 界面打磨）

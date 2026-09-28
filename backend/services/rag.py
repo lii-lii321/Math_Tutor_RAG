@@ -140,6 +140,21 @@ class QuestionVectorStore:
         except Exception as exc:  # noqa: BLE001
             logger.warning("向量删除失败: %s", exc)
 
+    def indexed_ids_for_user(self, user_id: int) -> set[int]:
+        """该用户已建立向量索引的题目 ID 集（数据体检用）。"""
+        collection = self._ensure_collection()
+        if collection is None:
+            return set()
+        try:
+            try:
+                rows = collection.get(where={"user_id": {"$eq": user_id}}, include=[])
+            except (TypeError, ValueError):  # 旧版 chroma 不接受空 include
+                rows = collection.get(where={"user_id": {"$eq": user_id}})
+            return {int(rid) for rid in rows.get("ids", []) if str(rid).isdigit()}
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("向量索引枚举失败: %s", exc)
+            return set()
+
     # ---------- 检索 ----------
     def similar_questions(
         self,
