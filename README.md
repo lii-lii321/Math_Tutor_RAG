@@ -101,14 +101,12 @@ flowchart LR
 | 学情看板 | AI 录题 |
 |---|---|
 | ![dashboard](docs/screenshots/dashboard.png) | ![tutor](docs/screenshots/tutor.png) |
-| **错题本** | **今日复习（SM-2 闪卡）** |
+| **错题本（掌握度角标 + 薄弱筛选）** | **今日复习（SM-2 闪卡）** |
 | ![notebook](docs/screenshots/notebook.png) | ![review](docs/screenshots/review.png) |
-| **知识图谱（标签共现）** | **学生总览（教师端）** |
-| ![graph](docs/screenshots/graph.png) | ![students](docs/screenshots/students.png) |
-| **AI 助手（Agent 对话）** | |
-| ![assistant](docs/screenshots/assistant.png) | |
-| **知识图谱（标签共现）** | |
-| ![graph](docs/screenshots/graph.png) | |
+| **能力画像（掌握度雷达 + 今日计划）** | **学生总览（教师端）** |
+| ![mastery](docs/screenshots/mastery.png) | ![students](docs/screenshots/students.png) |
+| **知识图谱（节点颜色 = 掌握度）** | **AI 助手（Agent 对话）** |
+| ![graph](docs/screenshots/graph.png) | ![assistant](docs/screenshots/assistant.png) |
 
 ## 🚀 快速开始 (Quick Start)
 
