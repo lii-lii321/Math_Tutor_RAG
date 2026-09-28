@@ -10,7 +10,8 @@ import tempfile
 from pathlib import Path
 
 _TMP = Path(tempfile.mkdtemp(prefix="mathmaster_test_"))
-os.environ["DATABASE_URL"] = f"sqlite:///{(_TMP / 'test.db').as_posix()}"
+# DATABASE_URL 允许外部指定（如 PostgreSQL 兼容验证）；未设置时回退 SQLite 临时库
+os.environ.setdefault("DATABASE_URL", f"sqlite:///{(_TMP / 'test.db').as_posix()}")
 os.environ["DATA_DIR"] = str(_TMP / "data")
 os.environ["CHROMA_DIR"] = str(_TMP / "chroma")
 os.environ["RAG_ENABLED"] = "true"  # 允许向量库参与集成测试

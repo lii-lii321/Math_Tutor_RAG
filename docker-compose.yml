@@ -43,6 +43,27 @@ services:
   #     - mysql-data:/var/lib/mysql
   #   restart: unless-stopped
 
+  # 可选：PostgreSQL（Batch 09 兼容目标）。docker compose --profile postgres up -d postgres
+  # 应用侧连接示例：DATABASE_URL=postgresql+psycopg2://mathmaster:mathmaster@localhost:5433/math_tutor
+  postgres:
+    image: postgres:16-alpine
+    profiles: ["postgres"]
+    environment:
+      POSTGRES_USER: mathmaster
+      POSTGRES_PASSWORD: mathmaster
+      POSTGRES_DB: math_tutor
+    ports:
+      - "5433:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mathmaster -d math_tutor"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
 volumes:
   mathmaster-data:
   # mysql-data:
+  pg-data:

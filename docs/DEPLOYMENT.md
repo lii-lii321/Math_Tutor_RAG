@@ -68,6 +68,25 @@ alembic downgrade -1
 
 数据库 URL 优先级：`alembic -x url=...` > 环境变量 `DATABASE_URL` > `backend/config.py`。
 
+### PostgreSQL（Batch 09，已验证）
+
+```env
+DATABASE_URL=postgresql+psycopg2://mathmaster:mathmaster@localhost:5433/math_tutor
+```
+
+- 驱动：`pip install psycopg2-binary`
+- compose 已内置 PG 服务（profile 隔离，不影响默认 SQLite 启动）：
+
+```bash
+docker compose --profile postgres up -d postgres   # 等待 healthy
+alembic upgrade head                               # 全部迁移在 PG 16 上验证通过
+pytest                                             # 252 用例全绿（DATABASE_URL 指向 PG）
+```
+
+- 迁移链（9 个版本）、ORM、服务层与 REST API 均已在 PostgreSQL 16 上验证；
+  测试套件可通过 `DATABASE_URL` 环境变量直接指向 PG 运行（`tests/conftest.py` 已支持外部覆盖）
+- 对象存储（S3/OSS）仍为待接入项：图片目前继续使用本地磁盘存储
+
 ## 4. 异步任务队列（Batch 08）
 
 AI 录题等耗时任务的执行后端由 `REDIS_URL` 决定：
