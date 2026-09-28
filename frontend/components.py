@@ -41,6 +41,12 @@ def question_detail_view(q, show_hit: bool = True) -> None:
         st.markdown(q.content_markdown, unsafe_allow_html=True)
         if q.answer:
             st.markdown(f"**答案**：{q.answer}")
+        with st.expander("📋 复制 / 分享本题"):
+            plain = q.content_markdown
+            if q.answer:
+                plain = f"{plain}\n\n**答案**：{q.answer}"
+            st.code(plain, language=None)
+            st.caption("点击代码块右上角复制图标即可全文复制，适合粘贴到笔记或打印。")
         _hit_preview(q)
         if q.followup_question:
             with st.expander("举一反三 · 变式练习"):

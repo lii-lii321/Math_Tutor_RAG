@@ -6,22 +6,41 @@ from itertools import combinations
 import streamlit as st
 from streamlit_agraph import Config, Edge, Node, agraph
 
-from frontend.common import get_question_service, page_header
+from frontend.common import get_question_service, go_to, page_header
 
-_PALETTE = [
-    "#2563eb", "#0d9488", "#d97706", "#dc2626", "#7c3aed",
-    "#059669", "#db2777", "#0891b2", "#65a30d", "#c2410c",
-]
+_MASTERY_NODE_COLORS = {
+    "weak": "#dc2626",  # 薄弱
+    "shaky": "#d97706",  # 不稳固
+    "solid": "#2563eb",  # 已掌握
+    "unknown": "#94a3b8",  # 无复习数据
+}
+
+
+def _mastery_level(mastery: float | None) -> str:
+    if mastery is None:
+        return "unknown"
+    if mastery < 0.4:
+        return "weak"
+    if mastery < 0.75:
+        return "shaky"
+    return "solid"
 
 
 def render_graph_page(user: dict) -> None:
     service = get_question_service()
-    page_header("知识图谱", "标签共现网络 · 节点大小=错题数，连线的粗细=两种知识点同时出现的频率")
+    page_header(
+        "知识图谱",
+        "标签共现网络 · 节点大小=错题数，颜色=掌握度（🔴薄弱 🟡不稳固 🔵已掌握 ⚪无数据）",
+    )
 
     questions = service.list_questions(user["id"], include_others=user["role"] == "teacher")
     if not questions:
         st.info("还没有错题，先去「AI 录题」上传几张错题照片，图谱会随错题积累自动生长。")
         return
+
+    tag_mastery: dict[str, float] = {
+        s.tag: s.mastery for s in service.dashboard_stats(user["id"])["tag_stats"]
+    }
 
     tag_count: dict[str, int] = {}
     edge_count: dict[tuple[str, str], int] = {}
@@ -41,9 +60,9 @@ def render_graph_page(user: dict) -> None:
             id=tag,
             label=f"{tag} ({tag_count[tag]})",
             size=18 + 26 * tag_count[tag] / max_count,
-            color=_PALETTE[i % len(_PALETTE)],
+            color=_MASTERY_NODE_COLORS[_mastery_level(tag_mastery.get(tag))],
         )
-        for i, tag in enumerate(top_tags)
+        for tag in top_tags
     ]
     edges = [
         Edge(source=a, target=b, width=1 + 3 * weight)
@@ -71,6 +90,7 @@ def render_graph_page(user: dict) -> None:
     c_graph, c_insight = st.columns([3, 1])
     with c_graph:
         agraph(nodes=nodes, edges=edges, config=config)
+        st.caption("红色节点是需要优先加固的知识群；点击「📝」可在错题本中集中处理。")
     with c_insight:
         st.markdown("#### 关联最强的知识点对")
         strongest = sorted(edge_count.items(), key=lambda kv: kv[1], reverse=True)[:8]
@@ -83,3 +103,14 @@ def render_graph_page(user: dict) -> None:
                 unsafe_allow_html=True,
             )
         st.caption("同时出现在同一道错题中的知识点，往往需要一起复习。")
+
+        weak_tags = sorted(
+            (t for t in top_tags if _mastery_level(tag_mastery.get(t)) == "weak"),
+            key=tag_count.get,
+            reverse=True,
+        )
+        if weak_tags:
+            st.markdown("#### 🔴 薄弱知识群")
+            for tag in weak_tags[:5]:
+                if st.button(f"📝 {tag}", key=f"graph_go_{tag}", width="stretch"):
+                    go_to("notebook", tag=tag)
