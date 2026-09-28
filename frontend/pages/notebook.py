@@ -47,9 +47,12 @@ def render_notebook_page(user: dict) -> None:
             semantic = st.toggle("语义搜索", value=True, help="用向量检索理解语义，而非仅字面匹配")
             only_due = st.toggle("仅看待复习", value=False, help="隐藏已掌握和尚未到期的错题")
             only_mastered = st.toggle("仅看已掌握 🏆", value=False, help="只显示已归档的熟题")
+            only_weak = st.toggle(
+                "仅看薄弱", value=False, help="只显示复习过且掌握度低于 50% 的题"
+            )
             sort_mode = st.selectbox(
                 "排序",
-                ["最新录入", "最早录入", "复习次数最少", "最近复习"],
+                ["最新录入", "最早录入", "复习次数最少", "最近复习", "掌握度最低"],
                 key="notebook_sort",
             )
         with col_tag:
@@ -100,6 +103,9 @@ def render_notebook_page(user: dict) -> None:
         def _aware_dt(value: dt.datetime | None) -> dt.datetime:
             return value if value is None or value.tzinfo else value.replace(tzinfo=dt.timezone.utc)
 
+        mastery_map = service.mastery_by_question(view_user_id)
+        if only_weak:
+            questions = [q for q in questions if mastery_map.get(q.id, 1.0) < 0.5]
         if only_due:
             now_dt = dt.datetime.now(dt.timezone.utc)
             questions = [
@@ -121,6 +127,8 @@ def render_notebook_page(user: dict) -> None:
                 key=lambda q: _aware_dt(q.last_reviewed_at) or dt.datetime.min.replace(tzinfo=dt.timezone.utc),
                 reverse=True,
             )
+        elif sort_mode == "掌握度最低":
+            questions.sort(key=lambda q: mastery_map.get(q.id, 0.5))
 
         st.markdown("<br>", unsafe_allow_html=True)
         if questions:
@@ -219,9 +227,15 @@ def render_notebook_page(user: dict) -> None:
             due_mark = "⏰ "
         else:
             due_mark = "✅ "
+        mastery_chip = ""
+        if q.id in mastery_map:
+            pct = round(mastery_map[q.id] * 100)
+            color = "#dc2626" if pct < 40 else ("#94a3b8" if pct < 75 else "#2563eb")
+            mastery_chip = f"　<span style='color:{color};font-weight:600'>掌握 {pct}%</span>"
         expander_title = (
             f"{due_mark}{'、'.join(q.tags[:4]) or '未分类'}　·　{q.difficulty}　·　"
             f"{(q.created_at.strftime('%Y-%m-%d') if q.created_at else '')}"
+            f"{mastery_chip}"
         )
         with st.expander(expander_title):
             _render_question_detail(service, q, user)

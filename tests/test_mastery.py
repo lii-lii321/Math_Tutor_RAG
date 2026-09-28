@@ -221,3 +221,14 @@ class TestTodayPlan:
     def test_service_facade(self, service, kp_user):
         assert isinstance(service.today_plan(kp_user.id, size=3), list)
         assert isinstance(service.mastery_profile(kp_user.id), list)
+
+    def test_mastery_by_question(self, service, kp_user):
+        """单题掌握度映射：仅有复习记录的题进入映射，again 得低分。"""
+        with_logs = _make_question(service, kp_user.id, ["映射测试A"])
+        _add_review(with_logs.id, kp_user.id, "again", 1)
+        no_logs = _make_question(service, kp_user.id, ["映射测试B"])
+
+        mapping = service.mastery_by_question(kp_user.id)
+        assert with_logs.id in mapping
+        assert mapping[with_logs.id] < 0.5
+        assert no_logs.id not in mapping

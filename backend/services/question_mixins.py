@@ -694,6 +694,22 @@ class ReviewMixin:
         outs = [QuestionOut.from_orm_model(q) for q in due]
         return [o for o in outs if not o.mastered]
 
+    def mastery_by_question(self, user_id: int) -> dict[int, float]:
+        """单题掌握度映射（0~1，仅有复习记录的题），供错题本筛选与角标使用。"""
+        from collections import defaultdict
+
+        from backend.services.mastery import question_mastery
+
+        with self._session() as repo:
+            logs = repo.review_logs_for_user(user_id)
+        logs_by_question: dict[int, list] = defaultdict(list)
+        for log in logs:
+            logs_by_question[log.question_id].append(log)
+        return {
+            qid: question_mastery(q_logs)
+            for qid, q_logs in logs_by_question.items()
+        }
+
     def recent_reviews(self, user_id: int, limit: int = 20) -> list[dict]:
         """最近的复习记录（新→旧），供复习历史视图使用。"""
         with self._session() as repo:
