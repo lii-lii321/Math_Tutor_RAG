@@ -7,9 +7,9 @@ from __future__ import annotations
 
 import re
 
-import sympy
 from sympy.parsing.sympy_parser import (
     implicit_multiplication_application,
+    parse_expr,
     standard_transformations,
 )
 
@@ -50,13 +50,13 @@ def latex_to_expr(latex: str, symbols: dict | None = None):
     text = re.sub(r"\\[a-zA-Z]+", "", text)  # 清掉剩余命令
     text = text.replace("^", "**")
     try:
-        return sympy.sympify(
+        return parse_expr(
             text,
-            locals=symbols or {},
+            local_dict=symbols or {},
+            transformations=_TRANSFORM,
             evaluate=True,
-            rational=True,
         )
-    except Exception:  # noqa: BLE001 - sympify 对任意文本会抛多种异常
+    except Exception:  # noqa: BLE001 - 解析器对任意文本会抛多种异常
         return None
 
 

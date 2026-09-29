@@ -11,6 +11,7 @@ from backend.services.math_verifier.latex_utils import (
     extract_solution_assignments,
     latex_to_expr,
 )
+from backend.services.math_verifier.numeric_verifier import numeric_equation_holds
 
 
 def check_solution_substitution(
@@ -34,7 +35,18 @@ def check_solution_substitution(
             for value in values:
                 try:
                     diff = sympy.simplify(lhs.subs(symbol, value) - rhs.subs(symbol, value))
-                except Exception:  # noqa: BLE001
+                except Exception:  # noqa: BLE001 - 化简失败时降级为数值代入
+                    numeric = numeric_equation_holds(
+                        lhs.subs(symbol, value), rhs.subs(symbol, value), var
+                    )
+                    if numeric is False:
+                        return (
+                            "failed",
+                            0.85,
+                            f"解 {var}={value} 数值代入不成立",
+                        )
+                    if numeric is True:
+                        checked += 1
                     continue
                 checked += 1
                 if diff != 0:
@@ -49,9 +61,12 @@ def check_solution_substitution(
 
 
 def check_derivative_inverse(
-    question_text: str, answer_text: str
+    question_text: str, solution_text: str, answer_text: str
 ) -> tuple[str, float, str] | None:
-    """导数验证：题面给出 f(x)=g，答案给出 f'(x)=h → 检查 diff(g, x) == h。"""
+    """导数验证：题面给出 f(x)=g，答案给出 f'(x)=h → 检查 diff(g, x) == h。
+
+    solution_text 不参与但保留三参签名——verify_answer 以统一签名调用各验证器。
+    """
     if not any(word in question_text for word in ("导数", "求导", "微分")):
         return None
 
@@ -92,4 +107,12 @@ def check_derivative_inverse(
         return None
     if diff == 0:
         return ("verified", 0.95, f"导数互逆检验通过：d/d{var_name} {func_expr} = {derived}")
-    return ("failed", 0.9, f"导数不符：期望 {expected}，答案给出 {derived}")
+    # 符号化简判不等时做数值复核：等价形式化简不出 0 但数值恒等的情况不再误判 failed
+    numeric = numeric_equation_holds(expected, derived, var_name)
+    if numeric is False:
+        return ("failed", 0.9, f"导数不符：期望 {expected}，答案给出 {derived}")
+    return (
+        "uncertain",
+        0.5,
+        f"符号化简不一致（{expected} vs {derived}），数值检验亦无法判定，请人工确认",
+    )
