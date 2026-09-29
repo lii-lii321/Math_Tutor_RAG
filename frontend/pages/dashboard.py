@@ -171,7 +171,7 @@ def render_dashboard(user: dict) -> None:
     action_col1, action_col2, action_col3, action_col4 = st.columns(4)
     with action_col1:
         if st.button("🎬 开始复习", type="primary", width="stretch", disabled=stats["due"] == 0):
-            go_to("review")
+            go_to("review", mode="due")
     with action_col2:
         if st.button("📸 录一道错题", width="stretch"):
             go_to("tutor")

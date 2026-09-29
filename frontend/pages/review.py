@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import os
 
 import streamlit as st
 
@@ -20,7 +21,15 @@ _GRADE_LABELS = {"again": "😵 忘了", "hard": "😅 勉强", "good": "🙂 �
 
 def render_review_page(user: dict) -> None:
     service = get_question_service()
-    plan_mode = pop_params("mode").get("mode") == "plan"
+    incoming = pop_params("mode", "question_id")
+    # 计划模式标记入会话态：评分后的 rerun 不会丢模式（pop 的一次性参数会消失）
+    if incoming.get("mode") == "plan":
+        st.session_state["review_plan_mode"] = True
+    elif incoming.get("mode") == "due":
+        st.session_state.pop("review_plan_mode", None)
+        st.session_state.pop("review_cursor", None)
+    plan_mode = st.session_state.get("review_plan_mode", False)
+
     if plan_mode:
         page_header(
             "今日复习 · 计划模式",
@@ -29,6 +38,9 @@ def render_review_page(user: dict) -> None:
         plan = service.today_plan(user["id"], size=12)
         due = [item.question for item in plan]
         reasons = {item.question.id: item.reason for item in plan}
+        if not due:
+            # 计划清空后自动退出计划模式，下次从侧边栏进入恢复默认到期队列
+            st.session_state.pop("review_plan_mode", None)
     else:
         page_header("今日复习", "SM-2 间隔重复调度 · 按记忆掌握程度评分，自动安排下次复习时间")
         due = service.due_questions(user["id"])
@@ -58,6 +70,13 @@ def render_review_page(user: dict) -> None:
     idx_key = "review_cursor"
     if idx_key not in st.session_state:
         st.session_state[idx_key] = 0
+    # 计划项「复习」按钮直达：把游标跳到指定题目（在队列中时）
+    jump_id = incoming.get("question_id")
+    if jump_id is not None:
+        ids = [q.id for q in due]
+        if jump_id in ids:
+            st.session_state[idx_key] = ids.index(jump_id)
+    st.session_state[idx_key] = min(st.session_state[idx_key], len(due) - 1)
     session_key = "review_session"  # 本轮复习统计：{"graded": n, "grades": {...}}
     if session_key not in st.session_state:
         st.session_state[session_key] = {"graded": 0, "grades": {}}
@@ -73,7 +92,7 @@ def render_review_page(user: dict) -> None:
     )
     st.progress((st.session_state[idx_key]) / len(due), text=None)
 
-    cursor = min(st.session_state[idx_key], len(due) - 1)
+    cursor = st.session_state[idx_key]
     question = due[cursor]
 
     st.markdown(
@@ -97,8 +116,11 @@ def render_review_page(user: dict) -> None:
                 last = last.replace(tzinfo=dt.timezone.utc)
             days_ago = (dt.datetime.now(dt.timezone.utc) - last).days
             st.caption(f"上次复习：{days_ago} 天前 · 已连续记牢 {question.reps} 次")
-        if question.image_path:
+        if question.image_path and os.path.exists(question.image_path):
             st.image(question.image_path, width=460)
+        elif question.image_path:
+            st.markdown(question.content_markdown[:220], unsafe_allow_html=True)
+            st.caption("⚠️ 原图文件缺失（可能已迁移目录），请参考解析文字")
         else:
             st.markdown(question.content_markdown[:220], unsafe_allow_html=True)
             st.caption("（手动录入题，请先回忆解法）")
