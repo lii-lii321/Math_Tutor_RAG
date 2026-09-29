@@ -117,7 +117,7 @@ def render_review_page(user: dict) -> None:
             days_ago = (dt.datetime.now(dt.timezone.utc) - last).days
             st.caption(f"上次复习：{days_ago} 天前 · 已连续记牢 {question.reps} 次")
         if question.image_path and os.path.exists(question.image_path):
-            st.image(question.image_path, width=460)
+            st.image(question.image_path, width="stretch")
         elif question.image_path:
             st.markdown(question.content_markdown[:220], unsafe_allow_html=True)
             st.caption("⚠️ 原图文件缺失（可能已迁移目录），请参考解析文字")

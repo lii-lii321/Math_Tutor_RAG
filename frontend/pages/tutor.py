@@ -22,11 +22,15 @@ def render_tutor_page(user: dict) -> None:
         with st.container(border=True):
             col_upload, col_meta = st.columns([3, 2])
             with col_upload:
-                uploads = st.file_uploader(
-                    "错题图片（支持多选）",
-                    type=["jpg", "jpeg", "png", "webp"],
-                    accept_multiple_files=True,
-                )
+                camera_photo = st.camera_input("📱 直接拍摄（手机端推荐）")
+                if camera_photo:
+                    uploads = [camera_photo]
+                else:
+                    uploads = st.file_uploader(
+                        "或从相册选择错题图片（支持多选）",
+                        type=["jpg", "jpeg", "png", "webp"],
+                        accept_multiple_files=True,
+                    )
                 if uploads:
                     preview_cols = st.columns(min(len(uploads), 4))
                     for i, upload in enumerate(uploads[:4]):
