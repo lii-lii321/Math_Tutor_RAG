@@ -50,6 +50,7 @@ def render_notebook_page(user: dict) -> None:
             only_weak = st.toggle(
                 "仅看薄弱", value=False, help="只显示复习过且掌握度低于 50% 的题"
             )
+            only_starred = st.toggle("⭐ 仅看星标", value=False, help="只显示你收藏的重要错题")
             sort_mode = st.selectbox(
                 "排序",
                 ["最新录入", "最早录入", "复习次数最少", "最近复习", "掌握度最低"],
@@ -97,6 +98,7 @@ def render_notebook_page(user: dict) -> None:
             include_others=include_others,
             tag=None if tag_filter == "全部" else tag_filter,
             keyword=keyword or None,
+            starred=only_starred,
             semantic=semantic,
         )
 
@@ -232,8 +234,9 @@ def render_notebook_page(user: dict) -> None:
             pct = round(mastery_map[q.id] * 100)
             color = "#dc2626" if pct < 40 else ("#94a3b8" if pct < 75 else "#2563eb")
             mastery_chip = f"　<span style='color:{color};font-weight:600'>掌握 {pct}%</span>"
+        star_mark = "⭐ " if q.starred else ""
         expander_title = (
-            f"{due_mark}{'、'.join(q.tags[:4]) or '未分类'}　·　{q.difficulty}　·　"
+            f"{due_mark}{star_mark}{'、'.join(q.tags[:4]) or '未分类'}　·　{q.difficulty}　·　"
             f"{(q.created_at.strftime('%Y-%m-%d') if q.created_at else '')}"
             f"{mastery_chip}"
         )
@@ -343,6 +346,17 @@ def _render_question_detail(service, q, user) -> None:
         ["查看", "追问讲题", "批注", "编辑"]
     )
     with tab_view:
+        if st.button(
+            ("⭐ 取消星标" if q.starred else "☆ 加入星标"),
+            key=f"star_{q.id}",
+            width="stretch",
+        ):
+            new_state = service.toggle_star(q.id, user["id"])
+            if new_state is None:
+                st.toast("只能收藏自己的错题", icon="⚠️")
+            else:
+                st.toast("已加入星标" if new_state else "已取消星标", icon="⭐")
+            st.rerun()
         question_detail_view(q)
         if q.followup_question:
             save_followup_button(service, q, user, q.followup_question)

@@ -173,6 +173,7 @@ class QuestionRepository:
         tag: str | None = None,
         keyword: str | None = None,
         difficulty: str | None = None,
+        starred: bool = False,
     ):
         """构造带归属/标签/关键词/难度过滤的查询（过滤全部下推到 SQL）。
 
@@ -186,6 +187,8 @@ class QuestionRepository:
             stmt = stmt.where(Question.tags.cast(String).contains(f'"{tag}"'))
         if difficulty:
             stmt = stmt.where(Question.difficulty == difficulty)
+        if starred:
+            stmt = stmt.where(Question.starred.is_(True))
         if keyword:
             like = f"%{keyword}%"
             stmt = stmt.where(
@@ -207,6 +210,7 @@ class QuestionRepository:
         tag: str | None = None,
         keyword: str | None = None,
         difficulty: str | None = None,
+        starred: bool = False,
         offset: int = 0,
         limit: int | None = None,
     ) -> list[Question]:
@@ -216,6 +220,7 @@ class QuestionRepository:
             tag=tag,
             keyword=keyword,
             difficulty=difficulty,
+            starred=starred,
         )
         if offset:
             stmt = stmt.offset(offset)
@@ -231,6 +236,7 @@ class QuestionRepository:
         tag: str | None = None,
         keyword: str | None = None,
         difficulty: str | None = None,
+        starred: bool = False,
     ) -> int:
         """与 list_for_user 相同口径的总数（供分页使用，SQL 计数）。"""
         stmt = self._filtered_stmt(
@@ -239,9 +245,19 @@ class QuestionRepository:
             tag=tag,
             keyword=keyword,
             difficulty=difficulty,
+            starred=starred,
         )
         count_stmt = select(func.count()).select_from(stmt.subquery())
         return int(self.session.execute(count_stmt).scalar_one())
+
+    def set_starred(self, question_id: int, user_id: int, starred: bool) -> bool:
+        """设置星标状态（归属校验），返回是否命中题目。"""
+        question = self._get_owned(question_id, user_id)
+        if question is None:
+            return False
+        question.starred = starred
+        self.session.flush()
+        return True
 
     def due_for_review(self, user_id: int, now: dt.datetime | None = None) -> list[Question]:
         """到期错题（SQL 下推）；新题 due_at 为 NULL 视为立即到期。"""

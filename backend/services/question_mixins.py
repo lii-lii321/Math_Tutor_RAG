@@ -379,6 +379,7 @@ class QueryMixin:
         tag: str | None = None,
         keyword: str | None = None,
         difficulty: str | None = None,
+        starred: bool = False,
         semantic: bool = True,
         offset: int = 0,
         limit: int | None = None,
@@ -400,6 +401,7 @@ class QueryMixin:
                 tag=tag,
                 keyword=keyword,
                 difficulty=difficulty,
+                starred=starred,
                 limit=candidate_k if (keyword and semantic) else None,
             )
             results = {q.id: QuestionOut.from_orm_model(q) for q in primary}
@@ -488,13 +490,22 @@ class QueryMixin:
         # 管线末端应用 offset/limit；融合外候选（理论不存在）按时间排尾，保证不丢题。
         # rest 基于过滤前的候选集，但被阈值/过滤明确剔除的题不会回流。
         ordered_results = [results[qid] for qid in fused_ids if qid in results]
+        ordered_results = [
+            q
+            for q in ordered_results
+            if (difficulty is None or q.difficulty == difficulty)
+            and (not starred or q.starred)
+        ]
         filtered_out = set(pre_filter_fused) - set(fused_ids)
         fused_set = set(fused_ids)
         rest = sorted(
             (
                 q
                 for qid, q in results.items()
-                if qid not in fused_set and qid not in filtered_out
+                if qid not in fused_set
+                and qid not in filtered_out
+                and (difficulty is None or q.difficulty == difficulty)
+                and (not starred or q.starred)
             ),
             key=lambda q: q.created_at or dt.datetime.min.replace(tzinfo=dt.timezone.utc),
             reverse=True,
@@ -515,6 +526,7 @@ class QueryMixin:
         tag: str | None = None,
         keyword: str | None = None,
         difficulty: str | None = None,
+        starred: bool = False,
     ) -> int:
         """过滤口径下的错题总数（API 分页用）。"""
         with self._session() as repo:
@@ -524,6 +536,7 @@ class QueryMixin:
                 tag=tag,
                 keyword=keyword,
                 difficulty=difficulty,
+                starred=starred,
             )
 
     def get_question(self, question_id: int, user_id: int) -> QuestionOut | None:
@@ -629,6 +642,16 @@ class EditTagMixin:
                 if question is not None:
                     self._reindex_owned(question)
         return changed
+
+    def toggle_star(self, question_id: int, user_id: int) -> bool | None:
+        """切换错题星标，返回切换后的状态；题目不存在或无权访问返回 None。"""
+        with self._session() as repo:
+            question = repo.get_owned(question_id, user_id)
+            if question is None:
+                return None
+            new_state = not bool(question.starred)
+            repo.set_starred(question_id, user_id, new_state)
+            return new_state
 
     def tag_usage(self, user_id: int) -> dict[str, int]:
         """用户错题标签使用统计：{标签: 题数}，按题数降序。"""

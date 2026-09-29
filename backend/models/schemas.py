@@ -72,6 +72,7 @@ class QuestionOut(BaseModel):
     due_at: dt.datetime | None = None
     last_reviewed_at: dt.datetime | None = None
     created_at: dt.datetime | None = None
+    starred: bool = False
 
     @classmethod
     def from_orm_model(cls, q) -> QuestionOut:  # noqa: ANN001 - ORM 实例
@@ -97,6 +98,7 @@ class QuestionOut(BaseModel):
             due_at=q.due_at,
             last_reviewed_at=q.last_reviewed_at,
             created_at=q.created_at,
+            starred=bool(q.starred),
         )
 
     @computed_field  # type: ignore[prop-decorator]

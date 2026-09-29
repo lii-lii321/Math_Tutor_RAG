@@ -10,6 +10,7 @@ from decimal import Decimal
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     DateTime,
     Float,
     ForeignKey,
@@ -73,6 +74,7 @@ class Question(Base):
     user_note: Mapped[str | None] = mapped_column(Text)
     ocr_text: Mapped[str | None] = mapped_column(Text)  # 原图 OCR 文字（可选特性）
     image_hash: Mapped[str | None] = mapped_column(String(64), index=True)  # 原图 SHA-256，去重用
+    starred: Mapped[bool] = mapped_column(Boolean, default=False, index=True)  # 星标收藏
 
     # 数学验证（Batch 03）
     verification_status: Mapped[str | None] = mapped_column(
