@@ -30,7 +30,7 @@ class Settings(BaseSettings):
 
     # ---------- 应用 ----------
     app_name: str = "MathMaster Edu"
-    app_version: str = "2.10.0"
+    app_version: str = "2.11.0"
     debug: bool = False
     data_dir: Path = PROJECT_ROOT / "data"
 
