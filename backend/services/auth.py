@@ -60,4 +60,15 @@ class AuthService:
         if len(new_password) < 6:
             return LoginResult(ok=False, message="新密码至少 6 位")
         self.repo.update_password(user_id, new_password, get_settings().bcrypt_rounds)
+        user.token_version += 1  # 改密即吊销全部旧令牌
+        logger.info("用户 %s 改密成功，令牌版本升至 %s", user.username, user.token_version)
         return LoginResult(ok=True, message="密码已更新")
+
+    def bump_token_version(self, user_id: int) -> bool:
+        """递增令牌版本，吊销该用户当前全部令牌（登出用）。"""
+        user = self.repo.get_by_id(user_id)
+        if user is None:
+            return False
+        user.token_version += 1
+        logger.info("用户 %s 登出，令牌版本升至 %s", user.username, user.token_version)
+        return True

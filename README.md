@@ -8,7 +8,7 @@
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.49%2B-ff4b4b)
 ![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-d71f00)
 ![ChromaDB](https://img.shields.io/badge/RAG-ChromaDB-4051b5)
-![Tests](https://img.shields.io/badge/tests-239%20passing%20%2B%205%20E2E-2ea44f)
+![Tests](https://img.shields.io/badge/tests-287%20collected-2ea44f)
 [![CI](https://github.com/lii-lii321/Math_Tutor_RAG/actions/workflows/ci.yml/badge.svg)](https://github.com/lii-lii321/Math_Tutor_RAG/actions/workflows/ci.yml)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -19,13 +19,13 @@
 | 能力 | 说明 |
 |---|---|
 | 📸 **AI 拍照录题** | 上传手写作业/试卷照片，视觉大模型识别题目并输出**结构化解析**（考点、分步讲解、答案、难度、易错原因、变式题），基于 Pydantic Schema 约束输出并稳健解析 |
-| 🔁 **多模型提供商** | 统一 Provider 抽象：一套代码对接 **SiliconFlow / 通义千问 / 智谱 GLM / DeepSeek / OpenAI / Ollama / Gemini**，更换 `AI_BASE_URL` + `AI_MODEL` 即可切换；无 Key 时自动进入演示模式，克隆即可跑通 |
+| 🔁 **多模型提供商** | 统一 Provider 抽象：一套代码对接 **SiliconFlow / 通义千问 / 智谱 GLM / DeepSeek / OpenAI / Ollama**，更换 `AI_BASE_URL` + `AI_MODEL` 即可切换；**Gemini** 走独立 Provider（需另设 `AI_PROVIDER=gemini`）；无 Key 时自动进入演示模式，克隆即可跑通 |
 | 🧠 **RAG 向量检索** | ChromaDB 持久化向量库：错题解析自动嵌入入库；**「举一反三」相似题召回**、错题本**语义搜索**（自然语言找题）；向量库故障自动降级为关键词检索 |
 | 🤖 **Agent + MCP** | Tool-use 对话 Agent（function calling 循环自主编排工具）+ MCP Server（Claude Desktop / Cursor 直接调用错题本）|
 | 🎯 **能力画像与自适应复习** | 规范化知识点模型 + 掌握度引擎（复习日志时间加权评估），每日计划自动组合「SM-2 到期优先 + 薄弱知识点加固」；复习页支持按计划队列复习并标注推荐理由 |
 | ⏰ **间隔重复复习** | 内置 **SM-2 算法**（Anki 同源）：闪卡式复习，按记忆质量自动调度下次复习时间，对抗遗忘曲线 |
 | 💬 **追问讲题** | 每道错题内置多轮对话（Chat UI）：带题目上下文的多轮讲题，上下文自动截断防超限 |
-| 📊 **学情看板** | 知识点分布、**标签级掌握度估算**（结合复习表现与调度间隔）、薄弱知识点 Top N、近 14 天录入趋势 |
+| 📊 **学情看板** | 知识点分布、**标签级掌握度估算**（复习表现 + 调度间隔的看板启发式口径，与画像页时间加权引擎并存）、薄弱知识点 Top N、近 14 天录入趋势 |
 | 🖨️ **一键组卷导出** | 按筛选结果生成可打印 Word 复习卷，保留题目原图与答题留白 |
 | 🔐 **生产级安全** | bcrypt 密码哈希、登录失败延迟、JWT 认证、Pydantic 入参校验、SQL 参数化查询 |
 | 🔌 **FastAPI 网关** | 与 Streamlit 共享同一套 backend 服务的 REST API（JWT + OpenAPI 文档），Web / 小程序 / 脚本多端复用 |
@@ -34,7 +34,7 @@
 | 📅 **学习日历** | 90 天热力图 + 复习正确率趋势 + 掌握度成长曲线 + 连续学习打卡 + 周报环比 |
 | ⌨️ **高效复习** | 键盘快捷键（空格/1-4）、评分间隔预览、跳过、掌握归档（🏆）、复习历史 |
 | 🌙 **体验细节** | 深色模式、PWA 可安装、OCR 原图搜索（可选）、MUJI 极简界面 |
-| 🧪 **工程化** | pytest 230+ 用例 + Playwright E2E、ruff、覆盖率 ~90%、CI（lint + 3 版本矩阵 + 启动冒烟 + E2E + Docker）、Alembic 迁移（9 个版本）、Docker Compose 一键部署、RAG 离线评测与 AI 遥测 |
+| 🧪 **工程化** | pytest 收集到 287 个用例 + Playwright E2E、ruff、覆盖率 ~90%、CI（lint + 3 版本矩阵 + 启动冒烟 + E2E + Docker）、Alembic 迁移（11 个版本）、Docker Compose 一键部署、RAG 检索离线评测（Recall@K / MRR / NDCG）与 AI Tutor 评测（LLM-as-judge）、AI 遥测 |
 
 ## 🏗️ 架构 (Architecture)
 
@@ -200,11 +200,11 @@ EMBEDDING_MODEL=BAAI/bge-m3
 
 ```bash
 pip install -r requirements-dev.txt
-pytest -v          # 41 个用例：认证 / 仓储 / SM-2 调度 / AI 解析 / RAG / 统计 / 导出
+pytest -v          # 收集到 287 个用例：认证 / 仓储 / SM-2 调度 / AI 解析 / RAG / 统计 / 导出 等
 ruff check .       # 静态检查
 ```
 
-GitHub Actions 在每次 push / PR 时执行：`ruff lint → pytest (3.10/3.11/3.12 矩阵) → Docker 构建`。
+GitHub Actions 在每次 push / PR 时执行 4 个 job：`ruff lint → pytest (3.10/3.11/3.12 矩阵 + 覆盖率) → 启动冒烟（Streamlit / API 健康检查 + Playwright E2E）→ Docker 构建`。
 
 部署到服务器 / 云端的完整步骤（含 MySQL 切换、备份策略、常见问题）见 **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**。
 
@@ -249,13 +249,17 @@ Math_Tutor_RAG/
 - [x] ~~FastAPI 网关化以便多端复用~~（v2.1）
 - [x] ~~学习日历热力图 / 正确率趋势 / 连续学习打卡~~（v2.1）
 - [x] ~~教师端学生总览~~（v2.1）
-- [ ] PostgreSQL 支持；对象存储（S3/OSS）托管题目图片
-- [ ] OpenTelemetry 观测埋点；消息队列异步解析
+- [x] ~~PostgreSQL 支持~~（v2.10：`DATABASE_URL` 一键切换 + compose `--profile postgres`，迁移链与测试套件已在 PG 16 实机验证）
+- [ ] 对象存储（S3/OSS）托管题目图片
+- [ ] OpenTelemetry 观测埋点
+- [x] ~~消息队列异步解析~~（v2.3 异步录题 + v2.6 JobQueue 抽象：默认进程内线程，`REDIS_URL` 切换 RQ + 独立 Worker）
 
 ## ⚠️ 已知限制 (Known Limitations)
 
 - 登录失败限流为进程内实现，多实例部署需换用 Redis 等共享存储
-- 语义搜索的向量检索范围：学生仅本人错题；教师为 自己 + 全部学生
+- 异步解析队列默认为进程内线程实现；多实例部署需配置 `REDIS_URL` 切换 RQ 队列 + 独立 Worker
+- 语义搜索的向量检索范围：学生仅本人错题；教师默认为 自己 + 全部学生，建班后收紧为「自己班级的学生」
+- PostgreSQL 为兼容验证通过（迁移链 + 测试套件 + API 冒烟在 PG 16 实机验证），日常开发默认仍为 SQLite
 - 错题图片存储于本地磁盘（`data/images/`），云对象存储接入在路线图中
 
 ## 📄 License

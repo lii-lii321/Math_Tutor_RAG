@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 from api.deps import get_current_user
 from backend.models.orm import User
-from backend.services.comment_service import CommentService
+from backend.services.comment_service import CommentService, QuestionAccessDenied
 
 router = APIRouter(prefix="/questions/{question_id}/comments", tags=["comments"])
 
@@ -21,7 +21,13 @@ def _service() -> CommentService:
 
 @router.get("")
 def list_comments(question_id: int, user: User = Depends(get_current_user)) -> list[dict]:
-    return _service().list_for_question(question_id)
+    try:
+        return _service().list_for_question(
+            question_id, viewer_id=user.id, viewer_role=user.role
+        )
+    except QuestionAccessDenied as exc:
+        # 不存在与无权访问统一 404，不泄露存在性
+        raise HTTPException(404, "错题不存在") from exc
 
 
 @router.post("", status_code=201)
@@ -31,9 +37,11 @@ def add_comment(
     user: User = Depends(get_current_user),
 ) -> dict:
     try:
-        return _service().add(question_id, user.id, payload.content)
+        return _service().add(question_id, user.id, payload.content, viewer_role=user.role)
+    except QuestionAccessDenied as exc:
+        raise HTTPException(404, "错题不存在") from exc
     except ValueError as exc:
-        raise HTTPException(404 if "不存在" in str(exc) else 422, str(exc)) from exc
+        raise HTTPException(422, str(exc)) from exc
 
 
 @router.delete("/{comment_id}", status_code=204)

@@ -3,6 +3,7 @@
 双令牌（Batch 10）：短效 access（默认 30 分钟）+ 长效 refresh（默认 7 天），
 `POST /api/auth/refresh` 用 refresh 换新 access。
 历史令牌无 typ 声明，校验时按 access 处理，保证旧客户端平滑过渡。
+无 tv 声明的旧令牌视为 token_version=0，与签发侧约定一致。
 """
 from __future__ import annotations
 
@@ -21,28 +22,29 @@ class TokenError(Exception):
     """令牌无效或已过期。"""
 
 
-def _create_token(user_id: int, role: str, token_type: str, minutes: int) -> str:
+def _create_token(user_id: int, role: str, token_type: str, minutes: int, token_version: int = 0) -> str:
     settings = get_settings()
     now = dt.datetime.now(dt.timezone.utc)
     payload = {
         "sub": str(user_id),
         "role": role,
         "typ": token_type,
+        "tv": token_version,
         "iat": now,
         "exp": now + dt.timedelta(minutes=minutes),
     }
     return jwt.encode(payload, settings.auth_secret, algorithm=_ALGORITHM)
 
 
-def create_access_token(user_id: int, role: str) -> str:
+def create_access_token(user_id: int, role: str, token_version: int = 0) -> str:
     settings = get_settings()
-    return _create_token(user_id, role, "access", settings.access_token_expire_minutes)
+    return _create_token(user_id, role, "access", settings.access_token_expire_minutes, token_version)
 
 
-def create_refresh_token(user_id: int, role: str) -> str:
+def create_refresh_token(user_id: int, role: str, token_version: int = 0) -> str:
     settings = get_settings()
     return _create_token(
-        user_id, role, "refresh", settings.refresh_token_expire_days * 24 * 60
+        user_id, role, "refresh", settings.refresh_token_expire_days * 24 * 60, token_version
     )
 
 

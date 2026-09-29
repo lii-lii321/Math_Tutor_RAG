@@ -10,6 +10,10 @@ from pydantic import BaseModel, Field
 from api.deps import get_current_user, rate_limit
 from backend.models.orm import User
 from backend.services.agent import AgentSession
+from backend.utils.error_messages import SSE_AI_UNAVAILABLE
+from backend.utils.logging import get_logger
+
+logger = get_logger("api.agent")
 
 router = APIRouter(prefix="/agent", tags=["agent"])
 
@@ -28,18 +32,19 @@ def chat_stream(
     """SSE 流式对话：text/event-stream，data 为 {"delta": "..."} 片段，[DONE] 结束。"""
 
     def event_gen():
-        session = AgentSession(user_id=user.id)
-        # 恢复客户端传来的对话历史（仅 user/assistant 文本消息）
-        for message in payload.history:
-            if message.get("role") in ("user", "assistant") and message.get("content"):
-                session.history.append(
-                    {"role": message["role"], "content": str(message["content"])}
-                )
         try:
+            session = AgentSession(user_id=user.id)
+            # 恢复客户端传来的对话历史（仅 user/assistant 文本消息）
+            for message in payload.history:
+                if message.get("role") in ("user", "assistant") and message.get("content"):
+                    session.history.append(
+                        {"role": message["role"], "content": str(message["content"])}
+                    )
             for chunk in session.chat_stream(payload.message):
                 yield f"data: {json.dumps({'delta': chunk}, ensure_ascii=False)}\n\n"
-        except Exception as exc:  # noqa: BLE001 - 流中异常以事件形式告知客户端
-            yield f"data: {json.dumps({'error': str(exc)}, ensure_ascii=False)}\n\n"
+        except Exception as exc:  # noqa: BLE001 - 构造/流中异常以事件形式告知客户端
+            logger.warning("Agent 流式对话失败 user_id=%s: %s", user.id, exc, exc_info=True)
+            yield f"data: {json.dumps({'error': SSE_AI_UNAVAILABLE}, ensure_ascii=False)}\n\n"
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(

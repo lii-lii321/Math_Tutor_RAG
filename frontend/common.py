@@ -7,6 +7,7 @@ import streamlit as st
 
 from backend.services.ai import get_provider_status
 from backend.services.question_service import QuestionService
+from frontend.nav import PAGES, resolve_label
 
 _ASSETS = pathlib.Path(__file__).parent / "assets" / "style.css"
 
@@ -70,14 +71,7 @@ def initials(name: str) -> str:
     return (name[:2] or "U").upper()
 
 
-_LABEL_TO_KEY = {
-    "学情看板": "dashboard",
-    "AI 录题": "tutor",
-    "错题本": "notebook",
-    "今日复习": "review",
-    "知识图谱": "graph",
-    "设置": "settings",
-}
+_LABEL_TO_KEY = {page.label: page.key for page in PAGES}
 
 
 def go_to(page_key: str, **params) -> None:
@@ -86,7 +80,7 @@ def go_to(page_key: str, **params) -> None:
     注意：菜单组件的 session key 只能在其「本次实例化之前」修改，
     因此这里仅写入 _pending_nav，由 app.py 在渲染侧边栏前消费。
     """
-    label = next(label for label, key in _LABEL_TO_KEY.items() if key == page_key)
+    label = resolve_label(page_key)
     st.session_state["_pending_nav"] = label
     for name, value in params.items():
         st.session_state[f"param_{name}"] = value

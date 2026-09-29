@@ -11,6 +11,10 @@ from api.deps import get_current_user, rate_limit
 from backend.models.orm import User
 from backend.services.agent import AgentSession
 from backend.services.conversation_service import ConversationService
+from backend.utils.error_messages import SSE_AI_UNAVAILABLE
+from backend.utils.logging import get_logger
+
+logger = get_logger("api.conversations")
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
@@ -72,14 +76,33 @@ def conversation_chat_stream(
         try:
             session = AgentSession(user_id=user.id, conversation_id=conversation_id)
         except ValueError as exc:
+            # 本代码抛出的固定校验文案（如「对话不存在或无权访问」），原样下发
             yield f"data: {json.dumps({'error': str(exc)}, ensure_ascii=False)}\n\n"
+            yield "data: [DONE]\n\n"
+            return
+        except Exception as exc:  # noqa: BLE001 - 构造期 DB 等故障以信封告知客户端
+            logger.warning(
+                "会话构造失败 conversation_id=%s user_id=%s: %s",
+                conversation_id,
+                user.id,
+                exc,
+                exc_info=True,
+            )
+            yield f"data: {json.dumps({'error': SSE_AI_UNAVAILABLE}, ensure_ascii=False)}\n\n"
             yield "data: [DONE]\n\n"
             return
         try:
             for chunk in session.chat_stream(payload.message):
                 yield f"data: {json.dumps({'delta': chunk}, ensure_ascii=False)}\n\n"
         except Exception as exc:  # noqa: BLE001 - 流中异常以事件形式告知客户端
-            yield f"data: {json.dumps({'error': str(exc)}, ensure_ascii=False)}\n\n"
+            logger.warning(
+                "会话流式对话失败 conversation_id=%s user_id=%s: %s",
+                conversation_id,
+                user.id,
+                exc,
+                exc_info=True,
+            )
+            yield f"data: {json.dumps({'error': SSE_AI_UNAVAILABLE}, ensure_ascii=False)}\n\n"
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(

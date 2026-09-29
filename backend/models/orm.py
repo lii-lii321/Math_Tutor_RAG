@@ -40,6 +40,8 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(128))
     role: Mapped[str] = mapped_column(String(16), default="student")
+    # 令牌版本：改密 / 登出时 +1，令牌内 tv 与此不一致即吊销（旧令牌无 tv 视为 0）
+    token_version: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     questions: Mapped[list[Question]] = relationship(

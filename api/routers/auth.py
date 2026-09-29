@@ -1,11 +1,11 @@
-"""认证路由：登录 / 注册 / 刷新令牌，返回 JWT。"""
+"""认证路由：登录 / 注册 / 刷新令牌 / 登出，返回 JWT。"""
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from api.deps import get_db
+from api.deps import get_current_user, get_db
 from backend.models.orm import User
 from backend.models.schemas import RegisterInput
 from backend.services.auth import AuthService
@@ -38,16 +38,16 @@ class TokenResponse(BaseModel):
     role: str
 
 
-def _token_pair(user_id: int, role: str, username: str) -> TokenResponse:
+def _token_pair(user: User) -> TokenResponse:
     from backend.config import get_settings
 
     return TokenResponse(
-        access_token=create_access_token(user_id, role),
-        refresh_token=create_refresh_token(user_id, role),
+        access_token=create_access_token(user.id, user.role, user.token_version),
+        refresh_token=create_refresh_token(user.id, user.role, user.token_version),
         expires_in=get_settings().access_token_expire_minutes * 60,
-        user_id=user_id,
-        username=username,
-        role=role,
+        user_id=user.id,
+        username=user.username,
+        role=user.role,
     )
 
 
@@ -56,8 +56,10 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse
     result = AuthService(db).login(payload.username, payload.password)
     if not result.ok:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, result.message or "登录失败")
-    assert result.user_id is not None and result.username is not None and result.role is not None
-    return _token_pair(result.user_id, result.role, result.username)
+    assert result.user_id is not None
+    user = db.get(User, result.user_id)
+    assert user is not None
+    return _token_pair(user)
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
@@ -65,8 +67,10 @@ def register(payload: RegisterInput, db: Session = Depends(get_db)) -> TokenResp
     result = AuthService(db).register(payload)
     if not result.ok:
         raise HTTPException(status.HTTP_409_CONFLICT, result.message or "注册失败")
-    assert result.user_id is not None and result.username is not None and result.role is not None
-    return _token_pair(result.user_id, result.role, result.username)
+    assert result.user_id is not None
+    user = db.get(User, result.user_id)
+    assert user is not None
+    return _token_pair(user)
 
 
 @router.post("/refresh", response_model=TokenResponse)
@@ -80,4 +84,15 @@ def refresh(payload: RefreshRequest, db: Session = Depends(get_db)) -> TokenResp
     user = db.get(User, user_id)
     if user is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "用户不存在")
-    return _token_pair(user.id, user.role, user.username)
+    if claims.get("tv", 0) != user.token_version:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "令牌已失效，请重新登录")
+    return _token_pair(user)
+
+
+@router.post("/logout")
+def logout(
+    user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> dict:
+    """登出：递增 token_version，吊销该用户当前签发的全部令牌。"""
+    AuthService(db).bump_token_version(user.id)
+    return {"ok": True}

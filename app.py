@@ -9,6 +9,7 @@ import streamlit_antd_components as sac
 
 from backend.config import get_settings
 from frontend.common import current_user, load_css, logout_user
+from frontend.nav import PAGES
 from frontend.pages.auth import render_auth_page
 from frontend.pages.dashboard import render_dashboard
 from frontend.pages.notebook import render_notebook_page
@@ -53,21 +54,9 @@ except Exception:  # noqa: BLE001 - SW 注册失败不影响应用
     pass
 
 
-_PAGES = {
-    t("nav.dashboard"): "dashboard",
-    t("nav.tutor"): "tutor",
-    t("nav.notebook"): "notebook",
-    t("nav.review"): "review",
-    t("nav.graph"): "graph",
-    t("nav.mastery"): "mastery",
-    t("nav.assistant"): "assistant",
-    t("nav.settings"): "settings",
-}
-
-
-_TEACHER_PAGES = {
-    t("nav.students"): "students",
-}
+# 侧边栏页面表：唯一来源 frontend/nav.py
+_PAGES = {page.label: page.key for page in PAGES if not page.teacher_only}
+_TEACHER_PAGES = {page.label: page.key for page in PAGES if page.teacher_only}
 
 
 def _render_sidebar(user: dict) -> str:

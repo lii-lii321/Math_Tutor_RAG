@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from backend.database import SessionLocal
 from backend.models.orm import Comment, Question, User
@@ -10,9 +11,36 @@ from backend.utils.logging import get_logger
 logger = get_logger("comments")
 
 
+class QuestionAccessDenied(LookupError):
+    """题目不存在或查看者无权访问。
+
+    「不存在」与「不可见」统一抛出本异常，对外一律按 404 处理，
+    避免向无权用户泄露题目存在性（见 docs/ARCHITECTURE.md 边界契约）。
+    """
+
+
+def _visible(question: Question, viewer_id: int, viewer_role: str) -> bool:
+    """可见性：题目 owner 本人可见；教师可见（含学生与其他教师的）题。"""
+    return question.user_id == viewer_id or viewer_role == "teacher"
+
+
 class CommentService:
-    def list_for_question(self, question_id: int) -> list[dict]:
+    def list_for_question(
+        self,
+        question_id: int,
+        *,
+        viewer_id: int | None = None,
+        viewer_role: str = "student",
+    ) -> list[dict]:
+        """列出题目批注。
+
+        viewer_id/viewer_role 为查看者上下文，API 层必须传入；不传时
+        跳过归属校验（仅校验存在性）——frontend/pages/notebook.py 的
+        _render_comments（教师浏览学生错题的批注 tab）仍依赖该旧路径，
+        调用方迁移（传入查看者）前不可移除，属遗留债务。
+        """
         with SessionLocal() as session:
+            self._require_visible(session, question_id, viewer_id, viewer_role)
             rows = session.execute(
                 select(Comment, User.username, User.role)
                 .join(User, Comment.author_id == User.id)
@@ -30,14 +58,46 @@ class CommentService:
             for comment, username, role in rows
         ]
 
-    def add(self, question_id: int, author_id: int, content: str) -> dict:
+    @staticmethod
+    def _require_visible(
+        session: Session, question_id: int, viewer_id: int | None, viewer_role: str
+    ) -> None:
+        """校验查看者对题目的可见性，不可见即抛 QuestionAccessDenied。"""
+        question = session.get(Question, question_id)
+        if viewer_id is None:
+            if question is None:
+                raise ValueError("错题不存在")
+            return
+        if question is None or not _visible(question, viewer_id, viewer_role):
+            raise QuestionAccessDenied(
+                f"题目不可访问 question_id={question_id} viewer_id={viewer_id}"
+            )
+
+    def add(
+        self,
+        question_id: int,
+        author_id: int,
+        content: str,
+        *,
+        viewer_role: str | None = None,
+    ) -> dict:
+        """添加批注。
+
+        查看者即作者本人：viewer_role 传当前作者角色时叠加归属校验
+        （题目 owner 或教师）；不传时跳过归属校验——frontend/pages/
+        notebook.py 的 _render_comments 批注表单仍依赖该旧路径，
+        调用方迁移（传入作者角色）前不可移除，属遗留债务。
+        """
         content = (content or "").strip()
         if not content:
             raise ValueError("批注内容不能为空")
         with SessionLocal() as session:
-            question = session.get(Question, question_id)
-            if question is None:
-                raise ValueError("错题不存在")
+            self._require_visible(
+                session,
+                question_id,
+                author_id if viewer_role is not None else None,
+                viewer_role or "student",
+            )
             author = session.get(User, author_id)
             if author is None:
                 raise ValueError("用户不存在")
@@ -51,10 +111,14 @@ class CommentService:
         return out
 
     def delete(self, comment_id: int, user_id: int, is_teacher: bool = False) -> bool:
-        """删除批注：作者本人或教师可删。"""
+        """删除批注：作者本人或教师可删，且批注所在题目须对删除者可见。"""
         with SessionLocal() as session:
             comment = session.get(Comment, comment_id)
             if comment is None:
+                return False
+            question = session.get(Question, comment.question_id)
+            role = "teacher" if is_teacher else "student"
+            if question is None or not _visible(question, user_id, role):
                 return False
             if comment.author_id != user_id and not is_teacher:
                 return False

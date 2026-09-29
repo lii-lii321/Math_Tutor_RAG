@@ -19,8 +19,13 @@ from backend.models.orm import User
 from backend.models.schemas import QuestionAnalysis, QuestionOut
 from backend.services.export import generate_word_exam
 from backend.services.question_service import QuestionService, sanitize_tags
+from backend.utils.logging import get_logger
+
+logger = get_logger("api.questions")
 
 router = APIRouter(prefix="/questions", tags=["questions"])
+
+_AI_ANALYZE_ERROR_MESSAGE = "AI 解析失败，请稍后重试或改用文本录题"
 
 _ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp"}
 _MAX_IMAGE_BYTES = 10 * 1024 * 1024
@@ -116,7 +121,17 @@ async def analyze_question(
             hint=hint,
         )
     except Exception as exc:  # noqa: BLE001 - 统一转为 502
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"AI 解析失败: {exc}") from exc
+        logger.warning(
+            "AI 解析失败 user_id=%s mime=%s size=%d: %s",
+            user.id,
+            image.content_type,
+            len(data),
+            exc,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY, _AI_ANALYZE_ERROR_MESSAGE
+        ) from exc
     return AnalyzeResult(question=saved, analysis=analysis)
 
 

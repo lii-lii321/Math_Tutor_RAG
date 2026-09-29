@@ -12,7 +12,13 @@ from typing import Literal
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from backend.utils.logging import get_logger
+
+logger = get_logger("config")
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+_DEFAULT_AUTH_SECRET = "dev-only-secret-change-me-0123456789abcdef"
 
 
 class Settings(BaseSettings):
@@ -47,7 +53,7 @@ class Settings(BaseSettings):
 
     # ---------- API 网关 (JWT) ----------
     # 生产环境务必通过 .env 设置强随机密钥（>= 32 字节）
-    auth_secret: str = "dev-only-secret-change-me-0123456789abcdef"
+    auth_secret: str = _DEFAULT_AUTH_SECRET
     # 双令牌（Batch 10）：短效 access + 长效 refresh（POST /api/auth/refresh 换新）
     access_token_expire_minutes: int = Field(default=30, ge=1)
     refresh_token_expire_days: int = Field(default=7, ge=1, le=30)
@@ -118,4 +124,11 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     """进程级单例配置。"""
-    return Settings()
+    settings = Settings()
+    if settings.auth_secret == _DEFAULT_AUTH_SECRET:
+        # 仿种子口令告警：只告警不拒启；AUTH_SECRET 可通过环境变量 / .env 覆盖
+        logger.warning(
+            "检测到默认 AUTH_SECRET——JWT 可被任意伪造，仅限本地开发；"
+            "生产部署请通过 AUTH_SECRET 环境变量设置强随机密钥（>= 32 字节）！"
+        )
+    return settings

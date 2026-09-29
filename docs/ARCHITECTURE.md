@@ -20,7 +20,7 @@ services (应用服务层：QuestionService / AuthService / ReviewScheduler ...)
 repositories (数据访问层，SQLAlchemy ORM)
       │
       ▼
-SQLite / MySQL  +  ChromaDB  +  文件存储
+SQLite / MySQL / PostgreSQL  +  ChromaDB  +  文件存储
 ```
 
 - **界面层零业务逻辑**：页面组件只做交互编排，所有写入/检索/调度都走服务层。可复用展示组件集中在 `frontend/components.py`（详情视图 / 重测 / 变式入库 / 命中高亮），文案集中在 `frontend/i18n.py`。
@@ -46,6 +46,12 @@ SQLite / MySQL  +  ChromaDB  +  文件存储
 - **降级策略**：向量库初始化/读写任何异常 → 记日志并降级为关键词检索，主流程永不阻断（`is_available()` 供设置页展示运行状态）。
 - **一致性**：错题编辑后同步 `upsert` 向量；删除错题同步删除向量。
 
+## 3.5 追问讲题（多轮对话）
+
+`BaseAIProvider.answer_followup(context, history, question)` 围绕一道已解析错题构建消息序列：
+`system（讲师人设 + 题目背景）→ 最近 12 条历史 → 当前问题`。截断历史防止 token 超限；
+服务层先校验题目归属（`get_owned`）再发起对话；对话历史按题隔离存于 `st.session_state`。
+
 ## 4. SM-2 复习调度
 
 - `grade ∈ {again, hard, good, easy}` 映射经典质量分 `q ∈ {0, 3, 4, 5}`。
@@ -53,13 +59,9 @@ SQLite / MySQL  +  ChromaDB  +  文件存储
 - `q ≥ 3`：reps 1→间隔 1 天，reps 2→6 天，之后 `interval × ease`；ease 按 SM-2 公式演进，下限 1.3。
 - 每次复习写入 `review_logs` 明细（grade/quality/前后间隔/ease），是掌握度估算的数据来源。
 
-**掌握度定义**（启发式，服务于看板而非论文）：标签内复习记录中 good/easy 占比 × 0.7 + 平均调度间隔归一化 × 0.3；无复习记录为 0。
+**掌握度定义**（时间加权，实现见 `backend/services/mastery.py`）：单题掌握度 = 该题复习日志按时间从旧到新的指数加权平均——每次评分先映射分数（`SCORE_BY_GRADE`：again 0.0 / hard 0.6 / good 0.85 / easy 1.0），最近一次权重 1.0、每往前一次权重 × `DECAY`（0.65），加权平均得 0~1 分；从未复习的题记 `UNREVIEWED_SCORE`（0.2）。知识点掌握度 = 其关联题目掌握度的均值，按 0.4 / 0.7 阈值分为薄弱 / 不稳固 / 已掌握三档。
 
-## 3.5 追问讲题（多轮对话）
-
-`BaseAIProvider.answer_followup(context, history, question)` 围绕一道已解析错题构建消息序列：
-`system（讲师人设 + 题目背景）→ 最近 12 条历史 → 当前问题`。截断历史防止 token 超限；
-服务层先校验题目归属（`get_owned`）再发起对话；对话历史按题隔离存于 `st.session_state`。
+**口径说明（两套并存）**：学情看板的标签掌握度横条与知识图谱着色走的是 `backend/services/stats.py` 的 `_tag_mastery` 轻量启发式（good/easy 占比 × 0.7 + 平均调度间隔归一化 × 0.3，30 天间隔视为充分巩固）；能力画像 / 今日计划 / 错题本薄弱筛选则走上面的时间加权引擎。调度间隔只进入前者，不进入引擎公式——引用时注意区分页面口径。
 
 ## 5. 数据与安全
 
@@ -84,8 +86,9 @@ SQLite / MySQL  +  ChromaDB  +  文件存储
 
 **动机**：Streamlit 界面与 API 共享同一套 backend 服务层，Web / 小程序 / 脚本多端复用，也便于日后前后端分离。
 
-- **认证**：PyJWT 签发 Bearer 令牌（`AUTH_SECRET` ≥ 32 字节，默认 7 天有效）；`HTTPBearer` 依赖注入解析，用户不存在/令牌过期统一 401。
-- **资源**：`/api/auth/*`、`/api/questions/*`（含 multipart 图片解析、文本录入、export/import 备份）、`/api/review/*`（到期/评分/追问）、`/api/stats/*`（看板/标签共现）。
+- **认证**：PyJWT 签发 Bearer 令牌（`AUTH_SECRET` ≥ 32 字节）；`HTTPBearer` 依赖注入解析，用户不存在/令牌过期统一 401。v2.1 时为单令牌（默认 7 天有效），v2.7 起升级为双令牌（access 默认 30 分钟 + refresh 默认 7 天，见 §11），此处 7 天不再是现行默认。
+- **资源**：`api/routers/` 下共 10 个路由模块，由 `api/main.py` 统一注册——
+  `auth`（注册 / 登录 / 双令牌刷新）、`questions`（列表与语义搜索、multipart 图片解析、文本录入、异步解析、JSON/CSV/DOCX 导出与导入、详情 / 编辑 / 删除、相似题召回）、`review`（到期 / 评分 / 追问 / 掌握度画像 / 今日计划 / 历史）、`stats`（看板、学生总览、标签共现图、观测摘要）、`tags`（标签列表 / 重命名 / 删除）、`comments`（错题批注增删查，挂在 `/api/questions/{id}/comments` 下）、`classes`（班级与成员管理）、`agent`（AI Tutor SSE 流式对话）、`conversations`（对话持久化 / 恢复 / SSE 追问）、`jobs`（异步任务状态查询 / 取消）。
 - **复用而非复制**：路由只做参数校验与状态码转换，业务全部委托 `QuestionService` / `AuthService`，与界面层完全同源。
 - **边界**：图片类型/大小白名单校验（MIME + 10MB）；跨用户访问返回 404（不泄露存在性）；OpenAPI 文档由 FastAPI 自动生成。
 
@@ -103,3 +106,13 @@ SQLite / MySQL  +  ChromaDB  +  文件存储
 - **E2E**：Playwright 冒烟（登录/导航/录题全流程/追问），失败自动截图上传 artifact。录题断言用 `state="attached"`（st.rerun 后折叠面板内容在 DOM 中但隐藏）。菜单标签被 `format_func='title'` title-case（「AI 录题」→「Ai 录题」），E2E 按渲染后文本匹配。
 - **检索性能**：标签/关键词过滤下推 SQL（JSON 列 cast 后 LIKE）；引擎级 `json_serializer(ensure_ascii=False)` 使 SQLite 的 JSON 存储可读且可 LIKE 中文。
 - **掌握度趋势**：按天回放「截至当日」的错题与复习记录，复用看板同口径的标签掌握度平均，纯计算无新表。
+
+## 11. v2.3 → v2.10 演进要点
+
+- **数学验证**（`backend/services/math_verifier/`）：录题时对 AI 给出的答案做确定性验算——`verify_answer` 依次尝试「代回原方程」（solution_substitution）与「求导互逆」（derivative_inverse）两类 SymPy 验证器，任一 failed 即 failed、任一 verified 即 verified、全部无法判定则 uncertain；结果（状态 / 置信度 / 方法）随题目落库（迁移 `7d967aaa71b5`），给 AI 解析加一道不受幻觉影响的校验闸门。
+- **Agent / MCP**（v2.3 引入，v2.5 升级为 AI Tutor）：`backend/services/agent.py` 以 OpenAI function calling 循环（最多 8 轮）让 LLM 自主编排错题本工具；工具经 `AgentTool` 统一暴露 OpenAI 与 MCP 双协议 Schema，`mcp_server.py` 让 Claude Desktop / Cursor 等 MCP 客户端直接调用错题本（现共 13 个工具）；v2.5 起对话落库（`conversations` 两表），支持跨端恢复与 SSE 流式输出。
+- **异步解析队列**（v2.3 → v2.6）：v2.3 新增 `/api/questions/analyze/async` 提交即返回 job_id（`jobs` 表落状态）；v2.6 抽象出 `JobQueue` 协议（`backend/jobs/`）——默认 `ThreadedJobQueue`（进程内线程，单实例零依赖），配置 `REDIS_URL` 即切换 `RQJobQueue` + 独立 Worker（`python -m backend.jobs.worker`），支持任务取消，CI 用 fakeredis 全链路验证，队列可选依赖隔离在 `requirements-queue.txt`。
+- **双令牌 JWT**（v2.7）：access（默认 30 分钟）+ refresh（默认 7 天）双令牌，`POST /api/auth/refresh` 换发新令牌对（rotation-lite）；令牌携带 `typ` 声明，refresh 不能当 access 用、反之亦然，历史令牌按 access 平滑兼容；配套 `user token_version` 迁移支持令牌吊销。
+- **班级多租户**（v2.7，简化形态：单组织、班级即可见性单元）：`classes` / `class_members` 两表（迁移 `55c91901b5d9`）+ `ClassService` 与 5 个管理端点（仅教师可操作，403 兜底）；教师建班后，语义检索范围与学生总览收紧为「自己班级的学生」，未建班教师保持旧的「全部学生」行为，向后兼容。
+- **掌握度引擎**（v2.4）：`knowledge_points` 表 + 多对多关联（迁移 `b09bda59c235`）落地规范化知识点模型；`MasteryEngine`（`backend/services/mastery.py`）按复习日志时间加权计算单题 / 知识点掌握度（见 §4），并生成「SM-2 到期优先 + 薄弱知识点加固」的今日计划（条目带推荐理由与优先级）；老数据首次访问自动补建关联，后续版本在其上叠加错题本薄弱筛选与掌握度角标（`mastery_by_question` 复用同一加权公式）与计划模式；学情看板与知识图谱着色的标签级掌握度则走 stats.py 的轻量启发式（见 §4 口径说明）。
+- **数据体检**（v2.9，`backend/services/data_health.py`）：一键核对三类真实使用中最常见的数据漂移——向量索引缺失（语义搜索召回不到）、向量索引残留（题目已删索引还在）、孤儿图片文件；支持一键修复（重建缺失索引 + 清理残留 + 可选清理孤儿图片，仅作用于本人数据），配套 `QuestionVectorStore.indexed_ids_for_user()`。

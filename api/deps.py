@@ -68,4 +68,7 @@ def get_current_user(
     user = db.get(User, int(payload["sub"]))
     if user is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "用户不存在")
+    if payload.get("tv", 0) != user.token_version:
+        # 改密 / 登出后 token_version 已递增，旧令牌整体吊销
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "令牌已失效，请重新登录")
     return user

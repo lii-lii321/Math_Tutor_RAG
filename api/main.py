@@ -5,8 +5,9 @@
 """
 from __future__ import annotations
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from api.routers import (
     agent,
@@ -78,6 +79,11 @@ def create_app() -> FastAPI:
     app.include_router(agent.router, prefix=settings.api_prefix)
     app.include_router(conversations.router, prefix=settings.api_prefix)
     app.include_router(jobs.router, prefix=settings.api_prefix)
+
+    @app.exception_handler(Exception)
+    async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+        logger.exception("未处理异常 %s %s: %s", request.method, request.url.path, exc)
+        return JSONResponse(status_code=500, content={"detail": "服务器内部错误"})
 
     @app.get("/health", tags=["meta"])
     def health() -> dict:
