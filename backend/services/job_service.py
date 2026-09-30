@@ -105,3 +105,31 @@ class JobService:
                 "created_at": job.created_at,
                 "finished_at": job.finished_at,
             }
+
+    @staticmethod
+    def reap_stuck_jobs(timeout_minutes: int = 30) -> int:
+        """把超时仍卡在 running 的任务标记为 failed（进程崩溃后的状态回收）。
+
+        在 API 启动时调用一次；返回重置数量。
+        """
+        cutoff = dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=timeout_minutes)
+        with SessionLocal() as session:
+            stuck = (
+                session.execute(
+                    select(Job).where(
+                        Job.status == "running",
+                        Job.created_at < cutoff,
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            for job in stuck:
+                job.status = "failed"
+                job.error = f"任务超时未完成（超过 {timeout_minutes} 分钟），可能因进程重启中断"
+                job.finished_at = dt.datetime.now(dt.timezone.utc)
+            count = len(stuck)
+            session.commit()
+        if count:
+            logger.warning("回收卡死任务 %s 个（running 超 %s 分钟）", count, timeout_minutes)
+        return count

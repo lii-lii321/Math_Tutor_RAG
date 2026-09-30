@@ -45,3 +45,45 @@ class NoopRequestRateLimiter:
 
     def remaining(self, key: str) -> int:
         return -1
+
+
+class RedisRequestRateLimiter:
+    """Redis 固定窗口实现：多实例部署共享计数（INCR + 首次过期）。
+
+    依赖 redis 包（pip install redis）；client 可注入便于测试（fakeredis）。
+    """
+
+    def __init__(
+        self,
+        redis_url: str = "redis://localhost:6379/0",
+        max_requests: int = 60,
+        window_seconds: int = 60,
+        client=None,
+    ):
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        if client is not None:
+            self._client = client
+        else:
+            try:
+                import redis
+            except ImportError as exc:  # pragma: no cover
+                raise ImportError(
+                    "RedisRequestRateLimiter 需要 redis 包：pip install redis"
+                ) from exc
+            self._client = redis.Redis.from_url(redis_url, decode_responses=True)
+
+    def _key(self, key: str) -> str:
+        return f"mathmaster:rl:{key}"
+
+    def allow(self, key: str) -> bool:
+        rkey = self._key(key)
+        pipe = self._client.pipeline()
+        pipe.incr(rkey)
+        pipe.expire(rkey, self.window_seconds, nx=True)
+        count = pipe.execute()[0]
+        return int(count or 0) <= self.max_requests
+
+    def remaining(self, key: str) -> int:
+        count = int(self._client.get(self._key(key)) or 0)
+        return max(0, self.max_requests - count)

@@ -28,11 +28,28 @@ def get_question_service() -> QuestionService:
 
 
 def get_rate_limiter(scope: str, per_minute: int) -> RequestRateLimiter:
-    """按作用域取限流器（进程级单例，配置变更需重启生效）。"""
+    """按作用域取限流器（进程级单例，配置变更需重启生效）。
+
+    rate_limit_backend=redis 时走 RedisRequestRateLimiter（多实例共享计数）；
+    redis 依赖缺失或连接失败时回退进程内实现并告警，保证限流始终可用。
+    """
     if scope not in _limiters:
-        _limiters[scope] = RequestRateLimiter(
-            per_minute, window_seconds=60
-        )
+        settings = get_settings()
+        if settings.rate_limit_backend == "redis":
+            try:
+                from backend.utils.request_limiter import RedisRequestRateLimiter
+
+                _limiters[scope] = RedisRequestRateLimiter(
+                    settings.redis_url, max_requests=per_minute, window_seconds=60
+                )
+                return _limiters[scope]
+            except Exception as exc:  # noqa: BLE001 - 限流不可用时降级为进程内
+                import logging
+
+                logging.getLogger("uvicorn.error").warning(
+                    "Redis 限流后端不可用（%s），scope=%s 回退进程内计数", exc, scope
+                )
+        _limiters[scope] = RequestRateLimiter(per_minute, window_seconds=60)
     return _limiters[scope]
 
 

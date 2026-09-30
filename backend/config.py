@@ -67,6 +67,8 @@ class Settings(BaseSettings):
     # ---------- 核心端点请求限流（次/分钟，0 = 不限制）----------
     rate_limit_agent_per_min: int = Field(default=10, ge=0)
     rate_limit_analyze_per_min: int = Field(default=20, ge=0)
+    # 限流计数后端：memory（单实例）/ redis（多实例共享，复用 REDIS_URL）
+    rate_limit_backend: Literal["memory", "redis"] = "memory"
 
     # ---------- AI 提供商 ----------
     # openai_compatible: 任何兼容 OpenAI Chat Completions 的服务

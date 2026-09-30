@@ -30,6 +30,39 @@ services:
       AUTH_SECRET: ${AUTH_SECRET:-dev-only-secret-change-me-0123456789abcdef}
       # 空串会覆盖 SQLite 默认值导致启动崩溃，这里兜底为容器内 SQLite
       DATABASE_URL: ${DATABASE_URL:-sqlite:////app/data/math_tutor.db}
+      REDIS_URL: ${REDIS_URL:-}
+    # 覆盖镜像级 HEALTHCHECK（那是 Streamlit 的 8501 端口检查，对 uvicorn 必然失败）
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    restart: unless-stopped
+
+  # 可选：异步任务队列（REDIS_URL=redis://redis:6379/0 + RQ Worker）
+  # docker compose --profile queue up -d redis worker
+  redis:
+    image: redis:7-alpine
+    profiles: ["queue"]
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+  worker:
+    build: .
+    command: python -m backend.jobs.worker
+    profiles: ["queue"]
+    volumes:
+      - mathmaster-data:/app/data
+    environment:
+      AI_PROVIDER: ${AI_PROVIDER:-mock}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AUTH_SECRET: ${AUTH_SECRET:-dev-only-secret-change-me-0123456789abcdef}
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////app/data/math_tutor.db}
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - redis
     restart: unless-stopped
 
   # 可选：生产/演示用 MySQL。默认 SQLite 即可运行。
@@ -68,3 +101,4 @@ volumes:
   mathmaster-data:
   # mysql-data:
   pg-data:
+  redis-data:

@@ -85,6 +85,16 @@ def create_app() -> FastAPI:
         logger.exception("未处理异常 %s %s: %s", request.method, request.url.path, exc)
         return JSONResponse(status_code=500, content={"detail": "服务器内部错误"})
 
+    @app.on_event("startup")
+    def _reap_stuck_jobs() -> None:
+        """启动期回收进程崩溃遗留的 running 任务（超时 30 分钟）。"""
+        try:
+            from backend.services.job_service import JobService
+
+            JobService.reap_stuck_jobs(timeout_minutes=30)
+        except Exception:  # noqa: BLE001 - 回收失败不阻断启动
+            logger.warning("启动期任务回收失败", exc_info=True)
+
     @app.get("/health", tags=["meta"])
     def health() -> dict:
         from backend.database import check_connection

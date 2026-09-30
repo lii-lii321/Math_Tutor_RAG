@@ -55,10 +55,19 @@ def track_ai_call(operation: str) -> Iterator[dict]:
         )
 
 
+_MAX_LINES = 5000  # JSONL 上限：写入超限时保留尾部，防止文件无界增长
+
+
 def _write(record: dict) -> None:
     try:
-        with _telemetry_path().open("a", encoding="utf-8") as fh:
+        path = _telemetry_path()
+        with path.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+        # 简易行数轮转：超限截断保留尾部，读取端量级稳定
+        with path.open("r", encoding="utf-8") as fh:
+            lines = fh.readlines()
+        if len(lines) > _MAX_LINES:
+            path.write_text("".join(lines[-_MAX_LINES:]), encoding="utf-8")
     except OSError as exc:  # noqa: BLE001 - 遥测失败不影响主流程
         logger.debug("遥测写入失败: %s", exc)
 
