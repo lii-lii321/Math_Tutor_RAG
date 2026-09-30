@@ -135,6 +135,25 @@ class Comment(Base):
     author: Mapped[User] = relationship()
 
 
+class CommentReadState(Base):
+    """批注已读回执：记录用户读到的最大批注 ID，支撑未读红点。
+
+    未读数 = 该题上批注 ID 大于水位线的教师批注数（ID 单调递增，
+    避免时间戳同秒精度歧义）；无回执视为全部未读。
+    """
+
+    __tablename__ = "comment_read_states"
+    __table_args__ = (Index("ix_readstate_user_question", "user_id", "question_id"),)
+
+    question_id: Mapped[int] = mapped_column(
+        ForeignKey("questions.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    last_read_comment_id: Mapped[int] = mapped_column(Integer, default=0)
+
+
 class KnowledgePoint(Base):
     """知识点实体（规范化名称，支持后续依赖图谱扩展）。"""
 

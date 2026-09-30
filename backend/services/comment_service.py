@@ -1,11 +1,11 @@
-"""批注服务：错题下的留言（教师批注 / 学生自注）。"""
+"""批注服务：错题下的留言（教师批注 / 学生自注）+ 未读红点。"""
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
 from backend.database import SessionLocal
-from backend.models.orm import Comment, Question, User
+from backend.models.orm import Comment, CommentReadState, Question, User
 from backend.utils.logging import get_logger
 
 logger = get_logger("comments")
@@ -143,3 +143,83 @@ class CommentService:
             qid: {"content": c.content, "created_at": c.created_at}
             for qid, c in latest.items()
         }
+
+    def unread_counts(self, user_id: int, question_ids: list[int]) -> dict[int, int]:
+        """每题未读教师批注数（未读红点数据源）。
+
+        仅统计教师所发、批注 ID 大于该用户已读水位线的批注；
+        无回执视为全部未读。只统计题目归属本人的题——教师浏览
+        他人错题不产生红点。
+        """
+        if not question_ids:
+            return {}
+        with SessionLocal() as session:
+            rows = session.execute(
+                select(Comment.question_id, func.count())
+                .join(User, Comment.author_id == User.id)
+                .join(Question, Question.id == Comment.question_id)
+                .outerjoin(
+                    CommentReadState,
+                    and_(
+                        CommentReadState.question_id == Comment.question_id,
+                        CommentReadState.user_id == user_id,
+                    ),
+                )
+                .where(
+                    Comment.question_id.in_(question_ids),
+                    Question.user_id == user_id,
+                    User.role == "teacher",
+                    Comment.author_id != user_id,
+                    Comment.id > func.coalesce(CommentReadState.last_read_comment_id, 0),
+                )
+                .group_by(Comment.question_id)
+            ).all()
+        return {question_id: int(count) for question_id, count in rows}
+
+    def total_unread(self, user_id: int) -> int:
+        """该用户全部错题的未读教师批注总数（顶栏提示用）。"""
+        with SessionLocal() as session:
+            value = session.execute(
+                select(func.count())
+                .select_from(Comment)
+                .join(User, Comment.author_id == User.id)
+                .join(Question, Question.id == Comment.question_id)
+                .outerjoin(
+                    CommentReadState,
+                    and_(
+                        CommentReadState.question_id == Comment.question_id,
+                        CommentReadState.user_id == user_id,
+                    ),
+                )
+                .where(
+                    Question.user_id == user_id,
+                    User.role == "teacher",
+                    Comment.author_id != user_id,
+                    Comment.id > func.coalesce(CommentReadState.last_read_comment_id, 0),
+                )
+            ).scalar()
+        return int(value or 0)
+
+    def mark_read(self, question_id: int, user_id: int) -> None:
+        """把已读水位线推进到该题当前最大批注 ID（仅在确有未读时调用）。"""
+        with SessionLocal() as session:
+            watermark = session.execute(
+                select(func.max(Comment.id)).where(Comment.question_id == question_id)
+            ).scalar()
+            state = session.execute(
+                select(CommentReadState).where(
+                    CommentReadState.question_id == question_id,
+                    CommentReadState.user_id == user_id,
+                )
+            ).scalar_one_or_none()
+            if state is None:
+                session.add(
+                    CommentReadState(
+                        question_id=question_id,
+                        user_id=user_id,
+                        last_read_comment_id=int(watermark or 0),
+                    )
+                )
+            else:
+                state.last_read_comment_id = int(watermark or 0)
+            session.commit()

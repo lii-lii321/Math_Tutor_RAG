@@ -5,6 +5,7 @@ import datetime as dt
 
 import streamlit as st
 
+from backend.services.comment_service import CommentService
 from backend.services.export import generate_pdf_exam, generate_word_exam
 from backend.services.mastery import SHAKY_THRESHOLD, WEAK_THRESHOLD
 from backend.services.question_service import sanitize_tags
@@ -133,6 +134,13 @@ def render_notebook_page(user: dict) -> None:
         elif sort_mode == "掌握度最低":
             questions.sort(key=lambda q: mastery_map.get(q.id, 0.5))
 
+        comment_svc = CommentService()
+        total_unread = 0 if include_others else comment_svc.total_unread(user["id"])
+        if total_unread:
+            st.info(
+                f"🔔 你有 **{total_unread}** 条教师新批注未读——带 🔴 标记的题点开「批注」即可查看"
+            )
+
         st.markdown("<br>", unsafe_allow_html=True)
         if questions:
             exp_col1, exp_col2, exp_col3 = st.columns(3)
@@ -200,6 +208,10 @@ def render_notebook_page(user: dict) -> None:
     page_index = st.session_state[page_key]
     page_items = questions[page_index * _PAGE_SIZE : (page_index + 1) * _PAGE_SIZE]
 
+    unread_map: dict[int, int] = {}
+    if not include_others:
+        unread_map = comment_svc.unread_counts(user["id"], [q.id for q in page_items])
+
     nav_l, nav_c, nav_r = st.columns([1, 2, 1])
     with nav_l:
         if st.button("← 上一页", disabled=page_index == 0, width="stretch"):
@@ -242,10 +254,12 @@ def render_notebook_page(user: dict) -> None:
                 color = "#2563eb"
             mastery_chip = f"　<span style='color:{color};font-weight:600'>掌握 {pct}%</span>"
         star_mark = "⭐ " if q.starred else ""
+        unread = unread_map.get(q.id, 0)
+        unread_chip = f"　🔴 <b>{unread} 条新批注</b>" if unread else ""
         expander_title = (
             f"{due_mark}{star_mark}{'、'.join(q.tags[:4]) or '未分类'}　·　{q.difficulty}　·　"
             f"{(q.created_at.strftime('%Y-%m-%d') if q.created_at else '')}"
-            f"{mastery_chip}"
+            f"{mastery_chip}{unread_chip}"
         )
         with st.expander(expander_title):
             _render_question_detail(service, q, user)
@@ -383,11 +397,14 @@ def _render_question_detail(service, q, user) -> None:
 
 
 def _render_comments(q, user) -> None:
-    """错题批注：教师批语 / 自己的备注；作者本人或教师可删。"""
-    from backend.services.comment_service import CommentService
-
+    """错题批注：教师批语 / 自己的备注；作者本人或教师可删；打开即清未读红点。"""
     comment_service = CommentService()
     comments = comment_service.list_for_question(q.id)
+    if user["id"] == q.user_id:
+        # 已读回执：本人打开批注区即视为已读（仅有未读时写入，避免重复落库）
+        unread = comment_service.unread_counts(user["id"], [q.id]).get(q.id, 0)
+        if unread:
+            comment_service.mark_read(q.id, user["id"])
     if comments:
         for comment in comments:
             who = "👨‍🏫" if comment["role"] == "teacher" else "🧑‍🎓"
