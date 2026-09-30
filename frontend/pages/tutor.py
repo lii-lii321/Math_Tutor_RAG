@@ -16,7 +16,7 @@ def render_tutor_page(user: dict) -> None:
     if info.demo_mode:
         st.warning("当前为演示模式：未配置 AI_API_KEY，返回内置示例解析。在 .env 配置后即可调用真实视觉模型。")
 
-    tab_photo, tab_manual = st.tabs(["📸 拍照录题", "⌨️ 手动录入"])
+    tab_photo, tab_word, tab_manual = st.tabs(["📸 拍照录题", "📄 Word 导入", "⌨️ 手动录入"])
 
     with tab_photo:
         with st.container(border=True):
@@ -49,8 +49,67 @@ def render_tutor_page(user: dict) -> None:
             if uploads and st.button("开始 AI 解析", type="primary", width="stretch"):
                 _process_uploads(service, user, uploads, sanitize_tags(tags_input), hint)
 
+    with tab_word:
+        _render_word_import(service, user)
+
     with tab_manual:
         _render_manual_entry(service, user)
+
+
+def _render_word_import(service, user) -> None:
+    """Word 文档批量导入：提取文本 → AI 单次拆题 → 逐题入库。"""
+    with st.container(border=True):
+        st.caption(
+            "适合整份整理好的错题文档（支持标题/段落/表格）。AI 会自动拆分成独立错题，"
+            "一次调用完成，token 消耗可控；单次最多导入 20 题。"
+        )
+        word_file = st.file_uploader(
+            "上传 Word 文档（.docx）",
+            type=["docx"],
+            key="word_import_file",
+        )
+        word_tags = st.text_input(
+            "标签（可选，逗号分隔，应用到本次导入的全部错题）",
+            placeholder="例如：周末整理, 函数",
+            key="word_tags",
+        )
+        word_hint = st.text_area(
+            "给老师的话（可选）",
+            placeholder="例如：这些是月考卷上的错题，按原顺序整理",
+            height=68,
+            key="word_hint",
+        )
+        if word_file is not None:
+            st.success(f"已选择：{word_file.name}（{word_file.size // 1024} KB）")
+        if (
+            word_file is not None
+            and st.button("📄 AI 拆题并入库", type="primary", width="stretch")
+        ):
+            with st.spinner("提取文档并拆分错题中…"):
+                try:
+                    result = service.add_questions_from_docx(
+                        user["id"],
+                        word_file.getvalue(),
+                        tags=sanitize_tags(word_tags),
+                        hint=word_hint,
+                    )
+                except ValueError as exc:
+                    st.error(str(exc))
+                    st.stop()
+            st.success(
+                f"✅ 拆出 {result['total']} 题，成功入库 {result['imported']} 题"
+                f"（失败 {result['total'] - result['imported']} 题）"
+            )
+            for q in result["items"]:
+                badges = "".join(
+                    f"<span class='mm-badge'>{t}</span>" for t in q.tags[:3]
+                )
+                st.markdown(
+                    f"- #{q.id}　<span class='mm-badge mm-badge--blue'>{q.difficulty}</span>{badges}",
+                    unsafe_allow_html=True,
+                )
+            if st.button("📒 去错题本查看", width="stretch"):
+                go_to("notebook")
 
 
 def _render_manual_entry(service, user) -> None:

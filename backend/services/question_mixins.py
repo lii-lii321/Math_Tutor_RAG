@@ -217,6 +217,43 @@ class EntryMixin:
         )
         return EntryResult(question=out, analysis=analysis, duplicated=False)
 
+    def add_questions_from_docx(
+        self,
+        user_id: int,
+        docx_bytes: bytes,
+        *,
+        tags: list[str] | None = None,
+        hint: str = "",
+        max_questions: int = 20,
+    ) -> dict:
+        """Word 文档批量导入：提取文本 → AI 单次调用拆题 → 逐题入库。
+
+        返回 {"total": 拆出题数, "imported": 成功入库数, "items": [QuestionOut]}。
+        """
+        from backend.services.docx_import import extract_docx_text
+
+        text = extract_docx_text(docx_bytes)
+        chunks = self.ai.split_questions(text)[:max(1, max_questions)]
+
+        imported: list = []
+        for chunk in chunks:
+            try:
+                difficulty = chunk.get("difficulty") or "medium"
+                out = self.create_manual_question(
+                    user_id,
+                    content_markdown=str(chunk.get("content", "")).strip(),
+                    answer=str(chunk.get("answer", "") or ""),
+                    tags=tags or [],
+                    knowledge_points=[str(k) for k in (chunk.get("knowledge_points") or [])][:3],
+                    source="word",
+                    difficulty=str(difficulty) if difficulty in {"easy", "medium", "hard"} else "medium",
+                )
+                imported.append(out)
+            except Exception as exc:  # noqa: BLE001 - 单题失败不阻断整批
+                logger.warning("Word 导入单题失败: %s", exc)
+        logger.info("Word 导入完成 user=%s 拆出 %s 题，入库 %s 题", user_id, len(chunks), len(imported))
+        return {"total": len(chunks), "imported": len(imported), "items": imported}
+
     def create_manual_question(
         self,
         user_id: int,
@@ -226,6 +263,7 @@ class EntryMixin:
         tags: list[str] | None = None,
         knowledge_points: list[str] | None = None,
         source: str = "manual",
+        difficulty: str = "medium",
         ai_analyze: bool = False,
         hint: str = "",
         image_hash: str | None = None,
@@ -233,6 +271,8 @@ class EntryMixin:
         """手动录入文本错题：入库 + 向量索引；可选 AI 文本解析补全空缺标注。"""
         if not content_markdown or not content_markdown.strip():
             raise ValueError("题目内容不能为空")
+        if difficulty not in {"easy", "medium", "hard"}:
+            raise ValueError("难度只能是 easy / medium / hard")
         clean_tags = [t.strip() for t in (tags or []) if t.strip()]
         clean_points = [t.strip() for t in (knowledge_points or []) if t.strip()]
         clean_answer = (answer or "").strip()
@@ -252,6 +292,7 @@ class EntryMixin:
                 answer=clean_answer,
                 knowledge_points=clean_points,
                 tags=clean_tags,
+                difficulty=difficulty,
                 followup_question=followup,
                 source=source,
                 image_hash=image_hash,

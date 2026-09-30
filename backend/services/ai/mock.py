@@ -49,6 +49,17 @@ class MockProvider(BaseAIProvider):
     def analyze_text(self, text: str, hint: str = "") -> QuestionAnalysis:
         return _DEMO_ANALYSIS.model_copy(deep=True)
 
+    def split_questions(self, text: str) -> list[dict]:
+        """演示模式：不做真实拆分，整份文本作为一道题入库（零 token）。"""
+        return [
+            {
+                "content": "**【演示模式】** Word 导入的完整文本：\n\n" + text[:1500],
+                "answer": "",
+                "knowledge_points": ["Word 导入"],
+                "difficulty": "medium",
+            }
+        ]
+
     def provider_info(self) -> AIProviderInfo:
         return AIProviderInfo(
             provider="mock",

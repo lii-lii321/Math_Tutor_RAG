@@ -36,6 +36,24 @@ JSON_INSTRUCTION = """请只输出一个 JSON 对象，结构如下：
   "followup_question": "一道考查相同知识点的变式练习题（只给题目，不给答案）"
 }"""
 
+SPLIT_SYSTEM_PROMPT = (
+    "你是数学教研助理，负责把整理好的文档切分成独立的错题卡片。"
+    "必须严格输出 JSON，不要输出任何 JSON 以外的内容。"
+)
+
+SPLIT_JSON_INSTRUCTION = """任务：把下面的文档文本切分成独立的错题，每题输出一个对象：
+{
+  "content": "题面与解析（Markdown，保留 LaTeX 公式，尽量保留原文）",
+  "answer": "最终答案（文档未给就填空字符串）",
+  "knowledge_points": ["1-3 个知识点"],
+  "difficulty": "easy | medium | hard"
+}
+只输出一个 JSON 对象：{"questions": [...]}。整份文档只有一道题时也输出同样结构。"""
+
+
+def build_split_prompt(text: str) -> str:
+    return f"{SPLIT_JSON_INSTRUCTION}\n\n【文档内容】\n{text[:6000]}"
+
 
 def build_user_prompt(hint: str) -> str:
     prompt = "请分析这张图片中的数学错题。\n"
@@ -99,6 +117,23 @@ class BaseAIProvider(abc.ABC):
                 [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": prompt}]
             )
         return parse_analysis(raw)
+
+    def split_questions(self, text: str) -> list[dict]:
+        """把结构化文档文本切分为独立错题（Word 导入场景，单次调用省 token）。"""
+        with track_ai_call("split_questions"):
+            raw = self.chat(
+                [
+                    {"role": "system", "content": SPLIT_SYSTEM_PROMPT},
+                    {"role": "user", "content": build_split_prompt(text)},
+                ]
+            )
+        candidate = extract_json_block(raw)
+        if candidate is None or not isinstance(candidate.get("questions"), list):
+            raise AIMessageError("模型未返回可解析的拆题结果")
+        questions = [q for q in candidate["questions"] if isinstance(q, dict) and q.get("content")]
+        if not questions:
+            raise AIMessageError("拆题结果为空")
+        return questions
 
     def analyze_question(
         self, image_bytes: bytes, mime_type: str = "image/jpeg", hint: str = ""
