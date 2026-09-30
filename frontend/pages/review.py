@@ -29,23 +29,27 @@ def render_review_page(user: dict) -> None:
         st.session_state.pop("review_cursor", None)
     plan_mode = st.session_state.get("review_plan_mode", False)
 
-    if plan_mode:
-        page_header(
-            "今日复习 · 计划模式",
-            "按掌握度引擎生成的今日计划复习：到期题优先，其余为薄弱知识点加固",
-        )
-        plan = service.today_plan(user["id"], size=12)
-        due = [item.question for item in plan]
-        reasons = {item.question.id: item.reason for item in plan}
-        if not due:
-            # 计划清空后自动退出计划模式，下次从侧边栏进入恢复默认到期队列
-            st.session_state.pop("review_plan_mode", None)
-    else:
-        page_header("今日复习", "SM-2 间隔重复调度 · 按记忆掌握程度评分，自动安排下次复习时间")
-        due = service.due_questions(user["id"])
-        reasons = {}
+    # 队列驻留会话态：评分后不再重新拉取——「忘了」的题当轮重现、撤销能还原队列
+    queue_key = "review_queue"
+    reasons_key = "review_reasons"
+    rebuild = (
+        incoming.get("mode") in ("plan", "due")
+        or queue_key not in st.session_state
+    )
+    if rebuild:
+        if plan_mode:
+            plan = service.today_plan(user["id"], size=12)
+            st.session_state[queue_key] = [item.question for item in plan]
+            st.session_state[reasons_key] = {item.question.id: item.reason for item in plan}
+        else:
+            st.session_state[queue_key] = service.due_questions(user["id"])
+            st.session_state[reasons_key] = {}
+    due = st.session_state.get(queue_key, [])
+    reasons = st.session_state.get(reasons_key, {})
 
     if not due:
+        st.session_state.pop(queue_key, None)
+        st.session_state.pop(reasons_key, None)
         summary = st.session_state.pop("review_session", None)
         if summary and summary.get("graded"):
             grades = summary.get("grades", {})
@@ -59,6 +63,7 @@ def render_review_page(user: dict) -> None:
             if st.button("返回学情看板", type="primary"):
                 go_to("dashboard")
         elif plan_mode:
+            st.session_state.pop("review_plan_mode", None)
             st.success("🎉 今日计划已全部处理完，去「能力画像」看看掌握度变化。")
             if st.button("查看能力画像", type="primary"):
                 go_to("mastery")
@@ -79,6 +84,38 @@ def render_review_page(user: dict) -> None:
     session_key = "review_session"  # 本轮复习统计：{"graded": n, "grades": {...}}
     if session_key not in st.session_state:
         st.session_state[session_key] = {"graded": 0, "grades": {}}
+
+    if plan_mode:
+        page_header(
+            "今日复习 · 计划模式",
+            "按掌握度引擎生成的今日计划复习：到期题优先，其余为薄弱知识点加固",
+        )
+    else:
+        page_header("今日复习", "SM-2 间隔重复调度 · 按记忆掌握程度评分，自动安排下次复习时间")
+
+    # 撤销上一评（恢复 SM-2 状态并把题插回当前队列位置）
+    undo_state = st.session_state.get("review_undo")
+    if undo_state:
+        undo_col, _ = st.columns([1, 2])
+        with undo_col:
+            if st.button("↩️ 撤销上一评", width="stretch"):
+                restored = service.restore_review_state(
+                    undo_state["question_id"], user["id"], undo_state["snapshot"]
+                )
+                if restored:
+                    q_list = st.session_state.get(queue_key, [])
+                    q_list.insert(
+                        min(st.session_state[idx_key], len(q_list)),
+                        undo_state["question"],
+                    )
+                    stats = st.session_state[session_key]
+                    stats["graded"] = max(0, stats["graded"] - 1)
+                    stats["grades"][undo_state["grade"]] = max(
+                        0, stats["grades"].get(undo_state["grade"], 1) - 1
+                    )
+                    st.session_state[queue_key] = q_list
+                    st.session_state.pop("review_undo", None)
+                st.rerun()
 
     st.markdown(
         f"""
@@ -142,6 +179,7 @@ def render_review_page(user: dict) -> None:
                         interval_days=question.interval_days,
                     )
                     if st.button(GRADE_LABELS[grade], key=f"grade_{grade}", width="stretch"):
+                        snapshot = service.snapshot_review_state(question.id, user["id"])
                         updated = service.grade_review(question.id, user["id"], grade)
                         st.session_state[reveal_key] = False
                         session_stats = st.session_state[session_key]
@@ -153,9 +191,23 @@ def render_review_page(user: dict) -> None:
                             if updated.mastered:
                                 msg += " · 🎉 已掌握归档，移出复习池"
                             st.toast(msg, icon="⏰")
-                        st.session_state[idx_key] = cursor
+                        if grade == "again":
+                            # 忘了：当轮重现——本题移到队尾，本轮还会再见到它
+                            q_list = st.session_state.get(queue_key, [])
+                            q_list.append(q_list.pop(cursor))
+                        else:
+                            q_list = st.session_state.get(queue_key, [])
+                            q_list.pop(cursor)
+                        if snapshot is not None:
+                            st.session_state["review_undo"] = {
+                                "question_id": question.id,
+                                "question": question,
+                                "snapshot": snapshot,
+                                "grade": grade,
+                            }
+                        st.session_state[idx_key] = min(cursor, max(len(q_list) - 1, 0))
                         st.rerun()
-                    st.caption(format_interval(preview.next_interval))  # 评分后该题移出待复习队列，游标原地指向下一题
+                    st.caption(format_interval(preview.next_interval))  # 评分后该题按队列逻辑处理，游标指向下一题
         else:
             skip_col, _ = st.columns([1, 2])
             with skip_col:

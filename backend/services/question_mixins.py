@@ -607,6 +607,61 @@ class EditTagMixin:
             repo.set_starred(question_id, user_id, new_state)
             return new_state
 
+    def snapshot_review_state(self, question_id: int, user_id: int) -> dict | None:
+        """评分前快照 SM-2 状态与最近复习日志 ID（撤销用）。"""
+
+        with self._session() as repo:
+            question = repo.get_owned(question_id, user_id)
+            if question is None:
+                return None
+            logs = list(question.review_logs)
+            last_log_id = logs[-1].id if logs else None
+            return {
+                "reps": int(question.reps),
+                "ease": float(question.ease),
+                "interval_days": float(question.interval_days),
+                "due_at": question.due_at.isoformat() if question.due_at else None,
+                "last_reviewed_at": (
+                    question.last_reviewed_at.isoformat()
+                    if question.last_reviewed_at
+                    else None
+                ),
+                "last_log_id": last_log_id,
+            }
+
+    def restore_review_state(
+        self, question_id: int, user_id: int, snapshot: dict
+    ) -> bool:
+        """撤销一次评分：恢复 SM-2 状态并删除评分新生成的那条复习日志。
+
+        snapshot 在评分前取得（last_log_id 指向更早的历史日志）；
+        恢复时删除的是当前最新日志——即被撤销的那次评分所写入的行。
+        """
+
+        with self._session() as repo:
+            question = repo.get_owned(question_id, user_id)
+            if question is None:
+                return False
+            question.reps = int(snapshot["reps"])
+            question.ease = float(snapshot["ease"])
+            question.interval_days = float(snapshot["interval_days"])
+            question.due_at = (
+                dt.datetime.fromisoformat(snapshot["due_at"])
+                if snapshot["due_at"]
+                else None
+            )
+            question.last_reviewed_at = (
+                dt.datetime.fromisoformat(snapshot["last_reviewed_at"])
+                if snapshot["last_reviewed_at"]
+                else None
+            )
+            logs = list(question.review_logs)
+            if logs:
+                newest = logs[-1]
+                if newest.id != snapshot.get("last_log_id"):
+                    repo.session.delete(newest)
+        return True
+
     def tag_usage(self, user_id: int) -> dict[str, int]:
         """用户错题标签使用统计：{标签: 题数}，按题数降序。"""
         questions = self.list_questions(user_id, semantic=False)
