@@ -60,8 +60,8 @@ def _render_word_import(service, user) -> None:
     """Word 文档批量导入：提取文本 → AI 单次拆题 → 逐题入库。"""
     with st.container(border=True):
         st.caption(
-            "适合整份整理好的错题文档（支持标题/段落/表格）。AI 会自动拆分成独立错题，"
-            "一次调用完成，token 消耗可控；单次最多导入 20 题。"
+            "适合整份整理好的错题文档（支持标题/段落/表格）。AI 自动拆分成独立错题："
+            "长文档按段自动分批调用，单次导入上限 100 题。"
         )
         word_file = st.file_uploader(
             "上传 Word 文档（.docx）",

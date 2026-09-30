@@ -43,6 +43,28 @@ if TYPE_CHECKING:  # pragma: no cover
 
 logger = get_logger("questions")
 
+_DOCX_SEGMENT_CHARS = 4000  # 每段送 AI 的文本上限（规避单次输出截断）
+
+
+def _segment_text(text: str, max_chars: int = _DOCX_SEGMENT_CHARS) -> list[str]:
+    """把长文档按段落边界切成 ~max_chars 的段（不在公式/句子中间截断）。"""
+    if len(text) <= max_chars:
+        return [text]
+    segments: list[str] = []
+    current = ""
+    for para in text.split("\n\n"):
+        para = para.strip()
+        if not para:
+            continue
+        if current and len(current) + len(para) + 2 > max_chars:
+            segments.append(current)
+            current = para
+        else:
+            current = f"{current}\n\n{para}" if current else para
+    if current:
+        segments.append(current)
+    return segments or [text]
+
 
 def _aware(value: dt.datetime) -> dt.datetime:
     return value if value.tzinfo else value.replace(tzinfo=dt.timezone.utc)
@@ -224,16 +246,26 @@ class EntryMixin:
         *,
         tags: list[str] | None = None,
         hint: str = "",
-        max_questions: int = 20,
+        max_questions: int = 100,
     ) -> dict:
-        """Word 文档批量导入：提取文本 → AI 单次调用拆题 → 逐题入库。
+        """Word 文档批量导入：提取文本 → 分段 AI 拆题 → 逐题入库。
 
+        长文档按段落边界自动分段（每段 ~4000 字、一次 AI 调用），
+        规避单次输出截断；单次导入上限 max_questions（默认 100 题）。
         返回 {"total": 拆出题数, "imported": 成功入库数, "items": [QuestionOut]}。
         """
         from backend.services.docx_import import extract_docx_text
 
         text = extract_docx_text(docx_bytes)
-        chunks = self.ai.split_questions(text)[:max(1, max_questions)]
+        segments = _segment_text(text)
+        logger.info("Word 导入分段：%s 字 → %s 段（%s 次 AI 调用）", len(text), len(segments), len(segments))
+
+        chunks: list[dict] = []
+        for segment in segments:
+            chunks.extend(self.ai.split_questions(segment))
+        if len(chunks) > max_questions:
+            logger.warning("拆出 %s 题超过上限，截断为 %s 题", len(chunks), max_questions)
+            chunks = chunks[:max_questions]
 
         imported: list = []
         for chunk in chunks:

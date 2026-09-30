@@ -162,7 +162,7 @@ class TestAddQuestionsFromDocx:
         assert all("整理" in q.tags for q in result["items"])
 
     def test_max_questions_cap(self):
-        """拆题数量上限 20（服务层参数）。"""
+        """拆题数量上限（服务层默认 100）。"""
         import json as _json
 
         provider = MockProvider()
@@ -172,7 +172,7 @@ class TestAddQuestionsFromDocx:
                 {
                     "questions": [
                         {"content": f"题{i}", "answer": "", "knowledge_points": [], "difficulty": "easy"}
-                        for i in range(30)
+                        for i in range(120)
                     ]
                 },
                 ensure_ascii=False,
@@ -180,6 +180,65 @@ class TestAddQuestionsFromDocx:
 
         monkeypatch = pytest.MonkeyPatch()
         monkeypatch.setattr(provider, "chat", _fake_chat)
-        chunks = BaseAIProvider.split_questions(provider, "文档文本")[:20]
-        assert len(chunks) == 20
+        chunks = BaseAIProvider.split_questions(provider, "文档文本")
+        assert len(chunks) == 120  # 基类解析不截断
+        capped = chunks[:100]
+        assert len(capped) == 100
         monkeypatch.undo()
+
+    def test_long_text_segmented_into_multiple_calls(self):
+        """长文档按段落边界分段：多次 AI 调用，全部拆题结果合并。"""
+        init_db(seed_users=True)
+        import json as _json
+
+        with SessionLocal() as session:
+            user = User(
+                username=f"docx3_{uuid.uuid4().hex[:8]}", password_hash="x", role="student"
+            )
+            session.add(user)
+            session.commit()
+            session.refresh(user)
+
+        service = QuestionService(session_factory=SessionLocal)
+        provider = get_ai_service()
+
+        calls: list[str] = []
+
+        def _fake_chat(messages):
+            user_text = messages[-1]["content"]
+            calls.append(user_text)
+            # 每段返回 2 题，带段内标记以便区分
+            marker = "A" if len(calls) == 1 else "B"
+            return _json.dumps(
+                {
+                    "questions": [
+                        {"content": f"段{marker}题一" + "长" * 30, "answer": "", "knowledge_points": [], "difficulty": "easy"},
+                        {"content": f"段{marker}题二" + "长" * 30, "answer": "", "knowledge_points": [], "difficulty": "easy"},
+                    ]
+                },
+                ensure_ascii=False,
+            )
+
+        provider.chat = _fake_chat
+        service.ai = provider
+        service.ai.split_questions = lambda text: BaseAIProvider.split_questions(
+            provider, text
+        )
+
+        # 构造 >4000 字的多段文档（中文每字一个字符位）
+        long_doc = "\n\n".join(f"第{i}段落标题\n\n{'内容' * 300}" for i in range(8))
+        assert len(long_doc) > 4000
+
+        # 直接测试分段逻辑与跨段合并
+        from backend.services.question_mixins import _segment_text
+
+        segments = _segment_text(long_doc)
+        assert len(segments) >= 2, "长文档应被切成多段"
+        for seg in segments:
+            assert len(seg) <= 4000 + 200, "单段不应显著超限"
+
+        chunks: list = []
+        for seg in segments:
+            chunks.extend(service.ai.split_questions(seg))
+        assert len(chunks) == 2 * len(segments)
+        assert len(calls) == len(segments), "每段一次 AI 调用"
