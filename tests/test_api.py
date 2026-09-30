@@ -220,7 +220,12 @@ def test_questions_pagination(client):
 def test_students_overview_api(client):
     _ = client.post(
         "/api/auth/register",
-        json={"username": "api_teacher", "password": "secret1", "role": "teacher"},
+        json={
+            "username": "api_teacher",
+            "password": "secret1",
+            "role": "teacher",
+            "invite_code": "test-invite-code",
+        },
     )
     teacher_headers = _auth_header(client, "api_teacher", "secret1")
     student_headers = _auth_header(client, "api_user", "secret1")

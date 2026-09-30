@@ -69,13 +69,20 @@ def render_auth_page() -> None:
             new_password = st.text_input("密码（至少 6 位）", type="password")
             new_password2 = st.text_input("确认密码", type="password")
             role = st.selectbox("角色", ["student", "teacher"], format_func=lambda v: "学生" if v == "student" else "教师")
+            new_invite = st.text_input(
+                "教师邀请码（仅注册教师需要，学生可留空）",
+                help="教师身份可查看学生数据，需持管理员发放的 TEACHER_INVITE_CODE",
+            )
             if st.form_submit_button("创建账号", width="stretch"):
                 if new_password != new_password2:
                     st.error("两次输入的密码不一致")
                 else:
                     try:
                         payload = RegisterInput(
-                            username=new_username, password=new_password, role=role
+                            username=new_username,
+                            password=new_password,
+                            role=role,
+                            invite_code=new_invite or "",
                         )
                     except Exception as exc:  # noqa: BLE001 - 展示校验错误
                         st.error(f"输入不合法：{exc}")

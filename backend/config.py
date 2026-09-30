@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     seed_admin_password: str = "admin123"
     seed_demo_username: str = "demo"
     seed_demo_password: str = "demo123"
+    # 教师自助注册邀请码：留空 = 关闭教师自助注册（防止越权读取全体学生数据）；
+    # 配置后注册时必须携带匹配的 invite_code
+    teacher_invite_code: str = ""
 
     # ---------- API 网关 (JWT) ----------
     # 生产环境务必通过 .env 设置强随机密钥（>= 32 字节）

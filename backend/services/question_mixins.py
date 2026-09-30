@@ -251,6 +251,7 @@ class EntryMixin:
         source: str = "manual",
         ai_analyze: bool = False,
         hint: str = "",
+        image_hash: str | None = None,
     ) -> QuestionOut:
         """手动录入文本错题：入库 + 向量索引；可选 AI 文本解析补全空缺标注。"""
         if not content_markdown or not content_markdown.strip():
@@ -276,6 +277,7 @@ class EntryMixin:
                 tags=clean_tags,
                 followup_question=followup,
                 source=source,
+                image_hash=image_hash,
             )
             self._sync_kp_links(repo, question.id, clean_points)
             out = QuestionOut.from_orm_model(question)
@@ -846,7 +848,11 @@ class BackupMixin:
         }
 
     def import_user_data(self, user_id: int, data: dict) -> int:
-        """从备份 JSON 恢复错题（全部按手动录入处理，逐条校验）。返回导入数量。"""
+        """从备份 JSON 恢复错题（全部按手动录入处理，逐条校验）。
+
+        带 image_hash 的条目按哈希去重（幂等：同一备份可重复导入不产生重复题）。
+        返回实际新导入数量。
+        """
         if data.get("format") != self.BACKUP_FORMAT:
             raise ValueError("备份文件格式不正确")
         items = data.get("questions")
@@ -856,6 +862,11 @@ class BackupMixin:
         imported = 0
         for item in items:
             try:
+                image_hash = item.get("image_hash") or None
+                if image_hash:
+                    with self._session() as repo:
+                        if repo.find_by_image_hash(user_id, str(image_hash)) is not None:
+                            continue  # 已存在，幂等跳过
                 self.create_manual_question(
                     user_id,
                     content_markdown=str(item.get("content_markdown", "")).strip(),
@@ -863,6 +874,7 @@ class BackupMixin:
                     tags=[str(t) for t in (item.get("tags") or [])][:8],
                     knowledge_points=[str(t) for t in (item.get("knowledge_points") or [])][:8],
                     source="imported",
+                    image_hash=str(image_hash) if image_hash else None,
                 )
                 imported += 1
             except Exception as exc:  # noqa: BLE001 - 单条失败不阻断整体

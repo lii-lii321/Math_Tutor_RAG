@@ -11,8 +11,8 @@ services:
       AI_API_KEY: ${AI_API_KEY:-}
       AI_MODEL: ${AI_MODEL:-}
       AUTH_SECRET: ${AUTH_SECRET:-dev-only-secret-change-me-0123456789abcdef}
-      # 如需接入 MySQL，取消注释并启动下方 mysql 服务：
-      # DATABASE_URL: mysql+pymysql://mathmaster:mathmaster@mysql:3306/math_tutor?charset=utf8mb4
+      # 两个服务必须指向同一个数据库，否则数据静默分裂
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////app/data/math_tutor.db}
     restart: unless-stopped
 
   api:
@@ -28,7 +28,8 @@ services:
       AI_API_KEY: ${AI_API_KEY:-}
       AI_MODEL: ${AI_MODEL:-}
       AUTH_SECRET: ${AUTH_SECRET:-dev-only-secret-change-me-0123456789abcdef}
-      DATABASE_URL: ${DATABASE_URL:-}
+      # 空串会覆盖 SQLite 默认值导致启动崩溃，这里兜底为容器内 SQLite
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////app/data/math_tutor.db}
     restart: unless-stopped
 
   # 可选：生产/演示用 MySQL。默认 SQLite 即可运行。

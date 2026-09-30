@@ -17,6 +17,7 @@ os.environ["CHROMA_DIR"] = str(_TMP / "chroma")
 os.environ["RAG_ENABLED"] = "true"  # 允许向量库参与集成测试
 os.environ["AI_PROVIDER"] = "mock"
 os.environ["BCRYPT_ROUNDS"] = "4"  # 加速测试
+os.environ.setdefault("TEACHER_INVITE_CODE", "test-invite-code")  # API 教师注册测试用
 
 import pytest  # noqa: E402
 

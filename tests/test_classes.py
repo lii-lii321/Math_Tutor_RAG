@@ -127,7 +127,12 @@ class TestClassesAPI:
         username = f"cls_t_{uuid.uuid4().hex[:8]}"
         client.post(
             "/api/auth/register",
-            json={"username": username, "password": "secret1", "role": "teacher"},
+            json={
+                "username": username,
+                "password": "secret1",
+                "role": "teacher",
+                "invite_code": "test-invite-code",
+            },
         )
         login = client.post(
             "/api/auth/login", json={"username": username, "password": "secret1"}

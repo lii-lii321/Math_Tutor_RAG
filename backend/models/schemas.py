@@ -66,6 +66,8 @@ class QuestionOut(BaseModel):
     verification_status: str | None = None
     verification_confidence: float | None = None
     verification_methods: list[str] = Field(default_factory=list)
+    verified_at: dt.datetime | None = None
+    image_hash: str | None = None
     reps: int = 0
     ease: float = 2.5
     interval_days: float = 0
@@ -92,6 +94,8 @@ class QuestionOut(BaseModel):
             verification_status=q.verification_status,
             verification_confidence=q.verification_confidence,
             verification_methods=list(q.verification_methods or []),
+            verified_at=q.verified_at,
+            image_hash=q.image_hash,
             reps=q.reps,
             ease=q.ease,
             interval_days=q.interval_days,
@@ -137,6 +141,8 @@ class RegisterInput(BaseModel):
     username: str = Field(min_length=2, max_length=32)
     password: str = Field(min_length=6, max_length=64)
     role: Literal["student", "teacher"] = "student"
+    # 注册教师时必填的邀请码（TEACHER_INVITE_CODE）；学生注册忽略
+    invite_code: str = Field(default="", max_length=64)
 
     @field_validator("username")
     @classmethod

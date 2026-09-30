@@ -54,10 +54,20 @@ def verify_answer(
             details="；".join(details),
         )
 
-    verified = next(r for r in results if r[0] == "verified")
+    verified = next((r for r in results if r[0] == "verified"), None)
+    if verified is not None:
+        return VerificationResult(
+            status="verified",
+            confidence=verified[1],
+            methods=methods,
+            details="；".join(details),
+        )
+
+    # 全部 uncertain：聚合置信度与明细，不再抛 StopIteration 丢证明
+    confidence = round(sum(r[1] for r in results) / len(results), 2)
     return VerificationResult(
-        status="verified",
-        confidence=verified[1],
+        status="uncertain",
+        confidence=confidence,
         methods=methods,
         details="；".join(details),
     )

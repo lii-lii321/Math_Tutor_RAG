@@ -12,10 +12,10 @@ def _login_headers(client, username: str, password: str) -> dict:
 
 
 def _register(client, username: str, role: str) -> dict:
-    client.post(
-        "/api/auth/register",
-        json={"username": username, "password": "secret1", "role": role},
-    )
+    payload = {"username": username, "password": "secret1", "role": role}
+    if role == "teacher":
+        payload["invite_code"] = "test-invite-code"
+    client.post("/api/auth/register", json=payload)
     return _login_headers(client, username, "secret1")
 
 

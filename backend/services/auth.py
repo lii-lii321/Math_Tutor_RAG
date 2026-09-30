@@ -45,8 +45,18 @@ class AuthService:
         )
 
     def register(self, data: RegisterInput) -> LoginResult:
+        settings = get_settings()
+        if data.role == "teacher":
+            # 教师身份会放大为全量学生数据可见，自助注册必须持有效邀请码
+            invite = settings.teacher_invite_code
+            if not invite:
+                logger.warning("教师注册被拒绝（未配置邀请码）: %s", data.username)
+                return LoginResult(ok=False, message="教师注册已关闭：请配置 TEACHER_INVITE_CODE 或联系管理员")
+            if data.invite_code.strip() != invite:
+                logger.warning("教师注册邀请码不匹配: %s", data.username)
+                return LoginResult(ok=False, message="教师邀请码不正确")
         try:
-            user = self.repo.create(data, get_settings().bcrypt_rounds)
+            user = self.repo.create(data, settings.bcrypt_rounds)
         except ValueError as exc:
             return LoginResult(ok=False, message=str(exc))
         return LoginResult(
