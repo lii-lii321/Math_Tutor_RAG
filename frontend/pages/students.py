@@ -89,6 +89,50 @@ def _render_class_manager(teacher_id: int, class_service: ClassService, name_to_
                             st.rerun()
 
 
+def _render_weekly_report(teacher_id: int, class_names: list[str]) -> None:
+    """班级周报：选班 + 窗口期，预览 Markdown 并导出 Word（家校闭环）。"""
+    from backend.services.weekly_report import (
+        WeeklyReportService,
+        generate_word_report,
+        render_markdown,
+    )
+
+    if not class_names:
+        return
+    with st.expander("📣 班级周报", expanded=False):
+        st.caption("聚合窗口期内每个学生的新增错题、复习表现与薄弱知识点，可直接下发家长。")
+        col_class, col_days = st.columns(2)
+        with col_class:
+            class_name = st.selectbox("选择班级", class_names, key="report_class")
+        with col_days:
+            days = st.selectbox("统计窗口", [7, 14, 30], index=0, key="report_days")
+        if st.button("生成周报", type="primary", width="stretch"):
+            try:
+                classes = {c["name"]: c["id"] for c in class_service_list(teacher_id)}
+                report = WeeklyReportService().build(
+                    teacher_id, classes[class_name], days=days
+                )
+                st.session_state["weekly_report"] = report
+            except ValueError as exc:
+                st.error(str(exc))
+        report = st.session_state.get("weekly_report")
+        if report:
+            st.markdown(render_markdown(report))
+            word_io = generate_word_report(report)
+            st.download_button(
+                "📄 下载 Word 周报",
+                data=word_io,
+                file_name=f"班级周报_{report['class_name']}_{report['period']['end']}.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                width="stretch",
+            )
+
+
+def class_service_list(teacher_id: int) -> list[dict]:
+    """班级列表快捷查询（周报选班用）。"""
+    return ClassService().list_for_teacher(teacher_id)
+
+
 def render_students_page(user: dict) -> None:
     service = get_question_service()
     class_service = ClassService()
@@ -101,7 +145,9 @@ def render_students_page(user: dict) -> None:
         st.stop()
 
     name_to_id = {r["username"]: r["user_id"] for r in rows}
+    classes = class_service.list_for_teacher(user["id"])
     _render_class_manager(user["id"], class_service, name_to_id)
+    _render_weekly_report(user["id"], [c["name"] for c in classes])
 
     # 班级筛选：默认聚焦第一个班级；也可看全部（含未分班学生）
     classes = class_service.list_for_teacher(user["id"])

@@ -1,12 +1,13 @@
-"""班级路由（Batch 10 多租户）：教师班级 CRUD 与学生成员管理。"""
+"""班级路由（Batch 10 多租户）：教师班级 CRUD、成员管理、班级周报。"""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
 from api.deps import get_current_user
 from backend.models.orm import User
 from backend.services.class_service import ClassService
+from backend.services.weekly_report import ClassAccessDenied, WeeklyReportService
 
 router = APIRouter(prefix="/classes", tags=["classes"])
 
@@ -74,3 +75,18 @@ def delete_class(class_id: int, user: User = Depends(get_current_user)) -> None:
     _require_teacher(user)
     if not ClassService().delete_class(user.id, class_id):
         raise HTTPException(404, "班级不存在")
+
+
+@router.get("/{class_id}/weekly-report")
+def class_weekly_report(
+    class_id: int,
+    days: int = Query(7, ge=1, le=31, description="统计窗口天数（含今天）"),
+    user: User = Depends(get_current_user),
+) -> dict:
+    """班级学情周报：窗口期新增/复习/正确率/待复习 + 薄弱知识点。"""
+    _require_teacher(user)
+    try:
+        return WeeklyReportService().build(user.id, class_id, days=days)
+    except ClassAccessDenied as exc:
+        # 不存在与非本人班级统一 404，不泄露存在性
+        raise HTTPException(404, "班级不存在") from exc
