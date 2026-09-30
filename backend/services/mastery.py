@@ -128,21 +128,10 @@ class MasteryEngine:
 
     @contextmanager
     def _session(self) -> Iterator[Session]:
-        if self._session_factory is None:
-            from backend.database import SessionLocal
+        from backend.database import session_scope
 
-            factory: sessionmaker = SessionLocal
-        else:
-            factory = self._session_factory  # type: ignore[assignment]
-        session = factory()
-        try:
+        with session_scope(self._session_factory) as session:
             yield session
-            session.commit()
-        except Exception:
-            session.rollback()
-            raise
-        finally:
-            session.close()
 
     def _ensure_links(self, session: Session, user_id: int) -> None:
         """老数据自愈：旧版题目知识点只存在 JSON 列、M2M 为空时补建关联（一次性）。"""

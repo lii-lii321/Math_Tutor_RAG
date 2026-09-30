@@ -5,7 +5,7 @@ SQLAlchemy 2.0 风格；默认 SQLite 零配置启动，通过 DATABASE_URL 可�
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 
 from sqlalchemy import create_engine, event, text
@@ -54,9 +54,16 @@ SessionLocal = sessionmaker(bind=engine, expire_on_commit=False, future=True)
 
 
 @contextmanager
-def get_session() -> Iterator[Session]:
-    """会话上下文：提交成功 / 异常回滚，确保连接归还。"""
-    session = SessionLocal()
+def session_scope(
+    factory: sessionmaker | Callable[[], Iterator[Session]] | None = None,
+) -> Iterator[Session]:
+    """统一的会话上下文：提交成功 / 异常回滚 / 连接归还。
+
+    factory 缺省用全局 SessionLocal；服务层注入自定义 factory（测试隔离）时透传。
+    """
+    if factory is None:
+        factory = SessionLocal
+    session = factory()
     try:
         yield session
         session.commit()
@@ -65,6 +72,13 @@ def get_session() -> Iterator[Session]:
         raise
     finally:
         session.close()
+
+
+@contextmanager
+def get_session() -> Iterator[Session]:
+    """会话上下文：提交成功 / 异常回滚，确保连接归还。"""
+    with session_scope() as session:
+        yield session
 
 
 def init_db(seed_users: bool = True) -> None:

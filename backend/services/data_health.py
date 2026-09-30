@@ -39,21 +39,10 @@ class DataHealthService:
 
     @contextmanager
     def _session(self) -> Iterator[Session]:
-        if self._session_factory is None:
-            from backend.database import SessionLocal
+        from backend.database import session_scope
 
-            factory: sessionmaker = SessionLocal
-        else:
-            factory = self._session_factory  # type: ignore[assignment]
-        session = factory()
-        try:
+        with session_scope(self._session_factory) as session:
             yield session
-            session.commit()
-        except Exception:
-            session.rollback()
-            raise
-        finally:
-            session.close()
 
     def _questions(self, user_id: int) -> list[QuestionOut]:
         with self._session() as session:

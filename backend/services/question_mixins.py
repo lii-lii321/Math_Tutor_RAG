@@ -86,41 +86,18 @@ class CoreMixin:
 
     @contextmanager
     def _session(self) -> Iterator[QuestionRepository]:
-        if self._session_factory is None:
-            from backend.database import SessionLocal
+        from backend.database import session_scope
 
-            factory = SessionLocal
-        else:
-            factory = self._session_factory
-        session = factory()
-        try:
+        with session_scope(self._session_factory) as session:
             yield QuestionRepository(session)
-            session.commit()
-        except Exception:
-            session.rollback()
-            raise
-        finally:
-            session.close()
 
     @contextmanager
     def _user_session(self) -> Iterator[object]:
+        from backend.database import session_scope
         from backend.repositories.users import UserRepository
 
-        if self._session_factory is None:
-            from backend.database import SessionLocal
-
-            factory = SessionLocal
-        else:
-            factory = self._session_factory
-        session = factory()
-        try:
+        with session_scope(self._session_factory) as session:
             yield UserRepository(session)
-            session.commit()
-        except Exception:
-            session.rollback()
-            raise
-        finally:
-            session.close()
 
     def _search_scope(self, user_id: int, include_others: bool) -> list[int]:
         """语义检索的可见范围：普通用户仅自己；教师为 自己 + 所教班级学生。
@@ -343,31 +320,6 @@ class EntryMixin:
 
 class EntryResultMixin:
     """dedup 录题结果类型挂载点（保持 EntryResult 从 entry_types 导入）。"""
-
-
-def _verify_analysis(analysis: QuestionAnalysis) -> dict:
-    """对 AI 解析结果运行数学验证，返回 repo.create 可用的 verification 字典。"""
-    from backend.services.math_verifier import verify_answer
-
-    question_text = analysis.analysis
-    answer_text = analysis.answer
-    try:
-        result = verify_answer(question_text, "", answer_text)
-    except Exception as exc:  # noqa: BLE001 - 验证失败不影响保存
-        logger.warning("数学验证异常: %s", exc)
-        return {
-            "status": "uncertain",
-            "confidence": 0.0,
-            "methods": [],
-            "verified_at": dt.datetime.now(dt.timezone.utc),
-        }
-    return {
-        "status": result.status,
-        "confidence": result.confidence,
-        "methods": result.methods,
-        "details": result.details,
-        "verified_at": dt.datetime.now(dt.timezone.utc),
-    }
 
 
 class QueryMixin:
@@ -597,7 +549,7 @@ class EditTagMixin:
         if out is not None:
             self.vector_store.upsert_question(
                 out.id,
-                " ".join([*(out.knowledge_points or []), out.content_markdown, out.answer]),
+                " ".join([*(out.knowledge_points or []), out.content_markdown, out.answer or ""]),
                 user_id=user_id,
                 tags=out.tags,
             )

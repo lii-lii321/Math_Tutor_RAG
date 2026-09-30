@@ -4,6 +4,7 @@ from __future__ import annotations
 import streamlit as st
 
 from frontend.common import get_question_service, go_to, page_header
+from frontend.components import mastery_fill_html
 
 _STATUS_BADGE = {
     "solid": "mm-badge mm-badge--blue",
@@ -76,12 +77,8 @@ def render_mastery_page(user: dict) -> None:
                     cols = st.columns([4, 2, 2, 1], vertical_alignment="center")
                     with cols[0]:
                         st.markdown(f"**{item.knowledge_point}**")
-                        pct = max(round(item.mastery * 100), 3)
                         st.markdown(
-                            f"""<div class="mm-mastery">
-                            <div class="mm-mastery__track">
-                              <div class="mm-mastery__fill" style="width:{pct}%;background:{_FILL_COLOR[item.status]}"></div>
-                            </div></div>""",
+                            mastery_fill_html(item.mastery * 100, _FILL_COLOR[item.status]),
                             unsafe_allow_html=True,
                         )
                     with cols[1]:

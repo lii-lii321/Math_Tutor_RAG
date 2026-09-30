@@ -1,7 +1,8 @@
-"""FastAPI 依赖注入：数据库会话、当前用户与端点请求限流。"""
+"""FastAPI 依赖注入：数据库会话、当前用户、共享服务与端点请求限流。"""
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator
+from functools import lru_cache
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -10,6 +11,7 @@ from sqlalchemy.orm import Session
 from backend.config import get_settings
 from backend.database import SessionLocal
 from backend.models.orm import User
+from backend.services.question_service import QuestionService
 from backend.utils.request_limiter import RequestRateLimiter
 from backend.utils.tokens import TokenError, decode_access_token
 
@@ -17,6 +19,12 @@ _bearer = HTTPBearer(auto_error=False)
 
 # 进程内滑窗限流器：单实例足够；多实例部署可替换为 Redis 实现
 _limiters: dict[str, RequestRateLimiter] = {}
+
+
+@lru_cache
+def get_question_service() -> QuestionService:
+    """进程级共享 QuestionService（无每请求状态，session-per-operation 安全）。"""
+    return QuestionService()
 
 
 def get_rate_limiter(scope: str, per_minute: int) -> RequestRateLimiter:

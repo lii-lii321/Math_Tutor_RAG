@@ -87,7 +87,14 @@ def create_app() -> FastAPI:
 
     @app.get("/health", tags=["meta"])
     def health() -> dict:
-        return {"status": "ok", "version": settings.app_version}
+        from backend.database import check_connection
+
+        db_ok = check_connection()
+        return {
+            "status": "ok" if db_ok else "degraded",
+            "version": settings.app_version,
+            "db": "ok" if db_ok else "unreachable",
+        }
 
     return app
 

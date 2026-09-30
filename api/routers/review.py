@@ -4,7 +4,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
-from api.deps import get_current_user
+from api.deps import get_current_user, get_question_service
 from backend.models.orm import User
 from backend.models.schemas import KPMasteryOut, QuestionOut, ReviewPlanItemOut
 from backend.services.question_service import QuestionService
@@ -26,8 +26,6 @@ class FollowupResponse(BaseModel):
     reply: str
 
 
-def _service() -> QuestionService:
-    return QuestionService()
 
 
 @router.get("/history")
@@ -35,14 +33,13 @@ def review_history(
     limit: int = 20, user: User = Depends(get_current_user)
 ) -> list[dict]:
     """最近的复习记录（新→旧）。"""
-    from backend.services.question_service import QuestionService
 
     return QuestionService().recent_reviews(user.id, limit=limit)
 
 
 @router.get("/due", response_model=list[QuestionOut])
 def due_questions(user: User = Depends(get_current_user)) -> list[QuestionOut]:
-    return _service().due_questions(user.id)
+    return get_question_service().due_questions(user.id)
 
 
 @router.get("/mastery", response_model=list[KPMasteryOut])
@@ -50,7 +47,7 @@ def mastery_profile(
     limit: int | None = None, user: User = Depends(get_current_user)
 ) -> list[KPMasteryOut]:
     """知识点掌握度画像，薄弱者排前（Batch 04）。"""
-    items = _service().mastery_profile(user.id, limit=limit)
+    items = get_question_service().mastery_profile(user.id, limit=limit)
     return [
         KPMasteryOut(
             knowledge_point=item.knowledge_point,
@@ -70,7 +67,7 @@ def today_plan(
 ) -> list[ReviewPlanItemOut]:
     """今日自适应复习计划：SM-2 到期优先 + 薄弱知识点加固（Batch 05）。"""
     size = max(1, min(size, 50))
-    items = _service().today_plan(user.id, size=size)
+    items = get_question_service().today_plan(user.id, size=size)
     return [
         ReviewPlanItemOut(
             question=item.question,
@@ -87,7 +84,7 @@ def grade_question(
 ) -> QuestionOut:
     if payload.grade not in GRADE_ORDER:
         raise HTTPException(422, f"grade 必须是 {GRADE_ORDER} 之一")
-    updated = _service().grade_review(question_id, user.id, payload.grade)
+    updated = get_question_service().grade_review(question_id, user.id, payload.grade)
     if updated is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "错题不存在")
     return updated
@@ -98,7 +95,7 @@ def followup(
     question_id: int, payload: FollowupRequest, user: User = Depends(get_current_user)
 ) -> FollowupResponse:
     try:
-        reply = _service().answer_followup(
+        reply = get_question_service().answer_followup(
             question_id, user.id, payload.history, payload.question
         )
     except ValueError as exc:

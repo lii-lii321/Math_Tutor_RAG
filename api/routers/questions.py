@@ -14,11 +14,11 @@ from fastapi import (
 )
 from pydantic import BaseModel, Field
 
-from api.deps import get_current_user, rate_limit
+from api.deps import get_current_user, get_question_service, rate_limit
 from backend.models.orm import User
 from backend.models.schemas import QuestionAnalysis, QuestionOut
 from backend.services.export import generate_word_exam
-from backend.services.question_service import QuestionService, sanitize_tags
+from backend.services.question_service import sanitize_tags
 from backend.utils.logging import get_logger
 
 logger = get_logger("api.questions")
@@ -54,8 +54,6 @@ class ImportResult(BaseModel):
     imported: int
 
 
-def _service() -> QuestionService:
-    return QuestionService()
 
 
 @router.get("", response_model=list[QuestionOut])
@@ -70,7 +68,7 @@ def list_questions(
     user: User = Depends(get_current_user),
 ) -> list[QuestionOut]:
     """分页列出错题；X-Total-Count 为过滤后的总数。"""
-    service = _service()
+    service = get_question_service()
     items = service.list_questions(
         user.id,
         include_others=user.role == "teacher",
@@ -113,7 +111,7 @@ async def analyze_question(
         raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "图片不能超过 10MB")
 
     try:
-        saved, analysis = _service().analyze_and_save(
+        saved, analysis = get_question_service().analyze_and_save(
             user.id,
             data,
             mime_type=image.content_type,
@@ -142,7 +140,7 @@ def create_text_question(
     """手动录入文本错题（跳过视觉模型，直接归档 + 向量索引）。"""
     if not payload.content_markdown.strip():
         raise HTTPException(422, "题目内容不能为空")
-    return _service().create_manual_question(
+    return get_question_service().create_manual_question(
         user.id,
         content_markdown=payload.content_markdown,
         answer=payload.answer,
@@ -157,7 +155,7 @@ def import_questions(
 ) -> ImportResult:
     """从备份 JSON 恢复错题（按手动错题处理）。"""
     try:
-        imported = _service().import_user_data(user.id, payload)
+        imported = get_question_service().import_user_data(user.id, payload)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
     return ImportResult(imported=imported)
@@ -199,13 +197,13 @@ async def analyze_question_async(
 @router.get("/export")
 def export_questions(user: User = Depends(get_current_user)) -> dict:
     """导出当前用户全部错题的 JSON 备份。"""
-    return _service().export_user_data(user.id)
+    return get_question_service().export_user_data(user.id)
 
 
 @router.get("/export/csv")
 def export_questions_csv(user: User = Depends(get_current_user)) -> Response:
     """导出当前用户全部错题为 CSV（Excel 友好，UTF-8 BOM）。"""
-    csv_text = _service().export_user_csv(user.id)
+    csv_text = get_question_service().export_user_csv(user.id)
     return Response(
         content=csv_text,
         media_type="text/csv",
@@ -220,7 +218,7 @@ def export_word_exam(
     user: User = Depends(get_current_user),
 ) -> Response:
     """按当前筛选（可选 tag/keyword）导出可打印的 Word 复习卷。"""
-    questions = _service().list_questions(
+    questions = get_question_service().list_questions(
         user.id, include_others=user.role == "teacher", tag=tag, keyword=keyword, semantic=False
     )
     if not questions:
@@ -235,7 +233,7 @@ def export_word_exam(
 
 @router.get("/{question_id}", response_model=QuestionOut)
 def get_question(question_id: int, user: User = Depends(get_current_user)) -> QuestionOut:
-    question = _service().get_question(question_id, user.id)
+    question = get_question_service().get_question(question_id, user.id)
     if question is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "错题不存在")
     return question
@@ -245,10 +243,10 @@ def get_question(question_id: int, user: User = Depends(get_current_user)) -> Qu
 def similar_questions(
     question_id: int, user: User = Depends(get_current_user)
 ) -> list[QuestionOut]:
-    question = _service().get_question(question_id, user.id)
+    question = get_question_service().get_question(question_id, user.id)
     if question is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "错题不存在")
-    return _service().similar_questions(question, user_id=user.id)
+    return get_question_service().similar_questions(question, user_id=user.id)
 
 
 @router.patch("/{question_id}", response_model=QuestionOut)
@@ -257,7 +255,7 @@ def update_question(
     payload: QuestionUpdate,
     user: User = Depends(get_current_user),
 ) -> QuestionOut:
-    updated = _service().update_question(
+    updated = get_question_service().update_question(
         question_id,
         user.id,
         content_markdown=payload.content_markdown,
@@ -272,6 +270,6 @@ def update_question(
 
 @router.delete("/{question_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_question(question_id: int, user: User = Depends(get_current_user)) -> None:
-    deleted = _service().delete_questions([question_id], user.id)
+    deleted = get_question_service().delete_questions([question_id], user.id)
     if deleted == 0:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "错题不存在")

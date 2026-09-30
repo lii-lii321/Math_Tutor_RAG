@@ -7,7 +7,9 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
+from backend.services.mastery import SHAKY_THRESHOLD, WEAK_THRESHOLD
 from frontend.common import get_question_service, go_to, page_header, provider_badges, stat_card
+from frontend.components import mastery_bar_html
 
 _BLUE = "#2563eb"
 
@@ -27,9 +29,10 @@ def _picked_tag(event) -> str | None:
 
 
 def mastery_color(mastery: float) -> str:
-    if mastery < 0.4:
+    """颜色档位与后端掌握度引擎同源（WEAK/SHAKY 阈值）。"""
+    if mastery < WEAK_THRESHOLD:
         return _MASTERY_COLORS["weak"]
-    if mastery < 0.75:
+    if mastery < SHAKY_THRESHOLD:
         return _MASTERY_COLORS["mid"]
     return _MASTERY_COLORS["good"]
 
@@ -244,19 +247,13 @@ def render_dashboard(user: dict) -> None:
         page_header("薄弱知识点", "按掌握度升序，建议优先复习")
         if stats["weak_tags"]:
             for tag_stat in stats["weak_tags"]:
-                color = mastery_color(tag_stat.mastery)
                 st.markdown(
-                    f"""
-                    <div class="mm-mastery">
-                        <div class="mm-mastery__row">
-                            <span>{tag_stat.tag} <span class="mm-muted">({tag_stat.count} 题)</span></span>
-                            <span>{int(tag_stat.mastery * 100)}%</span>
-                        </div>
-                        <div class="mm-mastery__track">
-                            <div class="mm-mastery__fill" style="width:{max(tag_stat.mastery * 100, 3)}%;background:{color}"></div>
-                        </div>
-                    </div>
-                    """,
+                    mastery_bar_html(
+                        f"{tag_stat.tag} <span class='mm-muted'>({tag_stat.count} 题)</span>",
+                        tag_stat.mastery * 100,
+                        color=mastery_color(tag_stat.mastery),
+                        right=f"{int(tag_stat.mastery * 100)}%",
+                    ),
                     unsafe_allow_html=True,
                 )
             if st.button("📚 去错题本复习最薄弱的知识点", width="stretch"):

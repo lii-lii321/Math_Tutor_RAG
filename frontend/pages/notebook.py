@@ -6,6 +6,7 @@ import datetime as dt
 import streamlit as st
 
 from backend.services.export import generate_pdf_exam, generate_word_exam
+from backend.services.mastery import SHAKY_THRESHOLD, WEAK_THRESHOLD
 from backend.services.question_service import sanitize_tags
 from frontend.common import (
     edit_question_form,
@@ -232,7 +233,13 @@ def render_notebook_page(user: dict) -> None:
         mastery_chip = ""
         if q.id in mastery_map:
             pct = round(mastery_map[q.id] * 100)
-            color = "#dc2626" if pct < 40 else ("#94a3b8" if pct < 75 else "#2563eb")
+            # 档位与后端掌握度引擎同源（WEAK/SHAKY 阈值换算为百分数）
+            if mastery_map[q.id] < WEAK_THRESHOLD:
+                color = "#dc2626"
+            elif mastery_map[q.id] < SHAKY_THRESHOLD:
+                color = "#94a3b8"
+            else:
+                color = "#2563eb"
             mastery_chip = f"　<span style='color:{color};font-weight:600'>掌握 {pct}%</span>"
         star_mark = "⭐ " if q.starred else ""
         expander_title = (

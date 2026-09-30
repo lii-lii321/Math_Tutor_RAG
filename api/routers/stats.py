@@ -7,9 +7,8 @@ from itertools import combinations
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from api.deps import get_current_user
+from api.deps import get_current_user, get_question_service
 from backend.models.orm import User
-from backend.services.question_service import QuestionService
 
 router = APIRouter(prefix="/stats", tags=["stats"])
 
@@ -20,21 +19,19 @@ class CooccurrenceEdge(BaseModel):
     weight: int
 
 
-def _service() -> QuestionService:
-    return QuestionService()
 
 
 @router.get("/dashboard")
 def dashboard(user: User = Depends(get_current_user)) -> dict:
     """学情看板数据：总数 / 到期 / 标签掌握度 / 活跃度。"""
-    return _service().dashboard_stats(user.id, include_others=user.role == "teacher")
+    return get_question_service().dashboard_stats(user.id, include_others=user.role == "teacher")
 
 
 @router.get("/students")
 def students_overview(user: User = Depends(get_current_user)) -> list[dict]:
     """教师专属：全班学生错题/复习/掌握度汇总。"""
     try:
-        return _service().students_overview(user.id)
+        return get_question_service().students_overview(user.id)
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
 
@@ -42,7 +39,7 @@ def students_overview(user: User = Depends(get_current_user)) -> list[dict]:
 @router.get("/tag-graph", response_model=list[CooccurrenceEdge])
 def tag_graph(user: User = Depends(get_current_user)) -> list[CooccurrenceEdge]:
     """标签共现边列表：节点=标签，边=两标签同时出现在一道错题中。"""
-    questions = _service().list_questions(user.id, semantic=False)
+    questions = get_question_service().list_questions(user.id, semantic=False)
     edges: Counter[tuple[str, str]] = Counter()
     for question in questions:
         tags = sorted(set(question.tags or []))

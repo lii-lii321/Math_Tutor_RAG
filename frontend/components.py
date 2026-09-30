@@ -6,7 +6,29 @@ import os
 
 import streamlit as st
 
-_GRADE_LABELS = {"again": "😵 忘了", "hard": "😅 勉强", "good": "🙂 记得", "easy": "😎 秒懂"}
+GRADE_LABELS = {"again": "😵 忘了", "hard": "😅 勉强", "good": "🙂 记得", "easy": "😎 秒懂"}
+
+
+def mastery_fill_html(pct: float, color: str = "#2563eb") -> str:
+    """掌握度横条的轨道+填充部分（无标签行），pct 为 0~100。"""
+    width = max(min(pct, 100), 3)
+    return (
+        f'<div class="mm-mastery__track">'
+        f'<div class="mm-mastery__fill" style="width:{width:.0f}%;background:{color}"></div></div>'
+    )
+
+
+def mastery_bar_html(
+    label: str | None, pct: float, color: str = "#2563eb", right: str | None = None
+) -> str:
+    """完整掌握度横条：左标签 + 右侧文案 + 轨道填充。"""
+    left = f"<span>{label}</span>" if label else "<span></span>"
+    right_html = f"<span>{right}</span>" if right else ""
+    return (
+        f'<div class="mm-mastery"><div class="mm-mastery__row">{left}{right_html}</div>'
+        + mastery_fill_html(pct, color)
+        + "</div>"
+    )
 
 
 def question_detail_view(q, show_hit: bool = True) -> None:
@@ -99,7 +121,7 @@ def regrade_buttons(service, q, user: dict) -> None:
     for col, grade in zip(grade_cols, ("again", "hard", "good", "easy"), strict=False):
         with col:
             if st.button(
-                _GRADE_LABELS[grade], key=f"nb_grade_{q.id}_{grade}", width="stretch"
+                GRADE_LABELS[grade], key=f"nb_grade_{q.id}_{grade}", width="stretch"
             ):
                 updated = service.grade_review(q.id, user["id"], grade)
                 if updated is None:

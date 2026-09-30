@@ -15,8 +15,7 @@ from frontend.common import (
     page_header,
     pop_params,
 )
-
-_GRADE_LABELS = {"again": "😵 忘了", "hard": "😅 勉强", "good": "🙂 记得", "easy": "😎 秒懂"}
+from frontend.components import GRADE_LABELS
 
 
 def render_review_page(user: dict) -> None:
@@ -142,7 +141,7 @@ def render_review_page(user: dict) -> None:
                         ease=question.ease,
                         interval_days=question.interval_days,
                     )
-                    if st.button(_GRADE_LABELS[grade], key=f"grade_{grade}", width="stretch"):
+                    if st.button(GRADE_LABELS[grade], key=f"grade_{grade}", width="stretch"):
                         updated = service.grade_review(question.id, user["id"], grade)
                         st.session_state[reveal_key] = False
                         session_stats = st.session_state[session_key]
@@ -179,7 +178,7 @@ def render_review_page(user: dict) -> None:
                 {
                     "时间": h["reviewed_at"].astimezone().strftime("%m-%d %H:%M")
                     if h["reviewed_at"] else "",
-                    "评分": _GRADE_LABELS.get(h["grade"], h["grade"]),
+                    "评分": GRADE_LABELS.get(h["grade"], h["grade"]),
                     "下次间隔": f"{h['interval_days']:.0f} 天",
                     "题目": h["snippet"],
                 }

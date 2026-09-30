@@ -6,6 +6,7 @@ from itertools import combinations
 import streamlit as st
 from streamlit_agraph import Config, Edge, Node, agraph
 
+from backend.services.mastery import mastery_status
 from frontend.common import get_question_service, go_to, page_header
 
 _MASTERY_NODE_COLORS = {
@@ -17,13 +18,10 @@ _MASTERY_NODE_COLORS = {
 
 
 def _mastery_level(mastery: float | None) -> str:
+    """颜色档位与后端掌握度引擎同源。"""
     if mastery is None:
         return "unknown"
-    if mastery < 0.4:
-        return "weak"
-    if mastery < 0.75:
-        return "shaky"
-    return "solid"
+    return mastery_status(mastery)
 
 
 def render_graph_page(user: dict) -> None:

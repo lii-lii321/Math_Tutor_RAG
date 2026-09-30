@@ -270,13 +270,6 @@ class QuestionRepository:
         )
         return list(self.session.execute(stmt).scalars())
 
-    def count_by_tag(self, questions: list[Question]) -> dict[str, int]:
-        counter: dict[str, int] = {}
-        for question in questions:
-            for tag in question.tags or []:
-                counter[tag] = counter.get(tag, 0) + 1
-        return dict(sorted(counter.items(), key=lambda kv: kv[1], reverse=True))
-
     # ---------- 复习调度 ----------
     def apply_schedule(
         self,

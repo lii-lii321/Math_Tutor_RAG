@@ -7,6 +7,7 @@ import streamlit as st
 
 from backend.services.class_service import ClassService
 from frontend.common import get_question_service, go_to, page_header
+from frontend.components import mastery_bar_html
 
 
 def _fmt_time(value: dt.datetime | None) -> str:
@@ -183,13 +184,10 @@ def render_students_page(user: dict) -> None:
                 continue
             for tag, count in sorted(tag_count.items(), key=lambda kv: kv[1], reverse=True)[:10]:
                 st.markdown(
-                    f"""<div class="mm-mastery">
-                        <div class="mm-mastery__row">
-                            <span>{tag}</span><span>{count} 题</span>
-                        </div>
-                        <div class="mm-mastery__track">
-                            <div class="mm-mastery__fill" style="width:{min(count / max(tag_count.values()) * 100, 100)}%"></div>
-                        </div>
-                    </div>""",
+                    mastery_bar_html(
+                        tag,
+                        count / max(tag_count.values()) * 100,
+                        right=f"{count} 题",
+                    ),
                     unsafe_allow_html=True,
                 )
