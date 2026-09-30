@@ -11,7 +11,7 @@ from backend.models.orm import User
 from backend.services.ai import get_ai_service
 from backend.services.ai.base import BaseAIProvider
 from backend.services.ai.mock import MockProvider
-from backend.services.docx_import import extract_docx_text
+from backend.services.docx_import import extract_docx_text, split_by_question_numbers
 from backend.services.question_service import QuestionService
 
 
@@ -242,3 +242,64 @@ class TestAddQuestionsFromDocx:
             chunks.extend(service.ai.split_questions(seg))
         assert len(chunks) == 2 * len(segments)
         assert len(calls) == len(segments), "每段一次 AI 调用"
+
+
+class TestQuestionNumberSplit:
+    def test_numbered_document_splits_deterministically(self):
+        """行首题号 ≥3 且占比合理 → 确定性拆分（零 AI 调用）。"""
+        text = "\n".join(
+            [
+                "月考错题整理",
+                "1. 已知 x^2 = 9，求 x 的值。",
+                "2. 计算 16 的算术平方根。",
+                "3. 化简 (x+1)^2 - (x-1)^2。",
+                "附：以上题目均来自第一次月考。",
+            ]
+        )
+        parts = split_by_question_numbers(text)
+        assert parts is not None and len(parts) == 3
+        assert parts[0].startswith("1.")
+
+    def test_unnumbered_text_returns_none(self):
+        assert split_by_question_numbers("第一段\n\n第二段\n\n第三段") is None
+
+    def test_too_few_numbers_returns_none(self):
+        assert split_by_question_numbers("1. 只有一题\n结尾说明") is None
+
+
+class TestStructuralImportPath:
+    def test_numbered_doc_skips_ai_entirely(self):
+        """题号文档走结构识别：AI 拆题被调用即失败（证明零 AI）。"""
+        init_db(seed_users=True)
+        with SessionLocal() as session:
+            user = User(
+                username=f"docx4_{uuid.uuid4().hex[:8]}", password_hash="x", role="student"
+            )
+            session.add(user)
+            session.commit()
+            session.refresh(user)
+
+        service = QuestionService(session_factory=SessionLocal)
+
+        def _must_not_call(_text):
+            raise AssertionError("题号结构识别路径不应调用 AI 拆题")
+
+        service.ai.split_questions = _must_not_call
+
+        import docx
+
+        buf = io.BytesIO()
+        document = docx.Document()
+        document.add_paragraph("本周整理的三道错题如下：")  # 占比防护：题号行需 < 80%
+        for line in [
+            "1. 已知 x = 1，求 2x。",
+            "2. 已知 x = 2，求 3x。",
+            "3. 已知 x = 3，求 4x。",
+        ]:
+            document.add_paragraph(line)
+        document.save(buf)
+
+        result = service.add_questions_from_docx(user.id, buf.getvalue(), tags=["结构"])
+        assert result["mode"].startswith("题号结构识别")
+        assert result["imported"] == 3
+        assert result["failed_segments"] == 0

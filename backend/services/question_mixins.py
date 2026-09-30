@@ -248,21 +248,38 @@ class EntryMixin:
         hint: str = "",
         max_questions: int = 100,
     ) -> dict:
-        """Word 文档批量导入：提取文本 → 分段 AI 拆题 → 逐题入库。
+        """Word 文档批量导入：提取文本 → 结构识别优先/AI 分段拆题 → 逐题入库。
 
-        长文档按段落边界自动分段（每段 ~4000 字、一次 AI 调用），
-        规避单次输出截断；单次导入上限 max_questions（默认 100 题）。
-        返回 {"total": 拆出题数, "imported": 成功入库数, "items": [QuestionOut]}。
+        拆分策略（借鉴同类项目的确定性优先模式）：
+        1) 行首题号识别成功 → 直接拆题入库，零 AI 调用、零超时风险；
+        2) 识别不到题号 → 按段落边界分段（每段 ~4000 字）走 AI 拆题，
+           单段失败跳过不阻断整批；拆题调用自带重试。
+        返回 {"total", "imported", "items", "mode", "failed_segments"}。
         """
-        from backend.services.docx_import import extract_docx_text
+        from backend.services.docx_import import (
+            extract_docx_text,
+            split_by_question_numbers,
+        )
 
         text = extract_docx_text(docx_bytes)
-        segments = _segment_text(text)
-        logger.info("Word 导入分段：%s 字 → %s 段（%s 次 AI 调用）", len(text), len(segments), len(segments))
 
-        chunks: list[dict] = []
-        for segment in segments:
-            chunks.extend(self.ai.split_questions(segment))
+        mode = "题号结构识别（零 AI 调用）"
+        failed_segments = 0
+        numbered_parts = split_by_question_numbers(text)
+        if numbered_parts:
+            chunks = [
+                {"content": part, "answer": "", "knowledge_points": [], "difficulty": "medium"}
+                for part in numbered_parts
+            ]
+        else:
+            mode = "AI 分段拆题"
+            chunks = []
+            for segment in _segment_text(text):
+                try:
+                    chunks.extend(self.ai.split_questions(segment))
+                except Exception as exc:  # noqa: BLE001 - 单段失败跳过，不阻断整批
+                    failed_segments += 1
+                    logger.warning("分段拆题失败（跳过该段 %s 字）: %s", len(segment), exc)
         if len(chunks) > max_questions:
             logger.warning("拆出 %s 题超过上限，截断为 %s 题", len(chunks), max_questions)
             chunks = chunks[:max_questions]
@@ -283,8 +300,8 @@ class EntryMixin:
                 imported.append(out)
             except Exception as exc:  # noqa: BLE001 - 单题失败不阻断整批
                 logger.warning("Word 导入单题失败: %s", exc)
-        logger.info("Word 导入完成 user=%s 拆出 %s 题，入库 %s 题", user_id, len(chunks), len(imported))
-        return {"total": len(chunks), "imported": len(imported), "items": imported}
+        logger.info("Word 导入完成 user=%s 拆出 %s 题，入库 %s 题（%s，失败段 %s）", user_id, len(chunks), len(imported), mode, failed_segments)
+        return {"total": len(chunks), "imported": len(imported), "items": imported, "mode": mode, "failed_segments": failed_segments}
 
     def create_manual_question(
         self,

@@ -119,21 +119,36 @@ class BaseAIProvider(abc.ABC):
         return parse_analysis(raw)
 
     def split_questions(self, text: str) -> list[dict]:
-        """把结构化文档文本切分为独立错题（Word 导入场景，单次调用省 token）。"""
-        with track_ai_call("split_questions"):
-            raw = self.chat(
-                [
-                    {"role": "system", "content": SPLIT_SYSTEM_PROMPT},
-                    {"role": "user", "content": build_split_prompt(text)},
+        """把结构化文档文本切分为独立错题（Word 导入场景，带重试）。
+
+        长文本生成 JSON 耗时较长，超时/解析失败最多重试 2 次。
+        """
+        last_error: Exception | None = None
+        for attempt in range(1, 3 + 1):
+            try:
+                with track_ai_call("split_questions") as ctx:
+                    raw = self.chat(
+                        [
+                            {"role": "system", "content": SPLIT_SYSTEM_PROMPT},
+                            {"role": "user", "content": build_split_prompt(text)},
+                        ]
+                    )
+                    candidate = extract_json_block(raw)
+                    ctx["ok"] = candidate is not None
+                if candidate is None or not isinstance(candidate.get("questions"), list):
+                    raise AIMessageError("模型未返回可解析的拆题结果")
+                questions = [
+                    q
+                    for q in candidate["questions"]
+                    if isinstance(q, dict) and q.get("content")
                 ]
-            )
-        candidate = extract_json_block(raw)
-        if candidate is None or not isinstance(candidate.get("questions"), list):
-            raise AIMessageError("模型未返回可解析的拆题结果")
-        questions = [q for q in candidate["questions"] if isinstance(q, dict) and q.get("content")]
-        if not questions:
-            raise AIMessageError("拆题结果为空")
-        return questions
+                if not questions:
+                    raise AIMessageError("拆题结果为空")
+                return questions
+            except Exception as exc:  # noqa: BLE001 - 超时/解析失败统一重试
+                last_error = exc
+                logger.warning("拆题第 %s 次失败: %s", attempt, exc)
+        raise AIMessageError(f"拆题失败（已重试）: {last_error}")
 
     def analyze_question(
         self, image_bytes: bytes, mime_type: str = "image/jpeg", hint: str = ""

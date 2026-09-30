@@ -98,8 +98,10 @@ def _render_word_import(service, user) -> None:
                     st.stop()
             st.success(
                 f"✅ 拆出 {result['total']} 题，成功入库 {result['imported']} 题"
-                f"（失败 {result['total'] - result['imported']} 题）"
+                f"（失败 {result['total'] - result['imported']} 题）｜拆分方式：{result.get('mode', 'AI 拆题')}"
             )
+            if result.get("failed_segments"):
+                st.warning(f"有 {result['failed_segments']} 个分段因超时/异常被跳过，可重试导入补齐。")
             for q in result["items"]:
                 badges = "".join(
                     f"<span class='mm-badge'>{t}</span>" for t in q.tags[:3]
