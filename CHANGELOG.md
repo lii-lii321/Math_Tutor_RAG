@@ -2,6 +2,19 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/)。
 
+## [2.12.0] - 2026-10-01
+
+### 新增（家校闭环批次）
+- **教师批注未读红点**：学生错题本顶栏未读横幅 + 列表 🔴N 标记；打开批注区自动清零
+  （已读回执 `comment_read_states` 以批注 ID 为水位线，单调比较不受时间戳同秒精度影响；
+  仅统计教师所发且题目归属本人的批注，仅在有未读时落库避免写放大）。
+  API：`GET /questions/{id}/comments/unread`、`POST /questions/{id}/comments/read`
+- **班级周报**：`WeeklyReportService` 按班级聚合窗口期（1~31 天）学情——新增错题/复习次数/
+  复习正确率/当前待复习（归档口径与 mastered 同源）+ 薄弱知识点 Top3（看板口径 <50%）；
+  Markdown 预览 + Word 一键导出下发家长；API `GET /classes/{id}/weekly-report`（教师专属，
+  非本人班级统一 404）。学生总览页新增「📣 班级周报」入口
+- 迁移 `2c8cbae11edf`；测试 335 → 353 全绿
+
 ## [2.11.0] - 2026-09-29
 
 ### 安全与正确性（专家批次 + 数学验证批次）
