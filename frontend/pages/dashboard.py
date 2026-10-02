@@ -156,6 +156,18 @@ def render_dashboard(user: dict) -> None:
         unsafe_allow_html=True,
     )
 
+    # 今日主线：第一屏直接回答"现在该做什么"（数据全部来自 stats，无需新接口）
+    if stats["due"] > 0:
+        mainline = f"主线任务：先清空 {stats['due']} 道到期题，再巩固 {len(stats['weak_tags'])} 个薄弱知识点"
+    else:
+        mainline = "到期题已清空——去「能力画像」巩固薄弱知识点，或录入一道新错题"
+    st.markdown(
+        f"""<div class="mm-card" style="padding:0.7rem 1.2rem;margin-top:-0.6rem">
+        <strong>🎯 今日主线</strong>　{mainline}
+        </div>""",
+        unsafe_allow_html=True,
+    )
+
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         stat_card(stats["total"], "累计错题", accent=True)

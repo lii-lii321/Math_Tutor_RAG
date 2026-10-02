@@ -137,7 +137,9 @@ def render_review_page(user: dict) -> None:
         """,
         unsafe_allow_html=True,
     )
-    st.progress((st.session_state[idx_key]) / len(due), text=None)
+    # 进度按已完成数计算：首题即为 1/N，消除"进度 0% 但显示 1/N"的自相矛盾
+    done = st.session_state[session_key]["graded"]
+    st.progress(min(done / len(due), 1.0), text=None)
 
     cursor = st.session_state[idx_key]
     question = due[cursor]
