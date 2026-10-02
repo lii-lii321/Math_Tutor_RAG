@@ -4,7 +4,7 @@ from __future__ import annotations
 import streamlit as st
 
 from frontend.common import get_question_service, go_to, page_header
-from frontend.components import mastery_fill_html
+from frontend.components import mastery_fill_html, safe_call
 
 _STATUS_BADGE = {
     "solid": "mm-badge mm-badge--blue",
@@ -54,7 +54,14 @@ def render_mastery_page(user: dict) -> None:
         "知识点掌握度引擎 · 基于复习日志的时间加权评估，自动生成今日加固计划",
     )
 
-    profile = service.mastery_profile(user["id"])
+    ok, profile = safe_call(
+        service.mastery_profile,
+        user["id"],
+        error_title="掌握度数据加载失败",
+    )
+    if not ok:
+        st.stop()
+    profile = profile or []
 
     left, right = st.columns([3, 2], gap="large")
 

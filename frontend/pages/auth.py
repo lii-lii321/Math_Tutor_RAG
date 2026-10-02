@@ -54,8 +54,12 @@ def render_auth_page() -> None:
                 if not username or not password:
                     st.warning("请输入用户名和密码")
                 else:
-                    with get_session() as session:
-                        result = AuthService(session).login(username, password)
+                    try:
+                        with get_session() as session:
+                            result = AuthService(session).login(username, password)
+                    except Exception as exc:  # noqa: BLE001 - DB 故障不打登录页
+                        st.error(f"⚠️ 登录服务暂时不可用，请稍后重试（{type(exc).__name__}）")
+                        st.stop()
                     if result.ok:
                         login_user(result.user_id, result.username, result.role)
                         st.rerun()
@@ -88,7 +92,11 @@ def render_auth_page() -> None:
                         st.error(f"输入不合法：{exc}")
                         st.stop()
                     with get_session() as session:
-                        result = AuthService(session).register(payload)
+                        try:
+                            result = AuthService(session).register(payload)
+                        except Exception as exc:  # noqa: BLE001 - DB 故障不打注册页
+                            st.error(f"⚠️ 注册服务暂时不可用，请稍后重试（{type(exc).__name__}）")
+                            st.stop()
                     if result.ok:
                         login_user(result.user_id, result.username, result.role)
                         st.rerun()

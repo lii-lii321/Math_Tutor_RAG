@@ -106,5 +106,12 @@ def test_followup_chat_on_question(page, _sample_jpeg):
             key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
         })()"""
     )
-    # 发送后 st.rerun 会重新折叠面板 → 回复在 DOM 中但隐藏，attached 即可
-    page.wait_for_selector("text=已收到你的追问", timeout=30000, state="attached")
+    # 发送后 st.rerun 会重新折叠面板 → 回复在 DOM 中但隐藏，attached 即可。
+    # 与提供商无关：真实 Key 时回复是模型生成，不包含演示模式固定文案。
+    page.wait_for_selector(
+        "text=为什么判别式要大于等于零？", timeout=30000, state="attached"
+    )
+    page.wait_for_function(
+        """() => document.querySelectorAll('[data-testid="stChatMessage"]').length >= 2""",
+        timeout=60000,
+    )

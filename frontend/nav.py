@@ -17,22 +17,25 @@ class NavPage:
     key: str
     label: str
     teacher_only: bool = False
+    group: str = "learn"  # today / learn / explore —— 侧边栏三组分层
 
 
 # 有序注册表，即侧边栏展示顺序；teacher_only 项由 app.py 插在「知识图谱」之前
 PAGES: tuple[NavPage, ...] = (
-    NavPage("dashboard", t("nav.dashboard")),
-    NavPage("tutor", t("nav.tutor")),
-    NavPage("notebook", t("nav.notebook")),
-    NavPage("review", t("nav.review")),
-    NavPage("students", t("nav.students"), teacher_only=True),
-    NavPage("graph", t("nav.graph")),
-    NavPage("mastery", t("nav.mastery")),
-    NavPage("assistant", t("nav.assistant")),
-    NavPage("settings", t("nav.settings")),
+    NavPage("dashboard", t("nav.dashboard"), group="today"),
+    NavPage("review", t("nav.review"), group="today"),
+    NavPage("tutor", t("nav.tutor"), group="learn"),
+    NavPage("notebook", t("nav.notebook"), group="learn"),
+    NavPage("mastery", t("nav.mastery"), group="learn"),
+    NavPage("students", t("nav.students"), teacher_only=True, group="learn"),
+    NavPage("graph", t("nav.graph"), group="explore"),
+    NavPage("assistant", t("nav.assistant"), group="explore"),
+    NavPage("settings", t("nav.settings"), group="explore"),
 )
 
 PAGE_KEYS: frozenset[str] = frozenset(page.key for page in PAGES)
+
+GROUP_LABELS: dict[str, str] = {"today": "今天", "learn": "学习", "explore": "探索"}
 
 
 def resolve_label(page_key: str) -> str:

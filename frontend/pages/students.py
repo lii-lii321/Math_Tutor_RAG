@@ -6,7 +6,7 @@ import datetime as dt
 import streamlit as st
 
 from backend.services.class_service import ClassService
-from frontend.common import get_question_service, go_to, page_header
+from frontend.common import get_question_service, go_to, page_header, stat_card
 from frontend.components import mastery_bar_html
 
 
@@ -143,6 +143,9 @@ def render_students_page(user: dict) -> None:
     except PermissionError:
         st.error("仅教师可以查看学生总览。")
         st.stop()
+    except Exception as exc:  # noqa: BLE001 - 页面层兜底
+        st.error(f"⚠️ 学生数据加载失败：{exc}")
+        st.stop()
 
     name_to_id = {r["username"]: r["user_id"] for r in rows}
     classes = class_service.list_for_teacher(user["id"])
@@ -171,26 +174,11 @@ def render_students_page(user: dict) -> None:
     active_students = len([r for r in rows if r["total"] > 0])
     c1, c2, c3 = st.columns(3)
     with c1:
-        st.markdown(
-            f"""<div class="mm-stat mm-stat--accent">
-            <div class="mm-stat__value">{len(rows)}</div>
-            <div class="mm-stat__label">学生总数（活跃 {active_students}）</div></div>""",
-            unsafe_allow_html=True,
-        )
+        stat_card(len(rows), f"学生总数（活跃 {active_students}）", accent=True)
     with c2:
-        st.markdown(
-            f"""<div class="mm-stat">
-            <div class="mm-stat__value">{total_questions}</div>
-            <div class="mm-stat__label">累计错题</div></div>""",
-            unsafe_allow_html=True,
-        )
+        stat_card(total_questions, "累计错题")
     with c3:
-        st.markdown(
-            f"""<div class="mm-stat">
-            <div class="mm-stat__value">{total_due}</div>
-            <div class="mm-stat__label">待复习</div></div>""",
-            unsafe_allow_html=True,
-        )
+        stat_card(total_due, "待复习")
 
     st.markdown("<br>", unsafe_allow_html=True)
 

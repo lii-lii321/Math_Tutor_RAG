@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+from pathlib import Path
 
 from PIL import Image
 
@@ -61,17 +62,20 @@ def test_isolation_between_users(question_service, db_session, student_user):
 def test_persist_image_compresses_large_images(question_service, student_user):
     from PIL import Image
 
+    from backend.utils.paths import resolve_image_path
+
     big = Image.new("RGB", (2400, 1200), (10, 60, 130))
     stream = io.BytesIO()
     big.save(stream, format="JPEG", quality=95)
     raw_size = len(stream.getvalue())
 
     saved, _ = question_service.analyze_and_save(student_user.id, stream.getvalue())
-    with Image.open(saved.image_path) as stored:
+    # image_path 现在存 data_dir 相对路径（换机可移植），读取时解析回绝对路径
+    assert not Path(saved.image_path).is_absolute()
+    image_abs = resolve_image_path(saved.image_path)
+    with Image.open(image_abs) as stored:
         assert max(stored.size) <= 1600
-    import os
-
-    assert os.path.getsize(saved.image_path) < raw_size
+    assert image_abs.stat().st_size < raw_size
 
 
 def test_analyze_and_save_dedup_returns_existing(question_service, student_user, db_session):

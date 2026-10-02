@@ -1,11 +1,25 @@
-"""主题：深色模式（会话级切换，注入 CSS 覆盖）。"""
+"""主题：深色模式（会话级切换，通过重定义 CSS 变量对实现，而非逐组件打补丁）。
+
+新组件/新页面只引用 style.css 里的变量（--card/--ink/--line/--bg 等），
+深色主题只需重定义变量即可整体适配，不再需要 20 条 !important 逐组件覆盖。
+"""
 from __future__ import annotations
 
 import streamlit as st
 
 _DARK_CSS = """
 <style>
-/* MUJI 深色主题（会话级覆盖） */
+/* MUJI 深色主题：重定义变量对 + 少量结构性覆盖 */
+:root, .stApp {
+  --bg: #0f172a;
+  --card: #1e293b;
+  --navy: #f1f5f9;
+  --slate: #e2e8f0;
+  --slate-light: #94a3b8;
+  --border: #334155;
+  --muted: #94a3b8;
+  --blue-soft: #172554;
+}
 .stApp { background: #0f172a; color: #e2e8f0; }
 section[data-testid="stSidebar"] { background: #1e293b; border-right-color: #334155; }
 h1, h2, h3, h4 { color: #f1f5f9 !important; }

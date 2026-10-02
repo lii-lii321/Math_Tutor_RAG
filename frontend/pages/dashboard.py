@@ -7,13 +7,17 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from backend.services.mastery import SHAKY_THRESHOLD, WEAK_THRESHOLD
-from frontend.common import get_question_service, go_to, page_header, provider_badges, stat_card
+from frontend.common import (
+    get_question_service,
+    go_to,
+    mastery_color,
+    page_header,
+    provider_badges,
+    stat_card,
+)
 from frontend.components import mastery_bar_html
 
 _BLUE = "#2563eb"
-
-_MASTERY_COLORS = {"weak": "#d97706", "mid": "#2563eb", "good": "#059669"}
 
 
 def _picked_tag(event) -> str | None:
@@ -26,15 +30,6 @@ def _picked_tag(event) -> str | None:
             if value:
                 return str(value[0] if isinstance(value, list) else value)
     return None
-
-
-def mastery_color(mastery: float) -> str:
-    """颜色档位与后端掌握度引擎同源（WEAK/SHAKY 阈值）。"""
-    if mastery < WEAK_THRESHOLD:
-        return _MASTERY_COLORS["weak"]
-    if mastery < SHAKY_THRESHOLD:
-        return _MASTERY_COLORS["mid"]
-    return _MASTERY_COLORS["good"]
 
 
 def _render_calendar(calendar: dict) -> None:

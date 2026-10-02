@@ -2,11 +2,11 @@
 from __future__ import annotations
 
 import datetime as dt
-import os
 
 import streamlit as st
 
 from backend.services.review import GRADE_ORDER, format_interval
+from backend.utils.paths import resolve_image_path
 from frontend.common import (
     edit_question_form,
     get_question_service,
@@ -15,7 +15,7 @@ from frontend.common import (
     page_header,
     pop_params,
 )
-from frontend.components import GRADE_LABELS
+from frontend.components import GRADE_LABELS, safe_call
 
 
 def render_review_page(user: dict) -> None:
@@ -38,11 +38,22 @@ def render_review_page(user: dict) -> None:
     )
     if rebuild:
         if plan_mode:
-            plan = service.today_plan(user["id"], size=12)
+            ok, plan = safe_call(
+                service.today_plan, user["id"], size=12,
+                error_title="今日计划生成失败",
+            )
+            if not ok:
+                st.stop()
             st.session_state[queue_key] = [item.question for item in plan]
             st.session_state[reasons_key] = {item.question.id: item.reason for item in plan}
         else:
-            st.session_state[queue_key] = service.due_questions(user["id"])
+            ok, due_list = safe_call(
+                service.due_questions, user["id"],
+                error_title="复习队列加载失败",
+            )
+            if not ok:
+                st.stop()
+            st.session_state[queue_key] = due_list
             st.session_state[reasons_key] = {}
     due = st.session_state.get(queue_key, [])
     reasons = st.session_state.get(reasons_key, {})
@@ -152,9 +163,11 @@ def render_review_page(user: dict) -> None:
                 last = last.replace(tzinfo=dt.timezone.utc)
             days_ago = (dt.datetime.now(dt.timezone.utc) - last).days
             st.caption(f"上次复习：{days_ago} 天前 · 已连续记牢 {question.reps} 次")
-        if question.image_path and os.path.exists(question.image_path):
-            st.image(question.image_path, width="stretch")
-        elif question.image_path:
+        stored = question.image_path
+        image_abs = resolve_image_path(stored)
+        if image_abs and image_abs.exists():
+            st.image(str(image_abs), width="stretch")
+        elif stored:
             st.markdown(question.content_markdown[:220], unsafe_allow_html=True)
             st.caption("⚠️ 原图文件缺失（可能已迁移目录），请参考解析文字")
         else:

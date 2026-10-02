@@ -8,14 +8,15 @@ from __future__ import annotations
 
 import datetime as dt
 import io
-import os
 from typing import Literal
 
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Inches, Pt
+from PIL import Image
 
 from backend.models.schemas import QuestionOut
+from backend.utils.paths import resolve_image_path
 
 ExportMode = Literal["redo", "detailed"]
 
@@ -46,14 +47,17 @@ def generate_word_exam(
         )
         run.bold = True
 
-        if question.image_path and os.path.exists(question.image_path):
+        image_abs = resolve_image_path(question.image_path)
+        if image_abs and image_abs.exists():
             try:
-                doc.add_picture(question.image_path, width=Inches(4.2))
+                doc.add_picture(str(image_abs), width=Inches(4.2))
             except Exception:  # noqa: BLE001 - 图片损坏不阻断导出
                 doc.add_paragraph("(原图缺失)")
         elif not question.image_path:
             body = doc.add_paragraph()
             body.add_run(question.content_markdown[:600])
+        else:
+            doc.add_paragraph("(原图缺失，题面文本如上不可用时见详解)")
 
         if mode == "detailed":
             doc.add_paragraph()
@@ -138,9 +142,14 @@ def generate_pdf_exam(
                 body_style,
             )
         )
-        if question.image_path and os.path.exists(question.image_path):
+        image_abs = resolve_image_path(question.image_path)
+        if image_abs and image_abs.exists():
             try:
-                story.append(RLImage(question.image_path, width=10 * cm, height=7 * cm))
+                with Image.open(image_abs) as _im:
+                    ratio = _im.height / max(_im.width, 1)
+                story.append(
+                    RLImage(str(image_abs), width=10 * cm, height=10 * cm * ratio)
+                )
             except Exception:  # noqa: BLE001 - 图片损坏不阻断导出
                 story.append(Paragraph("(原图缺失)", body_style))
         else:

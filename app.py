@@ -60,7 +60,8 @@ _TEACHER_PAGES = {page.label: page.key for page in PAGES if page.teacher_only}
 
 
 def _render_sidebar(user: dict) -> str:
-    from frontend.common import initials
+    from frontend.common import get_question_service, initials
+    from frontend.nav import GROUP_LABELS
 
     visible = dict(_PAGES)
     if user.get("role") == "teacher":
@@ -72,6 +73,13 @@ def _render_sidebar(user: dict) -> str:
         )
         ordered[insert_at:insert_at] = list(_TEACHER_PAGES.items())
         visible = dict(ordered)
+
+    # 今日复习待办数（仅当 >0 时显示徽标）
+    due_count = 0
+    try:
+        due_count = len(get_question_service().due_questions(user["id"]))
+    except Exception:  # noqa: BLE001 - 侧边栏徽标失败不影响主界面
+        pass
 
     with st.sidebar:
         st.markdown(
@@ -86,8 +94,28 @@ def _render_sidebar(user: dict) -> str:
         pending = st.session_state.pop("_pending_nav", None)  # 必须在菜单实例化前写入其 key
         if pending:
             st.session_state["nav"] = pending
+
+        def _label_with_badge(label: str, key: str) -> str:
+            if key == "review" and due_count > 0:
+                return f"{label} · {due_count}"
+            return label
+
+        # 按 nav.py 的 group 分三组渲染：今天 / 学习 / 探索
+        items: list[sac.MenuItem] = []
+        for group in ("today", "learn", "explore"):
+            children = [
+                sac.MenuItem(_label_with_badge(label, key))
+                for label, key in visible.items()
+                if any(
+                    page.label == label and page.group == group
+                    for page in PAGES
+                    if not page.teacher_only or user.get("role") == "teacher"
+                )
+            ]
+            if children:
+                items.append(sac.MenuItem(GROUP_LABELS[group], children=children))
         menu = sac.menu(
-            [sac.MenuItem(label) for label in visible],
+            items,
             format_func="title",
             color="#2563eb",
             variant="light",
@@ -114,7 +142,9 @@ def _render_sidebar(user: dict) -> str:
             logout_user()
             st.rerun()
     all_pages = {**visible}
-    return all_pages.get(menu or t("nav.dashboard"), "dashboard")
+    selected = menu or t("nav.dashboard")
+    # 组标题点击返回组名——忽略并回退到看板；子项点击返回页面标签本身
+    return all_pages.get(selected, "dashboard")
 
 
 def main() -> None:

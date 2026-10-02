@@ -64,9 +64,16 @@ class DataHealthService:
 
     def check(self, user_id: int) -> dict:
         """全量体检：返回可直出的报告字典（各项均带 human 可读文案）。"""
+        from backend.utils.paths import resolve_image_path
+
         questions = self._questions(user_id)
         db_ids = {q.id for q in questions}
-        referenced_images = {q.image_path for q in questions if q.image_path}
+        # 存储端可能是相对路径或历史绝对路径——统一解析回绝对再做引用比对
+        referenced_images = {
+            str(resolve_image_path(q.image_path).resolve())
+            for q in questions
+            if q.image_path
+        }
 
         report: dict = {
             "question_count": len(questions),
@@ -97,7 +104,7 @@ class DataHealthService:
         total_orphan_bytes = 0
         if images_dir.exists():
             for path in images_dir.iterdir():
-                if path.is_file() and str(path) not in referenced_images:
+                if path.is_file() and str(path.resolve()) not in referenced_images:
                     orphans.append(str(path))
                     total_orphan_bytes += path.stat().st_size
         report["orphan_images"] = orphans

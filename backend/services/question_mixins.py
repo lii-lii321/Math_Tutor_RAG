@@ -37,6 +37,7 @@ from backend.services.stats import (
     weekly_report,
 )
 from backend.utils.logging import get_logger
+from backend.utils.paths import to_stored_path
 
 if TYPE_CHECKING:  # pragma: no cover
     from sqlalchemy.orm import Session, sessionmaker
@@ -388,7 +389,7 @@ class EntryMixin:
                 tags=tags,
                 difficulty=analysis.difficulty,
                 followup_question=analysis.followup_question,
-                image_path=str(image_path),
+                image_path=to_stored_path(image_path),
                 ocr_text=ocr_text,
                 image_hash=image_hash,
                 verification=verification,

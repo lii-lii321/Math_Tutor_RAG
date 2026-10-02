@@ -1,12 +1,34 @@
-"""可复用的展示组件：错题详情视图、重测按钮、变式题入库、命中高亮。"""
+"""可复用的展示组件：错题详情视图、安全调用、错误降级、掌握度原语。"""
 from __future__ import annotations
 
 import html
-import os
 
 import streamlit as st
 
+from backend.utils.logging import get_logger
+from backend.utils.paths import resolve_image_path
+
+logger = get_logger("ui")
+
 GRADE_LABELS = {"again": "😵 忘了", "hard": "😅 勉强", "good": "🙂 记得", "easy": "😎 秒懂"}
+
+
+def error_card(title: str, detail: str | None = None, *, expander: bool = True) -> None:
+    """统一的错误降级卡：用户看到可读文案，原始细节折叠进 expander。"""
+    st.error(f"⚠️ {title}")
+    if detail and expander:
+        with st.expander("技术详情（供排查）"):
+            st.code(detail)
+
+
+def safe_call(fn, *args, error_title: str = "加载失败，请稍后重试", **kwargs):
+    """服务调用安全包装：异常转为 error_card 降级，返回 (ok, result)。"""
+    try:
+        return True, fn(*args, **kwargs)
+    except Exception as exc:  # noqa: BLE001 - 页面层兜底，避免 traceback 打屏
+        logger.warning("safe_call %s 失败: %s", getattr(fn, "__name__", fn), exc)
+        error_card(error_title, str(exc))
+        return False, None
 
 
 def mastery_fill_html(pct: float, color: str = "#2563eb") -> str:
@@ -38,8 +60,9 @@ def question_detail_view(q, show_hit: bool = True) -> None:
     """
     img_col, content_col = st.columns([2, 3])
     with img_col:
-        if q.image_path and os.path.exists(q.image_path):
-            st.image(q.image_path, width="stretch")
+        image_abs = resolve_image_path(q.image_path)
+        if image_abs and image_abs.exists():
+            st.image(str(image_abs), width="stretch")
         else:
             st.caption("无原图（手动录入）")
         badges = " ".join(f"<span class='mm-badge'>{t}</span>" for t in q.tags)

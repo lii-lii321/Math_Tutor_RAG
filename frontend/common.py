@@ -50,6 +50,39 @@ def stat_card(value, label: str, accent: bool = False) -> None:
     )
 
 
+def badge(text: str, tone: str = "") -> str:
+    """语义徽章原语：tone ∈ {"", "blue", "warn", "bad", "ok"}；返回 HTML 供拼接。"""
+    cls = f"mm-badge mm-badge--{tone}" if tone else "mm-badge"
+    return f"<span class='{cls}'>{text}</span>"
+
+
+def empty_state(icon: str, title: str, action_label: str | None = None, action_key: str | None = None) -> bool:
+    """统一空状态：图标 + 标题 + 可选下一步按钮。点击按钮返回 True。"""
+    st.markdown(
+        f"""
+        <div class="mm-empty">
+            <div class="mm-empty__icon">{icon}</div>
+            <div>{title}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    if action_label and action_key:
+        return st.button(action_label, key=action_key, width="stretch")
+    return False
+
+
+def mastery_color(mastery: float) -> str:
+    """掌握度 → 颜色的唯一映射（阈值与后端引擎同源，全站共用）。"""
+    from backend.services.mastery import SHAKY_THRESHOLD, WEAK_THRESHOLD
+
+    if mastery < WEAK_THRESHOLD:
+        return "var(--weak)"
+    if mastery < SHAKY_THRESHOLD:
+        return "var(--shaky)"
+    return "var(--good)"
+
+
 def provider_badges() -> str:
     info = get_provider_status()
     if info.demo_mode:

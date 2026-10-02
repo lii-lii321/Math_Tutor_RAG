@@ -8,6 +8,7 @@ from streamlit_agraph import Config, Edge, Node, agraph
 
 from backend.services.mastery import mastery_status
 from frontend.common import get_question_service, go_to, page_header
+from frontend.components import safe_call
 
 _MASTERY_NODE_COLORS = {
     "weak": "#dc2626",  # 薄弱
@@ -31,14 +32,22 @@ def render_graph_page(user: dict) -> None:
         "标签共现网络 · 节点大小=错题数，颜色=掌握度（🔴薄弱 🟡不稳固 🔵已掌握 ⚪无数据）",
     )
 
-    questions = service.list_questions(user["id"], include_others=user["role"] == "teacher")
+    ok, questions = safe_call(
+        service.list_questions,
+        user["id"],
+        include_others=user["role"] == "teacher",
+        error_title="错题数据加载失败",
+    )
+    if not ok:
+        st.stop()
     if not questions:
         st.info("还没有错题，先去「AI 录题」上传几张错题照片，图谱会随错题积累自动生长。")
         return
 
-    tag_mastery: dict[str, float] = {
-        s.tag: s.mastery for s in service.dashboard_stats(user["id"])["tag_stats"]
-    }
+    ok, stats = safe_call(service.dashboard_stats, user["id"], error_title="掌握度数据加载失败")
+    tag_mastery: dict[str, float] = (
+        {s.tag: s.mastery for s in stats["tag_stats"]} if ok and stats else {}
+    )
 
     tag_count: dict[str, int] = {}
     edge_count: dict[tuple[str, str], int] = {}

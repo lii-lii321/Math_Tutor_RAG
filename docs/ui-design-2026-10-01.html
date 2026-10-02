@@ -1,0 +1,1640 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MathMaster Edu · 界面重设计方案 v1.0</title>
+<style>
+/* ============================================================
+   MathMaster Edu — UI 重设计方案（设计稿专用样式）
+   仅用于呈现设计意图，不进入产品代码。
+   ============================================================ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+:root {
+  /* —— 品牌与中性色 —— */
+  --navy:      #16294a;
+  --navy-2:    #1e3a5f;
+  --ink:       #1f2937;
+  --slate:     #475569;
+  --slate-2:   #64748b;
+  --muted:     #94a3b8;
+  --line:      #e5e7eb;
+  --line-soft: #f1f5f9;
+  --bg:        #f7f8fa;
+  --card:      #ffffff;
+
+  /* —— 语义色（掌握度三档，贯穿全站） —— */
+  --brand:      #2563eb;
+  --brand-soft: #eff6ff;
+  --brand-line: #bfdbfe;
+
+  --weak:      #dc2626;   /* 薄弱 */
+  --weak-soft: #fef2f2;
+  --weak-line: #fecaca;
+
+  --shaky:     #d97706;   /* 不稳固 */
+  --shaky-soft:#fffbeb;
+  --shaky-line:#fde68a;
+
+  --good:      #059669;   /* 已掌握 */
+  --good-soft: #ecfdf5;
+  --good-line: #a7f3d0;
+
+  /* —— 尺度 —— */
+  --r-sm: 8px;
+  --r:    12px;
+  --r-lg: 16px;
+  --r-pill: 999px;
+
+  --sh-sm: 0 1px 2px rgba(16,24,40,.05);
+  --sh-md: 0 4px 14px rgba(16,24,40,.08);
+  --sh-lg: 0 16px 40px rgba(16,24,40,.14);
+
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+          "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --mono: "SF Mono", "Cascadia Mono", Consolas, monospace;
+}
+
+body {
+  margin: 0;
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.6;
+}
+
+/* ================= 文档外壳 ================= */
+.doc { max-width: 1360px; margin: 0 auto; padding: 48px 32px 96px; }
+
+.doc-head { border-bottom: 2px solid var(--navy); padding-bottom: 24px; margin-bottom: 40px; }
+.doc-head h1 { font-size: 30px; margin: 0 0 6px; color: var(--navy); letter-spacing: -.02em; }
+.doc-head .sub { color: var(--slate-2); font-size: 15px; margin: 0; }
+.doc-head .meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+
+.pill {
+  display: inline-block; font-size: 12px; padding: 3px 10px;
+  border-radius: var(--r-pill); border: 1px solid var(--line);
+  background: var(--card); color: var(--slate-2);
+}
+.pill--brand { background: var(--brand-soft); border-color: var(--brand-line); color: var(--brand); }
+.pill--good  { background: var(--good-soft);  border-color: var(--good-line);  color: var(--good); }
+.pill--weak  { background: var(--weak-soft);  border-color: var(--weak-line);  color: var(--weak); }
+.pill--shaky { background: var(--shaky-soft); border-color: var(--shaky-line); color: var(--shaky); }
+
+h2.sec {
+  font-size: 21px; color: var(--navy); margin: 56px 0 6px;
+  padding-bottom: 10px; border-bottom: 1px solid var(--line);
+  display: flex; align-items: baseline; gap: 10px;
+}
+h2.sec .n {
+  font-size: 12px; font-weight: 700; color: var(--brand);
+  background: var(--brand-soft); border-radius: 6px;
+  padding: 2px 8px; letter-spacing: .06em;
+}
+.sec-lead { color: var(--slate-2); font-size: 14.5px; margin: 0 0 22px; max-width: 900px; }
+
+h3.sub-h { font-size: 16px; color: var(--navy); margin: 30px 0 12px; }
+
+/* ================= 区块 ================= */
+.panel {
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--r-lg); padding: 24px; box-shadow: var(--sh-sm);
+}
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+@media (max-width: 1000px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+
+/* —— 问题卡 —— */
+.issue {
+  background: var(--card); border: 1px solid var(--line);
+  border-left: 3px solid var(--weak); border-radius: var(--r);
+  padding: 16px 18px;
+}
+.issue h4 { margin: 0 0 6px; font-size: 14.5px; color: var(--navy); display: flex; align-items: center; gap: 8px; }
+.issue p { margin: 0; font-size: 13.5px; color: var(--slate); }
+.issue code {
+  font-family: var(--mono); font-size: 12px; background: var(--line-soft);
+  padding: 1px 5px; border-radius: 4px; color: var(--navy-2);
+}
+.sev {
+  font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 5px;
+  letter-spacing: .04em; flex: none;
+}
+.sev--p0 { background: var(--weak-soft); color: var(--weak); border: 1px solid var(--weak-line); }
+.sev--p1 { background: var(--shaky-soft); color: var(--shaky); border: 1px solid var(--shaky-line); }
+.sev--p2 { background: var(--line-soft); color: var(--slate-2); border: 1px solid var(--line); }
+
+/* —— Before 截图 —— */
+.shot { border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; background: var(--card); box-shadow: var(--sh-sm); }
+.shot img { display: block; width: 100%; height: auto; }
+.shot figcaption { padding: 10px 14px; font-size: 12.5px; color: var(--slate-2); border-top: 1px solid var(--line); background: var(--line-soft); }
+.shot-wrap { display: grid; grid-template-columns: 1fr; gap: 8px; }
+
+/* —— Token 表 —— */
+.token-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.token-table th, .token-table td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.token-table th { background: var(--line-soft); font-weight: 600; color: var(--navy); font-size: 12.5px; letter-spacing: .03em; }
+.token-table code { font-family: var(--mono); font-size: 12px; color: var(--navy-2); }
+.swatch { display: inline-block; width: 16px; height: 16px; border-radius: 5px; vertical-align: -3px; margin-right: 8px; border: 1px solid rgba(0,0,0,.08); }
+.swatch--lg { width: 40px; height: 40px; border-radius: 9px; vertical-align: -12px; }
+
+/* ================= 成品 mockup ================= */
+.stage { border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; box-shadow: var(--sh-lg); background: var(--card); }
+.stage-bar {
+  display: flex; align-items: center; gap: 8px; padding: 10px 16px;
+  background: var(--line-soft); border-bottom: 1px solid var(--line);
+}
+.dot { width: 10px; height: 10px; border-radius: 50%; }
+.stage-url {
+  flex: 1; text-align: center; font-size: 12px; color: var(--muted);
+  font-family: var(--mono); background: var(--card);
+  border: 1px solid var(--line); border-radius: var(--r-pill);
+  padding: 3px 14px; margin: 0 12px;
+}
+
+.app { display: grid; grid-template-columns: 236px 1fr; min-height: 860px; background: var(--bg); }
+
+/* —— 侧边栏 —— */
+.sb { background: var(--card); border-right: 1px solid var(--line); padding: 20px 14px; display: flex; flex-direction: column; }
+.sb-brand { padding: 0 10px 18px; }
+.sb-brand .logo { display: flex; align-items: center; gap: 9px; font-weight: 700; color: var(--navy); font-size: 15.5px; letter-spacing: -.01em; }
+.sb-brand .mark {
+  width: 28px; height: 28px; border-radius: 8px; flex: none;
+  background: linear-gradient(135deg, var(--navy), #2c5a92);
+  color: #fff; display: grid; place-items: center; font-size: 14px; font-weight: 700;
+}
+.sb-brand .tag { font-size: 11.5px; color: var(--muted); margin-top: 5px; padding-left: 37px; }
+
+.sb-group { margin-top: 16px; }
+.sb-group__label {
+  font-size: 10.5px; font-weight: 700; color: var(--muted);
+  letter-spacing: .1em; padding: 0 12px 7px; text-transform: uppercase;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+  border-radius: var(--r-sm); font-size: 13.5px; color: var(--slate);
+  cursor: default; transition: background .12s;
+}
+.nav-item:hover { background: var(--line-soft); }
+.nav-item--active { background: var(--brand-soft); color: var(--brand); font-weight: 600; }
+.nav-item .ico { width: 18px; text-align: center; font-size: 14px; flex: none; }
+.nav-item .cnt {
+  margin-left: auto; font-size: 11px; font-weight: 700; color: #fff;
+  background: var(--brand); border-radius: var(--r-pill); padding: 1px 7px; min-width: 20px; text-align: center;
+}
+.nav-item .cnt--muted { background: var(--line); color: var(--slate-2); }
+
+.sb-user { margin-top: auto; border-top: 1px solid var(--line); padding-top: 14px; }
+.sb-user .row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; }
+.avatar {
+  width: 34px; height: 34px; border-radius: 50%; background: var(--brand-soft);
+  color: var(--brand); display: grid; place-items: center;
+  font-weight: 700; font-size: 13px; flex: none;
+}
+.sb-user .nm { font-size: 13.5px; font-weight: 600; color: var(--ink); line-height: 1.3; }
+.sb-user .rl { font-size: 11.5px; color: var(--muted); }
+
+/* —— 主区 —— */
+.main { padding: 28px 32px 40px; overflow: hidden; }
+.page-head { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 20px; gap: 20px; }
+.page-head h2 { font-size: 24px; color: var(--navy); margin: 0 0 3px; letter-spacing: -.02em; }
+.page-head .desc { font-size: 13.5px; color: var(--slate-2); margin: 0; }
+
+/* —— 今日行动卡 —— */
+.hero {
+  background: linear-gradient(120deg, var(--navy) 0%, #234a7d 100%);
+  border-radius: var(--r-lg); padding: 22px 26px; color: #fff;
+  display: grid; grid-template-columns: 1fr auto; gap: 26px; align-items: center;
+  margin-bottom: 18px;
+}
+.hero h3 { margin: 0 0 4px; font-size: 19px; color: #fff; font-weight: 650; }
+.hero p { margin: 0; font-size: 13.5px; color: rgba(255,255,255,.8); }
+.hero .kpis { display: flex; gap: 22px; margin-top: 14px; }
+.hero .kpi .n { font-size: 20px; font-weight: 700; line-height: 1.1; }
+.hero .kpi .l { font-size: 11.5px; color: rgba(255,255,255,.66); margin-top: 2px; }
+.hero-cta { text-align: right; }
+.btn {
+  display: inline-flex; align-items: center; gap: 7px; justify-content: center;
+  padding: 10px 20px; border-radius: var(--r-sm); font-size: 13.5px; font-weight: 600;
+  border: 1px solid var(--line); background: var(--card); color: var(--slate);
+  cursor: default; transition: all .12s;
+}
+.btn--primary { background: var(--brand); border-color: var(--brand); color: #fff; box-shadow: 0 2px 10px rgba(37,99,235,.3); }
+.btn--lg { padding: 13px 26px; font-size: 14.5px; }
+.btn--ghost { background: transparent; border-color: rgba(255,255,255,.28); color: #fff; }
+.btn--sm { padding: 6px 12px; font-size: 12.5px; font-weight: 500; }
+
+/* —— Metric 条 —— */
+.metrics {
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 0;
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--r); margin-bottom: 20px; overflow: hidden;
+}
+.metric { padding: 14px 18px; border-right: 1px solid var(--line); position: relative; }
+.metric:last-child { border-right: none; }
+.metric .v { font-size: 23px; font-weight: 700; color: var(--navy); line-height: 1.15; letter-spacing: -.02em; }
+.metric .v small { font-size: 12px; font-weight: 500; color: var(--muted); margin-left: 2px; }
+.metric .l { font-size: 12px; color: var(--slate-2); margin-top: 3px; display: flex; align-items: center; gap: 4px; }
+.metric .d { font-size: 11.5px; font-weight: 600; }
+.d--up { color: var(--good); } .d--dn { color: var(--weak); } .d--flat { color: var(--muted); }
+
+/* —— 通用卡 —— */
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 18px 20px; }
+.card--pad0 { padding: 0; overflow: hidden; }
+.card-h { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.card-h h4 { margin: 0; font-size: 14.5px; color: var(--navy); font-weight: 650; }
+.card-h .hint { font-size: 12px; color: var(--muted); }
+.card-h a { font-size: 12.5px; color: var(--brand); text-decoration: none; font-weight: 500; }
+
+.cols { display: grid; gap: 18px; }
+.cols--23 { grid-template-columns: 1.6fr 1fr; }
+.cols--12 { grid-template-columns: 1fr 1.5fr; }
+
+/* —— 今日计划队列 —— */
+.queue { display: flex; flex-direction: column; }
+.q-item {
+  display: grid; grid-template-columns: 52px 1fr auto; gap: 14px; align-items: center;
+  padding: 12px 0; border-bottom: 1px solid var(--line-soft);
+}
+.q-item:last-child { border-bottom: none; }
+.q-thumb {
+  width: 52px; height: 52px; border-radius: var(--r-sm); object-fit: cover;
+  background: var(--line-soft); border: 1px solid var(--line); flex: none;
+  display: grid; place-items: center; font-size: 17px;
+}
+.q-main .t { font-size: 13.5px; color: var(--ink); font-weight: 550; margin-bottom: 5px; line-height: 1.4; }
+.q-main .m { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.q-side { text-align: right; }
+
+.badge {
+  display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: var(--r-pill);
+  border: 1px solid var(--line); color: var(--slate-2); background: var(--card); line-height: 1.55;
+}
+.badge--brand { color: var(--brand); border-color: var(--brand-line); background: var(--brand-soft); }
+.badge--weak  { color: var(--weak);  border-color: var(--weak-line);  background: var(--weak-soft); }
+.badge--shaky { color: var(--shaky); border-color: var(--shaky-line); background: var(--shaky-soft); }
+.badge--good  { color: var(--good);  border-color: var(--good-line);  background: var(--good-soft); }
+
+.reason { font-size: 11.5px; color: var(--slate-2); margin-top: 5px; display: flex; align-items: center; gap: 4px; }
+.reason b { color: var(--shaky); font-weight: 600; }
+
+/* —— 掌握度环 —— */
+.ring-row { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; }
+.ring { position: relative; width: 84px; height: 84px; flex: none; }
+.ring svg { transform: rotate(-90deg); }
+.ring .txt {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  font-size: 20px; font-weight: 700; color: var(--navy); letter-spacing: -.02em;
+}
+.ring-info .big { font-size: 14px; color: var(--ink); font-weight: 600; margin-bottom: 5px; }
+.ring-info .sm { font-size: 12.5px; color: var(--slate-2); line-height: 1.65; }
+
+/* —— 掌握度条 —— */
+.mbar { margin-bottom: 13px; }
+.mbar:last-child { margin-bottom: 0; }
+.mbar .row { display: flex; justify-content: space-between; font-size: 12.5px; margin-bottom: 5px; }
+.mbar .row .nm { color: var(--slate); }
+.mbar .row .nm span { color: var(--muted); font-size: 11.5px; }
+.mbar .row .pc { font-weight: 650; }
+.mbar .track { height: 7px; background: var(--line-soft); border-radius: var(--r-pill); overflow: hidden; }
+.mbar .fill { height: 100%; border-radius: var(--r-pill); }
+.f-weak { background: var(--weak); } .f-shaky { background: var(--shaky); }
+.f-mid { background: var(--brand); } .f-good { background: var(--good); }
+
+/* —— 工具条 —— */
+.toolbar {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 16px;
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--r); padding: 10px 14px;
+}
+.search {
+  flex: 1; display: flex; align-items: center; gap: 9px;
+  background: var(--bg); border: 1px solid var(--line);
+  border-radius: var(--r-sm); padding: 8px 13px; font-size: 13.5px; color: var(--muted);
+}
+.search .ico { color: var(--muted); font-size: 14px; }
+.seg { display: flex; background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 2px; }
+.seg span { padding: 5px 13px; border-radius: 6px; font-size: 12.5px; color: var(--slate-2); }
+.seg span.on { background: var(--card); color: var(--brand); font-weight: 600; box-shadow: var(--sh-sm); }
+
+.chips { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px;
+  padding: 5px 12px; border-radius: var(--r-pill); border: 1px solid var(--line);
+  background: var(--card); color: var(--slate-2);
+}
+.chip--on { background: var(--brand-soft); border-color: var(--brand-line); color: var(--brand); font-weight: 550; }
+.chip--on .x { color: var(--brand); opacity: .6; }
+.chip--add { border-style: dashed; color: var(--muted); }
+
+/* —— 错题卡网格 —— */
+.qgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.qcard {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--r);
+  overflow: hidden; transition: box-shadow .15s, border-color .15s;
+}
+.qcard:hover { box-shadow: var(--sh-md); border-color: #d1d5db; }
+.qcard__img { height: 132px; background: var(--line-soft); position: relative; overflow: hidden; }
+.qcard__img .ph { position: absolute; inset: 0; display: grid; place-items: center; font-size: 30px; color: var(--muted); }
+.qcard__img .mark {
+  position: absolute; top: 9px; left: 9px; background: rgba(255,255,255,.94);
+  border-radius: 6px; padding: 2px 8px; font-size: 11px; font-weight: 650; color: var(--navy);
+  box-shadow: var(--sh-sm);
+}
+.qcard__img .due {
+  position: absolute; top: 9px; right: 9px; background: rgba(255,255,255,.94);
+  border-radius: 6px; padding: 2px 8px; font-size: 11px; font-weight: 600;
+  box-shadow: var(--sh-sm); color: var(--shaky);
+}
+.qcard__img .due--ok { color: var(--good); }
+.qcard__img .due--good { color: var(--good); }
+.qcard__img .star { position: absolute; bottom: 9px; right: 9px; font-size: 14px; }
+.qcard__body { padding: 12px 14px 14px; }
+.qcard__tags { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 9px; min-height: 22px; }
+.qcard__foot { display: flex; align-items: center; justify-content: space-between; margin-top: 11px; padding-top: 11px; border-top: 1px solid var(--line-soft); }
+.qcard__foot .d { font-size: 11.5px; color: var(--muted); }
+.mini-ring { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 650; }
+.mini-ring .ring { width: 22px; height: 22px; }
+.qcard__chk { position: absolute; top: 9px; left: 9px; }
+.chk { width: 17px; height: 17px; border-radius: 5px; border: 1.5px solid #cbd5e1; background: #fff; display: grid; place-items: center; font-size: 11px; color: #fff; }
+.chk--on { background: var(--brand); border-color: var(--brand); }
+
+/* —— 批量操作浮条 —— */
+.bulkbar {
+  position: sticky; bottom: 0; margin-top: 18px;
+  background: var(--navy); color: #fff; border-radius: var(--r);
+  padding: 11px 18px; display: flex; align-items: center; gap: 12px;
+  box-shadow: var(--sh-lg);
+}
+.bulkbar .n { font-size: 13.5px; font-weight: 600; }
+.bulkbar .sp { flex: 1; }
+
+/* —— 分页 —— */
+.pager { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 24px; }
+.pager .pg { font-size: 12.5px; color: var(--slate-2); }
+
+/* ================= 复习页 ================= */
+.review-wrap { max-width: 780px; margin: 0 auto; }
+.rv-progress { display: flex; align-items: center; gap: 16px; margin-bottom: 22px; }
+.rv-progress .bar { flex: 1; height: 7px; background: var(--line); border-radius: var(--r-pill); overflow: hidden; }
+.rv-progress .bar i { display: block; height: 100%; background: var(--brand); border-radius: var(--r-pill); }
+.rv-progress .cnt { font-size: 13px; color: var(--slate-2); font-weight: 600; }
+.rv-progress .cnt b { color: var(--navy); }
+
+.flash {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg);
+  overflow: hidden; box-shadow: var(--sh-sm);
+}
+.flash__top { display: flex; align-items: center; gap: 8px; padding: 13px 20px; border-bottom: 1px solid var(--line-soft); }
+.flash__body { padding: 24px 28px; }
+.flash__q {
+  font-size: 15.5px; color: var(--ink); line-height: 1.75; margin-bottom: 20px;
+  padding: 16px 18px; background: var(--bg); border-radius: var(--r);
+  border-left: 3px solid var(--brand);
+}
+.flash__img {
+  height: 260px; background: var(--line-soft); border: 1px solid var(--line);
+  border-radius: var(--r); display: grid; place-items: center; color: var(--muted); font-size: 13px;
+}
+.flash__ans { margin-top: 18px; padding-top: 18px; border-top: 1px dashed var(--line); }
+.flash__ans h5 { margin: 0 0 10px; font-size: 13px; color: var(--good); font-weight: 650; }
+.flash__ans .line { font-size: 13.5px; color: var(--slate); line-height: 1.8; }
+
+.grade { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 18px; }
+.grade button {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--r);
+  padding: 13px 8px; text-align: center; cursor: default; transition: all .12s;
+}
+.grade button:hover { border-color: var(--brand); background: var(--brand-soft); transform: translateY(-2px); }
+.grade .em { font-size: 21px; display: block; margin-bottom: 4px; }
+.grade .nm { font-size: 13px; font-weight: 600; color: var(--navy); }
+.grade .nx { font-size: 11px; color: var(--muted); margin-top: 3px; }
+.grade .key {
+  display: inline-block; font-family: var(--mono); font-size: 10px; color: var(--muted);
+  border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; margin-top: 6px;
+}
+
+/* —— 错误边界 —— */
+.errcard {
+  background: var(--shaky-soft); border: 1px solid var(--shaky-line);
+  border-radius: var(--r); padding: 20px 22px; text-align: center;
+}
+.errcard .ic { font-size: 26px; margin-bottom: 8px; }
+.errcard h5 { margin: 0 0 6px; font-size: 15px; color: #92400e; }
+.errcard p { margin: 0 0 14px; font-size: 13px; color: #a16207; }
+.errcard .detail {
+  text-align: left; font-family: var(--mono); font-size: 11px; color: #92400e;
+  background: rgba(255,255,255,.6); border-radius: var(--r-sm); padding: 10px 12px; margin-bottom: 14px;
+  max-height: 96px; overflow: hidden; line-height: 1.65;
+}
+
+/* ================= 录题页 ================= */
+.dropzone {
+  border: 2px dashed #cbd5e1; border-radius: var(--r-lg); padding: 44px 30px;
+  text-align: center; background: var(--card); transition: all .15s;
+}
+.dropzone .ic { font-size: 40px; margin-bottom: 12px; }
+.dropzone h4 { margin: 0 0 6px; font-size: 16px; color: var(--navy); }
+.dropzone p { margin: 0 0 18px; font-size: 13px; color: var(--slate-2); }
+
+.thumbs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 16px; }
+.thumb {
+  border: 1px solid var(--line); border-radius: var(--r-sm); overflow: hidden;
+  background: var(--card); position: relative;
+}
+.thumb .ph { height: 92px; background: var(--line-soft); display: grid; place-items: center; font-size: 26px; color: var(--muted); }
+.thumb .st { padding: 8px 10px; display: flex; align-items: center; justify-content: space-between; font-size: 11.5px; }
+.thumb .ok { color: var(--good); font-weight: 600; }
+.thumb .wait { color: var(--shaky); font-weight: 600; }
+.thumb .x { position: absolute; top: 6px; right: 6px; width: 19px; height: 19px; border-radius: 50%; background: rgba(15,23,42,.62); color: #fff; display: grid; place-items: center; font-size: 11px; }
+
+.result {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--r);
+  overflow: hidden; margin-top: 18px;
+}
+.result__h { padding: 14px 20px; border-bottom: 1px solid var(--line-soft); display: flex; align-items: center; gap: 10px; }
+.result__b { padding: 18px 20px; }
+.sect-h { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--navy); font-weight: 650; margin: 16px 0 8px; }
+.sect-h:first-child { margin-top: 0; }
+.sect-h .n { width: 20px; height: 20px; border-radius: 6px; background: var(--brand-soft); color: var(--brand); font-size: 11px; display: grid; place-items: center; }
+.sect-b { font-size: 13.5px; color: var(--slate); line-height: 1.8; padding-left: 28px; }
+
+/* —— 提示条 —— */
+.notice {
+  display: flex; align-items: flex-start; gap: 10px; font-size: 13px;
+  padding: 12px 16px; border-radius: var(--r); margin-bottom: 16px; line-height: 1.6;
+}
+.notice--shaky { background: var(--shaky-soft); border: 1px solid var(--shaky-line); color: #92400e; }
+.notice--brand { background: var(--brand-soft); border: 1px solid var(--brand-line); color: #1e40af; }
+
+/* —— 标注气泡 —— */
+.callout {
+  background: var(--brand-soft); border: 1px dashed var(--brand-line);
+  border-radius: var(--r); padding: 12px 16px; font-size: 13px; color: #1e3a8a;
+  margin-bottom: 18px; line-height: 1.7;
+}
+.callout b { color: var(--navy); }
+
+kbd {
+  font-family: var(--mono); font-size: 11px; border: 1px solid var(--line);
+  border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px;
+  background: var(--card); color: var(--slate);
+}
+
+/* ================= 页签 ================= */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 28px; overflow-x: auto; }
+.tab {
+  padding: 10px 18px; font-size: 14px; color: var(--slate-2); cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; font-weight: 500;
+}
+.tab:hover { color: var(--ink); }
+.tab.on { color: var(--navy); border-bottom-color: var(--brand); font-weight: 650; }
+.pane { display: none; } .pane.on { display: block; }
+
+/* ================= 前后对比 ================= */
+.ba { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+@media (max-width: 1000px) { .ba { grid-template-columns: 1fr; } }
+.ba__col > .lbl { font-size: 12px; font-weight: 700; letter-spacing: .08em; margin-bottom: 9px; text-transform: uppercase; }
+.ba__col--before .lbl { color: var(--weak); }
+.ba__col--after .lbl { color: var(--good); }
+
+/* —— 线框 —— */
+.wire { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; }
+.wire .bar { height: 9px; border-radius: 5px; background: var(--line); margin-bottom: 8px; }
+.wire .blk { background: var(--line-soft); border: 1px dashed #cbd5e1; border-radius: var(--r-sm); padding: 12px; text-align: center; font-size: 12px; color: var(--muted); }
+.wire .red { background: var(--weak-soft); border: 1px dashed var(--weak-line); color: var(--weak); border-radius: var(--r-sm); padding: 8px; text-align: center; font-size: 11.5px; font-weight: 600; }
+.wire .grp { border: 1px solid var(--weak-line); border-radius: var(--r); padding: 10px; margin-bottom: 10px; background: #fffafa; }
+.wire .grp > .t { font-size: 11px; font-weight: 700; color: var(--weak); margin-bottom: 7px; }
+
+footer.doc-foot {
+  margin-top: 70px; padding-top: 22px; border-top: 1px solid var(--line);
+  font-size: 12.5px; color: var(--muted); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+}
+</style>
+</head>
+<body>
+<div class="doc">
+
+  <!-- ============ 头部 ============ -->
+  <header class="doc-head">
+    <h1>MathMaster Edu · 界面重设计方案</h1>
+    <p class="sub">从「功能平铺」走向「任务驱动」—— 一次针对信息架构、视觉层级与交互密度的整体重做</p>
+    <div class="meta">
+      <span class="pill pill--brand">v1.0 设计稿</span>
+      <span class="pill">2026-10-01</span>
+      <span class="pill">范围：4 个核心页面 + 全局设计系统</span>
+      <span class="pill">落地方式：Streamlit CSS + 组件重排</span>
+    </div>
+  </header>
+
+  <!-- ============ 0. 结论 ============ -->
+  <h2 class="sec"><span class="n">00</span>一句话结论</h2>
+  <p class="sec-lead">
+    现有界面的问题<strong>不在配色，而在信息架构</strong>。MUJI 配色本身是干净耐看的，但九个平级菜单、
+    六个等权重图表、以及占满首屏的筛选器，把「今天该干什么」这个唯一重要的问题淹没在了功能列表里。
+    本方案不改品牌色，只改<strong>层级、密度与顺序</strong>。
+  </p>
+
+  <div class="grid-3">
+    <div class="panel">
+      <div class="pill pill--weak" style="margin-bottom:10px">P0 · 体验事故</div>
+      <h3 class="sub-h" style="margin-top:0">复习页直接崩溃</h3>
+      <p style="font-size:13.5px;color:var(--slate);margin:0">
+        截图 <code style="font-family:var(--mono);font-size:12px">docs/screenshots/review.png</code> 显示，
+        图片读取失败时整个 Python traceback 被原样渲染到闪卡上。
+        根因是 <code style="font-family:var(--mono);font-size:12px">frontend/pages/review.py:101</code> 直接
+        <code style="font-family:var(--mono);font-size:12px">st.image()</code>，且图片路径存的是另一台机器的绝对路径。
+        <strong>这是唯一必须立刻修的</strong>。
+      </p>
+    </div>
+    <div class="panel">
+      <div class="pill pill--shaky" style="margin-bottom:10px">P1 · 效率损失</div>
+      <h3 class="sub-h" style="margin-top:0">错题本要滚过一屏才看到题</h3>
+      <p style="font-size:13.5px;color:var(--slate);margin:0">
+        五个 toggle + 两个下拉 + 搜索框组成的筛选区占掉首屏约 60%，
+        真正的题目列表被推到折叠线以下。分页器还放在了列表<strong>上方</strong>，视线要来回跳。
+      </p>
+    </div>
+    <div class="panel">
+      <div class="pill pill--shaky" style="margin-bottom:10px">P1 · 决策缺失</div>
+      <h3 class="sub-h" style="margin-top:0">看板给数据不给结论</h3>
+      <p style="font-size:13.5px;color:var(--slate);margin:0">
+        六个图表（知识点分布 / 薄弱知识点 / 录入趋势 / 学习日历 / 正确率 / 难度）纵向平铺，
+        全部同权重。学生看到「18 道待复习」之后，<strong>不知道先做哪一道</strong>。
+      </p>
+    </div>
+  </div>
+
+  <!-- ============ 1. 现状诊断 ============ -->
+  <h2 class="sec"><span class="n">01</span>现状诊断</h2>
+  <p class="sec-lead">
+    下面是四张真实截图（取自 <code style="font-family:var(--mono);font-size:12.5px">docs/screenshots/</code>，v2.9.0）。
+    截图暴露的问题与代码位置一一对应。
+  </p>
+
+  <div class="ba">
+    <div class="ba__col ba__col--before">
+      <div class="lbl">现状 · 学情看板</div>
+      <figure class="shot" style="margin:0">
+        <img src="screenshots/dashboard.png" alt="现状学情看板" loading="lazy">
+        <figcaption>欢迎横幅吃掉 1/4 屏；4 张统计卡 + 4 个操作按钮 = 8 个等权重盒子；下方图表继续平铺</figcaption>
+      </figure>
+    </div>
+    <div class="ba__col ba__col--before">
+      <div class="lbl">现状 · 错题本</div>
+      <figure class="shot" style="margin:0">
+        <img src="screenshots/notebook.png" alt="现状错题本" loading="lazy">
+        <figcaption>筛选区占首屏大半；列表项是一行纯文本，7 种信息挤在一起，无缩略图</figcaption>
+      </figure>
+    </div>
+  </div>
+
+  <div class="ba" style="margin-top:18px">
+    <div class="ba__col ba__col--before">
+      <div class="lbl">现状 · 今日复习（崩溃态）</div>
+      <figure class="shot" style="margin:0">
+        <img src="screenshots/review.png" alt="现状复习页崩溃" loading="lazy">
+        <figcaption>MediaFileStorageError 原文直接打屏；上方还留着一个空白色块和一个空输入框</figcaption>
+      </figure>
+    </div>
+    <div class="ba__col ba__col--before">
+      <div class="lbl">现状 · AI 录题</div>
+      <figure class="shot" style="margin:0">
+        <img src="screenshots/tutor.png" alt="现状录题页" loading="lazy">
+        <figcaption>上传框是一个 40px 高的原生控件；右侧参数区空着；下方 45% 屏幕完全浪费</figcaption>
+      </figure>
+    </div>
+  </div>
+
+  <h3 class="sub-h">逐条问题清单</h3>
+  <div class="grid-2">
+    <div class="issue">
+      <h4><span class="sev sev--p0">P0</span> 没有错误边界</h4>
+      <p>任何 IO 异常都会把 Python traceback 渲染到页面上。<code>st.image()</code>、<code>service.*()</code>
+         全无 try 包裹，用户看到的是开发者信息，不是产品信息。</p>
+    </div>
+    <div class="issue">
+      <h4><span class="sev sev--p0">P0</span> 图片路径不可移植</h4>
+      <p>数据库里存的是 <code>C:\Users\liyun\.zcode\workspace\...</code> 绝对路径，
+         换机器即失效。截图里已经在报错。</p>
+    </div>
+    <div class="issue">
+      <h4><span class="sev sev--p1">P1</span> 导航无主次</h4>
+      <p>九个菜单平铺，「AI 录题」（核心动作）与「设置」（低频）视觉权重相同。
+         没有"今天该做什么"的入口。</p>
+    </div>
+    <div class="issue">
+      <h4><span class="sev sev--p1">P1</span> 筛选器吃掉首屏</h4>
+      <p>错题本首屏 60% 是筛选项。5 个 toggle 并排堆叠，视觉噪音大且默认全关，等于白占空间。</p>
+    </div>
+    <div class="issue">
+      <h4><span class="sev sev--p1">P1</span> 列表项信息无分层</h4>
+      <p>expander 标题把到期标记、星标、标签、难度、日期、掌握度、未读批注共 7 类信息
+         串成一行纯文本，扫读成本极高。</p>
+    </div>
+    <div class="issue">
+      <h4><span class="sev sev--p1">P1</span> 图表等权重平铺</h4>
+      <p>六个 Plotly 图同尺寸同位置堆叠，看板纵向长到需要大量滚动，核心指标被稀释。</p>
+    </div>
+    <div class="issue">
+      <h4><span class="sev sev--p2">P2</span> 语言不统一</h4>
+      <p>难度直出 <code>easy / medium / hard</code>，角色直出 <code>student</code>，
+         导航曾在 i18n 里写成 "Ai 录题"（现已修为 "AI 录题"）。</p>
+    </div>
+    <div class="issue">
+      <h4><span class="sev sev--p2">P2</span> 深色模式是覆盖式</h4>
+      <p><code>frontend/theme.py</code> 用 20 条 <code>!important</code> 逐个组件打补丁，
+         组件增加后必然漏改。应该改成 CSS 变量双套。</p>
+    </div>
+  </div>
+
+  <!-- ============ 2. 设计原则 ============ -->
+  <h2 class="sec"><span class="n">02</span>四条设计原则</h2>
+  <p class="sec-lead">这四条决定了后面所有取舍。改版过程中如果出现冲突，按优先级从上往下判。</p>
+
+  <div class="grid-2">
+    <div class="panel">
+      <h3 class="sub-h" style="margin-top:0"><span class="pill pill--brand">原则 1</span> 任务优先于功能</h3>
+      <p style="font-size:13.5px;color:var(--slate);margin:0">
+        用户打开应用的第一问是「今天该复习什么」，不是「这个应用有哪些功能」。
+        看板第一屏必须给出<strong>可执行的下一步</strong>，而不是一堆数字。
+        功能入口退居侧边栏。
+      </p>
+    </div>
+    <div class="panel">
+      <h3 class="sub-h" style="margin-top:0"><span class="pill pill--brand">原则 2</span> 数据必须可扫读</h3>
+      <p style="font-size:13.5px;color:var(--slate);margin:0">
+        一行文本里超过 3 类信息就该拆开。掌握度用色环+颜色编码，
+        状态用图标，颜色只承载<strong>一个含义</strong>（红=薄弱 / 琥珀=待复习 / 绿=已掌握）。
+      </p>
+    </div>
+    <div class="panel">
+      <h3 class="sub-h" style="margin-top:0"><span class="pill pill--brand">原则 3</span> 默认折叠次要</h3>
+      <p style="font-size:13.5px;color:var(--slate);margin:0">
+        筛选项、导出格式、难度分布这类低频操作不该常驻。
+        收进抽屉或 <code>⋯</code> 菜单，用 chip 显式回显当前生效的条件。
+      </p>
+    </div>
+    <div class="panel">
+      <h3 class="sub-h" style="margin-top:0"><span class="pill pill--brand">原则 4</span> 保留 MUJI 骨相</h3>
+      <p style="font-size:13.5px;color:var(--slate);margin:0">
+        现有配色克制、无紫、无炫技动效，这个判断是对的，本方案<strong>予以保留</strong>。
+        改的是层级与密度，不是审美口味。
+      </p>
+    </div>
+  </div>
+
+  <!-- ============ 3. 设计系统 ============ -->
+  <h2 class="sec"><span class="n">03</span>设计系统升级</h2>
+  <p class="sec-lead">
+    现有 <code style="font-family:var(--mono);font-size:12.5px">frontend/assets/style.css</code>
+    的变量体系是对的，缺的是<strong>语义色层</strong>和<strong>深色模式变量对</strong>。
+    以下 token 全部可以平移到现有 CSS，不需要重写。
+  </p>
+
+  <h3 class="sub-h">3.1 色彩：新增三档掌握度语义色</h3>
+  <table class="token-table">
+    <thead><tr><th style="width:190px">Token</th><th style="width:130px">值</th><th>语义</th></tr></thead>
+    <tbody>
+      <tr><td><span class="swatch swatch--lg" style="background:#16294a"></span><code>--navy</code></td><td><code>#16294a</code></td><td>品牌深色：标题、Hero、主按钮底色（较原 #1a365d 略深，压得住大色块）</td></tr>
+      <tr><td><span class="swatch swatch--lg" style="background:#2563eb"></span><code>--brand</code></td><td><code>#2563eb</code></td><td>交互蓝：可点击元素、当前选中态、进度</td></tr>
+      <tr><td><span class="swatch swatch--lg" style="background:#dc2626"></span><code>--weak</code></td><td><code>#dc2626</code></td><td><strong>新增</strong> 薄弱（掌握度 &lt; 50%）——与后端 <code>WEAK_THRESHOLD</code> 同源</td></tr>
+      <tr><td><span class="swatch swatch--lg" style="background:#d97706"></span><code>--shaky</code></td><td><code>#d97706</code></td><td><strong>新增</strong> 不稳固（50%–75%）/ 待复习——与 <code>SHAKY_THRESHOLD</code> 同源</td></tr>
+      <tr><td><span class="swatch swatch--lg" style="background:#059669"></span><code>--good</code></td><td><code>#059669</code></td><td><strong>新增</strong> 已掌握（&gt; 75%）/ 验证通过</td></tr>
+      <tr><td><span class="swatch swatch--lg" style="background:#f7f8fa"></span><code>--bg</code></td><td><code>#f7f8fa</code></td><td>页面底色（较 #f8fafc 略暖，接近纸张）</td></tr>
+    </tbody>
+  </table>
+  <div class="callout" style="margin-top:16px">
+    <b>关键约束：</b>三档色只用于表达掌握度/状态，<strong>不用于装饰</strong>。
+    一个界面上红色出现超过 3 处，就说明层级出了问题 —— 应该把它折叠进「薄弱」筛选里，而不是全量铺开。
+  </div>
+
+  <h3 class="sub-h">3.2 深色模式：从覆盖式改为变量对</h3>
+  <div class="grid-2">
+    <div class="wire">
+      <div class="grp">
+        <div class="t">现状 · 20 条 !important 逐个打补丁</div>
+        <div class="bar" style="width:70%"></div>
+        <div class="bar" style="width:90%"></div>
+        <div class="bar" style="width:55%"></div>
+        <div class="red">新增组件 → 忘记加规则 → 深色下变白底黑字</div>
+      </div>
+    </div>
+    <div class="wire">
+      <div class="grp" style="border-color:var(--good-line);background:#f6fffb">
+        <div class="t" style="color:var(--good)">方案 · 一套变量，双主题</div>
+        <div style="font-family:var(--mono);font-size:11.5px;color:var(--slate);line-height:1.9">
+          :root { --card:#fff; --ink:#1f2937; --line:#e5e7eb; }<br>
+          [data-theme="dark"] {<br>
+          &nbsp;&nbsp;--card:#1a2333; --ink:#e2e8f0; --line:#2d3a4f;<br>
+          }
+        </div>
+        <div class="red" style="border-color:var(--good-line);color:var(--good);background:var(--good-soft)">
+          新组件只用变量 → 自动适配双主题
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 4. 成品 ============ -->
+  <h2 class="sec"><span class="n">04</span>成品设计稿</h2>
+  <p class="sec-lead">四张高保真成品。侧边栏与顶栏在四页之间保持一致，可直接对比。</p>
+
+  <div class="tabs" id="tabs">
+    <div class="tab on" data-t="p-dash">① 学情看板（Today）</div>
+    <div class="tab" data-t="p-notebook">② 错题本</div>
+    <div class="tab" data-t="p-review">③ 今日复习</div>
+    <div class="tab" data-t="p-tutor">④ AI 录题</div>
+  </div>
+
+  <!-- ---------- 成品 1：看板 ---------- -->
+  <div class="pane on" id="p-dash">
+    <div class="callout">
+      <b>改了什么：</b>欢迎横幅 → <b>今日行动卡</b>（把「18 道待复习」直接变成可点的开始按钮）；
+      4 张统计卡 + 4 个操作按钮（8 个盒子）→ <b>1 行 metric 条</b>（5 个数字，无边框）；
+      六个平铺图表 → <b>2 个主图 + 今日计划队列</b>，其余收进「更多数据」折叠区。
+      侧边栏按「今天 / 学习 / 探索」分组。
+    </div>
+
+    <div class="stage">
+      <div class="stage-bar">
+        <span class="dot" style="background:#ff5f57"></span>
+        <span class="dot" style="background:#febc2e"></span>
+        <span class="dot" style="background:#28c840"></span>
+        <span class="stage-url">localhost:8501</span>
+      </div>
+      <div class="app">
+        <!-- 侧边栏 -->
+        <aside class="sb">
+          <div class="sb-brand">
+            <div class="logo"><span class="mark">M</span>MathMaster</div>
+            <div class="tag">视觉大模型 × RAG 错题本</div>
+          </div>
+
+          <div class="sb-group">
+            <div class="sb-group__label">今天</div>
+            <div class="nav-item nav-item--active"><span class="ico">◎</span>学情看板</div>
+            <div class="nav-item"><span class="ico">◷</span>今日复习<span class="cnt">18</span></div>
+          </div>
+
+          <div class="sb-group">
+            <div class="sb-group__label">学习</div>
+            <div class="nav-item"><span class="ico">⬆</span>AI 录题</div>
+            <div class="nav-item"><span class="ico">▤</span>错题本</div>
+            <div class="nav-item"><span class="ico">◔</span>能力画像</div>
+          </div>
+
+          <div class="sb-group">
+            <div class="sb-group__label">探索</div>
+            <div class="nav-item"><span class="ico">⁙</span>知识图谱</div>
+            <div class="nav-item"><span class="ico">✦</span>AI 助手</div>
+          </div>
+
+          <div class="sb-user">
+            <div class="row">
+              <div class="avatar">DE</div>
+              <div><div class="nm">demo</div><div class="rl">学生</div></div>
+            </div>
+            <div class="nav-item" style="margin-top:4px"><span class="ico">⚙</span>设置</div>
+          </div>
+        </aside>
+
+        <!-- 主区 -->
+        <main class="main">
+          <div class="page-head">
+            <div>
+              <h2>晚上好，demo</h2>
+              <p class="desc">今天有 <strong style="color:var(--navy)">18 道</strong>错题到期待复习，其中 6 道已逾期 3 天以上</p>
+            </div>
+            <div style="display:flex;gap:8px">
+              <span class="pill pill--shaky">演示模式 · 未配置 API Key</span>
+            </div>
+          </div>
+
+          <!-- 今日行动卡 -->
+          <div class="hero">
+            <div>
+              <h3>今天的主线：清掉 6 道逾期题</h3>
+              <p>预计 12 分钟。完成后连续学习将达 <strong style="color:#fff">8 天</strong>。</p>
+              <div class="kpis">
+                <div class="kpi"><div class="n">18</div><div class="l">待复习</div></div>
+                <div class="kpi"><div class="n">6</div><div class="l">已逾期</div></div>
+                <div class="kpi"><div class="n">3</div><div class="l">薄弱知识点</div></div>
+                <div class="kpi"><div class="n">7</div><div class="l">连续学习(天)</div></div>
+              </div>
+            </div>
+            <div class="hero-cta">
+              <div class="btn btn--lg" style="background:#fff;color:var(--navy);border-color:#fff">▶ 开始今日复习</div>
+              <div style="font-size:11.5px;color:rgba(255,255,255,.6);margin-top:8px">
+                <kbd>空格</kbd> 开始 · <kbd>1</kbd>–<kbd>4</kbd> 评分
+              </div>
+            </div>
+          </div>
+
+          <!-- Metric 条 -->
+          <div class="metrics">
+            <div class="metric"><div class="v">128</div><div class="l">累计错题</div></div>
+            <div class="metric"><div class="v">42</div><div class="l">涉及知识点</div></div>
+            <div class="metric"><div class="v">110</div><div class="l">已复习</div></div>
+            <div class="metric">
+              <div class="v">18</div>
+              <div class="l">待复习 <span class="d d--dn">▼ 4</span></div>
+            </div>
+            <div class="metric">
+              <div class="v">86<small>%</small></div>
+              <div class="l">整体掌握度 <span class="d d--up">▲ 3%</span></div>
+            </div>
+          </div>
+
+          <!-- 主区两栏 -->
+          <div class="cols cols--23">
+            <!-- 今日计划队列 -->
+            <div class="card card--pad0">
+              <div class="card-h" style="padding:16px 20px 12px;margin:0">
+                <h4>今日复习队列</h4>
+                <a href="#" style="font-size:12.5px">查看全部 18 道 →</a>
+              </div>
+              <div style="padding:0 20px 6px">
+                <div class="queue">
+                  <div class="q-item">
+                    <div class="q-thumb">📐</div>
+                    <div class="q-main">
+                      <div class="t">一元二次方程判别式判断 · 已知实数根求参数范围</div>
+                      <div class="m">
+                        <span class="badge badge--weak">薄弱 18%</span>
+                        <span class="badge">一元二次方程</span>
+                        <span class="badge">判别式</span>
+                      </div>
+                      <div class="reason">推荐理由：<b>已逾期 5 天</b> · 掌握度低于 30%</div>
+                    </div>
+                    <div class="q-side"><span class="badge badge--shaky">⏰ 逾期 5 天</span></div>
+                  </div>
+
+                  <div class="q-item">
+                    <div class="q-thumb">📐</div>
+                    <div class="q-main">
+                      <div class="t">相似三角形判定：两角对应相等的证明</div>
+                      <div class="m">
+                        <span class="badge badge--weak">薄弱 32%</span>
+                        <span class="badge">几何</span>
+                        <span class="badge">相似三角形</span>
+                      </div>
+                      <div class="reason">推荐理由：<b>SM-2 到期</b> · 间隔 3 天</div>
+                    </div>
+                    <div class="q-side"><span class="badge">今天到期</span></div>
+                  </div>
+
+                  <div class="q-item">
+                    <div class="q-thumb">🔢</div>
+                    <div class="q-main">
+                      <div class="t">一次函数与反比例函数交点坐标求解</div>
+                      <div class="m">
+                        <span class="badge badge--shaky">不稳固 58%</span>
+                        <span class="badge">代数运算</span>
+                      </div>
+                      <div class="reason">推荐理由：本周录入 <b>3 次</b> · 属于薄弱知识点群</div>
+                    </div>
+                    <div class="q-side"><span class="badge">今天到期</span></div>
+                  </div>
+
+                  <div class="q-item">
+                    <div class="q-thumb">📊</div>
+                    <div class="q-main">
+                      <div class="t">圆周角定理的应用 · 直径所对圆周角为直角</div>
+                      <div class="m">
+                        <span class="badge badge--shaky">不稳固 61%</span>
+                        <span class="badge">几何</span>
+                        <span class="badge badge--brand">⭐ 已星标</span>
+                      </div>
+                      <div class="reason">推荐理由：<b>星标题</b> · SM-2 到期</div>
+                    </div>
+                    <div class="q-side"><span class="badge">今天到期</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 右栏 -->
+            <div style="display:flex;flex-direction:column;gap:18px">
+              <div class="card">
+                <div class="card-h"><h4>掌握度总览</h4><span class="hint">近 30 天</span></div>
+                <div class="ring-row">
+                  <div class="ring">
+                    <svg width="84" height="84" viewBox="0 0 84 84">
+                      <circle cx="42" cy="42" r="34" fill="none" stroke="#f1f5f9" stroke-width="9"/>
+                      <circle cx="42" cy="42" r="34" fill="none" stroke="#059669" stroke-width="9"
+                              stroke-linecap="round" stroke-dasharray="184 214"/>
+                    </svg>
+                    <div class="txt">86%</div>
+                  </div>
+                  <div class="ring-info">
+                    <div class="big">良好 · 保持节奏</div>
+                    <div class="sm">
+                      已掌握 <b style="color:var(--good)">72</b> 题<br>
+                      不稳固 <b style="color:var(--shaky)">38</b> 题<br>
+                      薄弱 <b style="color:var(--weak)">18</b> 题
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-h"><h4>薄弱知识点 Top 3</h4><a href="#">全部 →</a></div>
+                <div class="mbar">
+                  <div class="row"><span class="nm">一元二次方程 <span>6 题</span></span><span class="pc" style="color:var(--weak)">18%</span></div>
+                  <div class="track"><div class="fill f-weak" style="width:18%"></div></div>
+                </div>
+                <div class="mbar">
+                  <div class="row"><span class="nm">相似三角形 <span>4 题</span></span><span class="pc" style="color:var(--weak)">32%</span></div>
+                  <div class="track"><div class="fill f-weak" style="width:32%"></div></div>
+                </div>
+                <div class="mbar">
+                  <div class="row"><span class="nm">代数运算 <span>9 题</span></span><span class="pc" style="color:var(--shaky)">58%</span></div>
+                  <div class="track"><div class="fill f-shaky" style="width:58%"></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 折叠的次要数据 -->
+          <details style="margin-top:18px">
+            <summary style="cursor:pointer;font-size:13.5px;color:var(--slate-2);padding:12px 20px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);font-weight:500">
+              更多数据（学习日历 · 正确率趋势 · 难度分布 · 知识点分布）
+            </summary>
+            <div class="grid-2" style="margin-top:14px">
+              <div class="card">
+                <div class="card-h"><h4>近 14 天录入</h4></div>
+                <div style="display:flex;align-items:flex-end;gap:6px;height:88px">
+                  <div style="flex:1;height:40%;background:#bfdbfe;border-radius:4px 4px 0 0"></div>
+                  <div style="flex:1;height:65%;background:#93c5fd;border-radius:4px 4px 0 0"></div>
+                  <div style="flex:1;height:28%;background:#bfdbfe;border-radius:4px 4px 0 0"></div>
+                  <div style="flex:1;height:80%;background:var(--brand);border-radius:4px 4px 0 0"></div>
+                  <div style="flex:1;height:50%;background:#93c5fd;border-radius:4px 4px 0 0"></div>
+                  <div style="flex:1;height:22%;background:#bfdbfe;border-radius:4px 4px 0 0"></div>
+                  <div style="flex:1;height:70%;background:#93c5fd;border-radius:4px 4px 0 0"></div>
+                  <div style="flex:1;height:45%;background:#bfdbfe;border-radius:4px 4px 0 0"></div>
+                  <div style="flex:1;height:90%;background:var(--brand);border-radius:4px 4px 0 0"></div>
+                  <div style="flex:1;height:60%;background:#93c5fd;border-radius:4px 4px 0 0"></div>
+                  <div style="flex:1;height:35%;background:#bfdbfe;border-radius:4px 4px 0 0"></div>
+                  <div style="flex:1;height:55%;background:#93c5fd;border-radius:4px 4px 0 0"></div>
+                  <div style="flex:1;height:20%;background:#bfdbfe;border-radius:4px 4px 0 0"></div>
+                  <div style="flex:1;height:48%;background:#93c5fd;border-radius:4px 4px 0 0"></div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-h"><h4>近 90 天学习日历</h4></div>
+                <div style="display:grid;grid-template-columns:repeat(13,1fr);gap:3px">
+                  <!-- 90 格热力 -->
+                  <div style="aspect-ratio:1;background:#e2e8f0;border-radius:2px"></div><div style="aspect-ratio:1;background:#93c5fd;border-radius:2px"></div><div style="aspect-ratio:1;background:#e2e8f0;border-radius:2px"></div><div style="aspect-ratio:1;background:#2563eb;border-radius:2px"></div><div style="aspect-ratio:1;background:#e2e8f0;border-radius:2px"></div><div style="aspect-ratio:1;background:#1a365d;border-radius:2px"></div><div style="aspect-ratio:1;background:#93c5fd;border-radius:2px"></div>
+                  <div style="aspect-ratio:1;background:#e2e8f0;border-radius:2px"></div><div style="aspect-ratio:1;background:#2563eb;border-radius:2px"></div><div style="aspect-ratio:1;background:#e2e8f0;border-radius:2px"></div><div style="aspect-ratio:1;background:#93c5fd;border-radius:2px"></div><div style="aspect-ratio:1;background:#1a365d;border-radius:2px"></div><div style="aspect-ratio:1;background:#e2e8f0;border-radius:2px"></div><div style="aspect-ratio:1;background:#2563eb;border-radius:2px"></div>
+                  <div style="aspect-ratio:1;background:#93c5fd;border-radius:2px"></div><div style="aspect-ratio:1;background:#e2e8f0;border-radius:2px"></div><div style="aspect-ratio:1;background:#1a365d;border-radius:2px"></div><div style="aspect-ratio:1;background:#e2e8f0;border-radius:2px"></div><div style="aspect-ratio:1;background:#93c5fd;border-radius:2px"></div><div style="aspect-ratio:1;background:#2563eb;border-radius:2px"></div><div style="aspect-ratio:1;background:#e2e8f0;border-radius:2px"></div>
+                  <div style="aspect-ratio:1;background:#1a365d;border-radius:2px"></div><div style="aspect-ratio:1;background:#e2e8f0;border-radius:2px"></div><div style="aspect-ratio:1;background:#93c5fd;border-radius:2px"></div><div style="aspect-ratio:1;background:#2563eb;border-radius:2px"></div><div style="aspect-ratio:1;background:#e2e8f0;border-radius:2px"></div><div style="aspect-ratio:1;background:#1a365d;border-radius:2px"></div><div style="aspect-ratio:1;background:#93c5fd;border-radius:2px"></div>
+                  <div style="aspect-ratio:1;background:#e2e8f0;border-radius:2px"></div><div style="aspect-ratio:1;background:#2563eb;border-radius:2px"></div><div style="aspect-ratio:1;background:#93c5fd;border-radius:2px"></div><div style="aspect-ratio:1;background:#1a365d;border-radius:2px"></div><div style="aspect-ratio:1;background:#e2e8f0;border-radius:2px"></div><div style="aspect-ratio:1;background:#93c5fd;border-radius:2px"></div><div style="aspect-ratio:1;background:#2563eb;border-radius:2px"></div>
+                  <div style="aspect-ratio:1;background:#1a365d;border-radius:2px"></div><div style="aspect-ratio:1;background:#e2e8f0;border-radius:2px"></div><div style="aspect-ratio:1;background:#93c5fd;border-radius:2px"></div><div style="aspect-ratio:1;background:#2563eb;border-radius:2px"></div><div style="aspect-ratio:1;background:#e2e8f0;border-radius:2px"></div><div style="aspect-ratio:1;background:#1a365d;border-radius:2px"></div><div style="aspect-ratio:1;background:#93c5fd;border-radius:2px"></div>
+                  <div style="aspect-ratio:1;background:#e2e8f0;border-radius:2px"></div><div style="aspect-ratio:1;background:#2563eb;border-radius:2px"></div><div style="aspect-ratio:1;background:#93c5fd;border-radius:2px"></div><div style="aspect-ratio:1;background:#1a365d;border-radius:2px"></div><div style="aspect-ratio:1;background:#e2e8f0;border-radius:2px"></div><div style="aspect-ratio:1;background:#93c5fd;border-radius:2px"></div><div style="aspect-ratio:1;background:#2563eb;border-radius:2px"></div>
+                  <div style="aspect-ratio:1;background:#1a365d;border-radius:2px"></div><div style="aspect-ratio:1;background:#e2e8f0;border-radius:2px"></div><div style="aspect-ratio:1;background:#93c5fd;border-radius:2px"></div><div style="aspect-ratio:1;background:#2563eb;border-radius:2px"></div><div style="aspect-ratio:1;background:#e2e8f0;border-radius:2px"></div><div style="aspect-ratio:1;background:#1a365d;border-radius:2px"></div><div style="aspect-ratio:1;background:#93c5fd;border-radius:2px"></div>
+                  <div style="aspect-ratio:1;background:#e2e8f0;border-radius:2px"></div><div style="aspect-ratio:1;background:#2563eb;border-radius:2px"></div><div style="aspect-ratio:1;background:#93c5fd;border-radius:2px"></div><div style="aspect-ratio:1;background:#1a365d;border-radius:2px"></div><div style="aspect-ratio:1;background:#e2e8f0;border-radius:2px"></div><div style="aspect-ratio:1;background:#93c5fd;border-radius:2px"></div><div style="aspect-ratio:1;background:#2563eb;border-radius:2px"></div>
+                  <div style="aspect-ratio:1;background:#1a365d;border-radius:2px"></div><div style="aspect-ratio:1;background:#e2e8f0;border-radius:2px"></div><div style="aspect-ratio:1;background:#93c5fd;border-radius:2px"></div><div style="aspect-ratio:1;background:#2563eb;border-radius:2px"></div><div style="aspect-ratio:1;background:#e2e8f0;border-radius:2px"></div><div style="aspect-ratio:1;background:#1a365d;border-radius:2px"></div><div style="aspect-ratio:1;background:#93c5fd;border-radius:2px"></div>
+                  <div style="aspect-ratio:1;background:#e2e8f0;border-radius:2px"></div><div style="aspect-ratio:1;background:#2563eb;border-radius:2px"></div><div style="aspect-ratio:1;background:#93c5fd;border-radius:2px"></div><div style="aspect-ratio:1;background:#1a365d;border-radius:2px"></div><div style="aspect-ratio:1;background:#e2e8f0;border-radius:2px"></div><div style="aspect-ratio:1;background:#93c5fd;border-radius:2px"></div><div style="aspect-ratio:1;background:#2563eb;border-radius:2px"></div>
+                  <div style="aspect-ratio:1;background:#1a365d;border-radius:2px"></div><div style="aspect-ratio:1;background:#e2e8f0;border-radius:2px"></div><div style="aspect-ratio:1;background:#93c5fd;border-radius:2px"></div><div style="aspect-ratio:1;background:#2563eb;border-radius:2px"></div><div style="aspect-ratio:1;background:#e2e8f0;border-radius:2px"></div><div style="aspect-ratio:1;background:#1a365d;border-radius:2px"></div><div style="aspect-ratio:1;background:#93c5fd;border-radius:2px"></div>
+                  <div style="aspect-ratio:1;background:#e2e8f0;border-radius:2px"></div><div style="aspect-ratio:1;background:#2563eb;border-radius:2px"></div><div style="aspect-ratio:1;background:#93c5fd;border-radius:2px"></div><div style="aspect-ratio:1;background:#1a365d;border-radius:2px"></div><div style="aspect-ratio:1;background:#e2e8f0;border-radius:2px"></div><div style="aspect-ratio:1;background:#93c5fd;border-radius:2px"></div><div style="aspect-ratio:1;background:#2563eb;border-radius:2px"></div>
+                </div>
+              </div>
+            </div>
+          </details>
+        </main>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---------- 成品 2：错题本 ---------- -->
+  <div class="pane" id="p-notebook">
+    <div class="callout">
+      <b>改了什么：</b>筛选从「5 个常驻 toggle」→ <b>一行工具条 + 激活条件的 chip 回显</b>；
+      列表从「一行纯文本 expander」→ <b>三列缩略图卡片</b>（图 / 标签 / 掌握度环 / 到期状态分层）；
+      导出从「三个等宽大按钮占满一行」→ 收进工具条右侧 <b>⋯ 菜单</b>；
+      分页从列表上方 → <b>列表下方</b>；批量操作从勾选后才出现 → <b>常驻底部操作条</b>。
+    </div>
+
+    <div class="stage">
+      <div class="stage-bar">
+        <span class="dot" style="background:#ff5f57"></span>
+        <span class="dot" style="background:#febc2e"></span>
+        <span class="dot" style="background:#28c840"></span>
+        <span class="stage-url">localhost:8501 · 错题本</span>
+      </div>
+      <div class="app">
+        <aside class="sb">
+          <div class="sb-brand">
+            <div class="logo"><span class="mark">M</span>MathMaster</div>
+            <div class="tag">视觉大模型 × RAG 错题本</div>
+          </div>
+          <div class="sb-group">
+            <div class="sb-group__label">今天</div>
+            <div class="nav-item"><span class="ico">◎</span>学情看板</div>
+            <div class="nav-item"><span class="ico">◷</span>今日复习<span class="cnt">18</span></div>
+          </div>
+          <div class="sb-group">
+            <div class="sb-group__label">学习</div>
+            <div class="nav-item"><span class="ico">⬆</span>AI 录题</div>
+            <div class="nav-item nav-item--active"><span class="ico">▤</span>错题本</div>
+            <div class="nav-item"><span class="ico">◔</span>能力画像</div>
+          </div>
+          <div class="sb-group">
+            <div class="sb-group__label">探索</div>
+            <div class="nav-item"><span class="ico">⁙</span>知识图谱</div>
+            <div class="nav-item"><span class="ico">✦</span>AI 助手</div>
+          </div>
+          <div class="sb-user">
+            <div class="row">
+              <div class="avatar">DE</div>
+              <div><div class="nm">demo</div><div class="rl">学生</div></div>
+            </div>
+            <div class="nav-item" style="margin-top:4px"><span class="ico">⚙</span>设置</div>
+          </div>
+        </aside>
+
+        <main class="main">
+          <div class="page-head">
+            <div>
+              <h2>错题本</h2>
+              <p class="desc">共 128 题 · 支持关键词与语义搜索 · 教师可查看全部学生错题</p>
+            </div>
+          </div>
+
+          <!-- 工具条 -->
+          <div class="toolbar">
+            <div class="search"><span class="ico">🔍</span>判别式没掌握的题 / 相似三角形（自然语言即可）</div>
+            <div class="seg"><span class="on">⊞ 网格</span><span>☰ 列表</span></div>
+            <div class="btn btn--sm">筛选 ▾</div>
+            <div class="btn btn--sm">⋯</div>
+          </div>
+
+          <!-- 激活条件 chip -->
+          <div class="chips">
+            <span class="chip chip--on">语义搜索 <span class="x">✕</span></span>
+            <span class="chip chip--on">仅看待复习 <span class="x">✕</span></span>
+            <span class="chip chip--on">难度：中等 <span class="x">✕</span></span>
+            <span class="chip chip--add">＋ 添加筛选</span>
+            <span style="margin-left:auto;font-size:12.5px;color:var(--muted)">命中 24 题</span>
+          </div>
+
+          <!-- 卡片网格 -->
+          <div class="qgrid">
+            <div class="qcard">
+              <div class="qcard__img">
+                <div class="ph">📐</div>
+                <div class="mark">中等</div>
+                <div class="due">⏰ 逾期 5 天</div>
+              </div>
+              <div class="qcard__body">
+                <div class="qcard__tags">
+                  <span class="badge badge--weak">薄弱</span>
+                  <span class="badge">一元二次方程</span>
+                </div>
+                <div style="font-size:12.5px;color:var(--slate-2);line-height:1.5">判别式判断 · 已知实数根求参数范围</div>
+                <div class="qcard__foot">
+                  <span class="d">09-14 · 复习 2 次</span>
+                  <span class="mini-ring" style="color:var(--weak)">
+                    <span class="ring"><svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="8" fill="none" stroke="#f1f5f9" stroke-width="3.5"/><circle cx="11" cy="11" r="8" fill="none" stroke="#dc2626" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="9 51"/></svg></span>
+                    18%
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="qcard">
+              <div class="qcard__img">
+                <div class="ph">📐</div>
+                <div class="mark">中等</div>
+                <div class="due">今天</div>
+              </div>
+              <div class="qcard__body">
+                <div class="qcard__tags">
+                  <span class="badge badge--weak">薄弱</span>
+                  <span class="badge">几何</span>
+                </div>
+                <div style="font-size:12.5px;color:var(--slate-2);line-height:1.5">相似三角形判定 · 两角对应相等的证明</div>
+                <div class="qcard__foot">
+                  <span class="d">09-13 · 复习 3 次</span>
+                  <span class="mini-ring" style="color:var(--weak)">
+                    <span class="ring"><svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="8" fill="none" stroke="#f1f5f9" stroke-width="3.5"/><circle cx="11" cy="11" r="8" fill="none" stroke="#dc2626" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="16 51"/></svg></span>
+                    32%
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="qcard">
+              <div class="qcard__img">
+                <div class="ph">🔢</div>
+                <div class="mark">中等</div>
+                <div class="due due--ok">3 天后</div>
+                <div class="star">⭐</div>
+              </div>
+              <div class="qcard__body">
+                <div class="qcard__tags">
+                  <span class="badge badge--shaky">不稳固</span>
+                  <span class="badge">代数运算</span>
+                </div>
+                <div style="font-size:12.5px;color:var(--slate-2);line-height:1.5">一次函数与反比例函数交点坐标求解</div>
+                <div class="qcard__foot">
+                  <span class="d">09-12 · 复习 5 次</span>
+                  <span class="mini-ring" style="color:var(--shaky)">
+                    <span class="ring"><svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="8" fill="none" stroke="#f1f5f9" stroke-width="3.5"/><circle cx="11" cy="11" r="8" fill="none" stroke="#d97706" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="30 51"/></svg></span>
+                    58%
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="qcard">
+              <div class="qcard__img">
+                <div class="ph">📊</div>
+                <div class="mark">困难</div>
+                <div class="due">今天</div>
+              </div>
+              <div class="qcard__body">
+                <div class="qcard__tags">
+                  <span class="badge badge--shaky">不稳固</span>
+                  <span class="badge">几何</span>
+                  <span class="badge">圆</span>
+                </div>
+                <div style="font-size:12.5px;color:var(--slate-2);line-height:1.5">圆周角定理 · 直径所对圆周角为直角</div>
+                <div class="qcard__foot">
+                  <span class="d">09-11 · 复习 4 次</span>
+                  <span class="mini-ring" style="color:var(--shaky)">
+                    <span class="ring"><svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="8" fill="none" stroke="#f1f5f9" stroke-width="3.5"/><circle cx="11" cy="11" r="8" fill="none" stroke="#d97706" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="31 51"/></svg></span>
+                    61%
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="qcard">
+              <div class="qcard__img">
+                <div class="ph">📐</div>
+                <div class="mark">简单</div>
+                <div class="due due--good">已掌握 🏆</div>
+              </div>
+              <div class="qcard__body">
+                <div class="qcard__tags">
+                  <span class="badge badge--good">已掌握</span>
+                  <span class="badge">四边形</span>
+                </div>
+                <div style="font-size:12.5px;color:var(--slate-2);line-height:1.5">平行四边形对边相等的证明</div>
+                <div class="qcard__foot">
+                  <span class="d">09-02 · 复习 6 次</span>
+                  <span class="mini-ring" style="color:var(--good)">
+                    <span class="ring"><svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="8" fill="none" stroke="#f1f5f9" stroke-width="3.5"/><circle cx="11" cy="11" r="8" fill="none" stroke="#059669" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="46 51"/></svg></span>
+                    91%
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="qcard">
+              <div class="qcard__img">
+                <div class="ph">🔢</div>
+                <div class="mark">中等</div>
+                <div class="due">2 天后</div>
+                <div class="qcard__chk"><span class="chk chk--on">✓</span></div>
+              </div>
+              <div class="qcard__body">
+                <div class="qcard__tags">
+                  <span class="badge badge--shaky">不稳固</span>
+                  <span class="badge">代数运算</span>
+                </div>
+                <div style="font-size:12.5px;color:var(--slate-2);line-height:1.5">一元一次方程移项与去括号综合</div>
+                <div class="qcard__foot">
+                  <span class="d">09-08 · 复习 2 次</span>
+                  <span class="mini-ring" style="color:var(--shaky)">
+                    <span class="ring"><svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="8" fill="none" stroke="#f1f5f9" stroke-width="3.5"/><circle cx="11" cy="11" r="8" fill="none" stroke="#d97706" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="33 51"/></svg></span>
+                    64%
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 批量操作条 -->
+          <div class="bulkbar">
+            <span class="n">已选中 1 题</span>
+            <span style="font-size:12.5px;color:rgba(255,255,255,.6)">#482 · 09-08 · 掌握度 64%</span>
+            <span class="sp"></span>
+            <span class="btn btn--sm btn--ghost">改难度</span>
+            <span class="btn btn--sm btn--ghost">追加标签</span>
+            <span class="btn btn--sm btn--ghost">导出选中</span>
+            <span class="btn btn--sm" style="background:rgba(255,255,255,.14);color:#fff;border-color:transparent">删除</span>
+          </div>
+
+          <!-- 分页 -->
+          <div class="pager">
+            <span class="btn btn--sm">‹ 上一页</span>
+            <span class="pg">第 <b style="color:var(--navy)">1</b> / 3 页 · 每页 6 题</span>
+            <span class="btn btn--sm">下一页 ›</span>
+          </div>
+        </main>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---------- 成品 3：复习 ---------- -->
+  <div class="pane" id="p-review">
+    <div class="callout">
+      <b>改了什么：</b>加入 <b>错误边界</b>（图片缺失时降级为「题目文本 + 图片不可用」卡片，不再打 traceback）；
+      进度从「一个孤零零的 18」→ <b>顶部进度条 + 本轮小结</b>；
+      评分按钮从纯文字 → <b>每个按钮直接预告下次复习时间</b>，把 SM-2 的排期结果前置，降低评分决策成本。
+    </div>
+
+    <div class="stage">
+      <div class="stage-bar">
+        <span class="dot" style="background:#ff5f57"></span>
+        <span class="dot" style="background:#febc2e"></span>
+        <span class="dot" style="background:#28c840"></span>
+        <span class="stage-url">localhost:8501 · 今日复习</span>
+      </div>
+      <div class="app">
+        <aside class="sb">
+          <div class="sb-brand">
+            <div class="logo"><span class="mark">M</span>MathMaster</div>
+            <div class="tag">视觉大模型 × RAG 错题本</div>
+          </div>
+          <div class="sb-group">
+            <div class="sb-group__label">今天</div>
+            <div class="nav-item"><span class="ico">◎</span>学情看板</div>
+            <div class="nav-item nav-item--active"><span class="ico">◷</span>今日复习<span class="cnt">18</span></div>
+          </div>
+          <div class="sb-group">
+            <div class="sb-group__label">学习</div>
+            <div class="nav-item"><span class="ico">⬆</span>AI 录题</div>
+            <div class="nav-item"><span class="ico">▤</span>错题本</div>
+            <div class="nav-item"><span class="ico">◔</span>能力画像</div>
+          </div>
+          <div class="sb-group">
+            <div class="sb-group__label">探索</div>
+            <div class="nav-item"><span class="ico">⁙</span>知识图谱</div>
+            <div class="nav-item"><span class="ico">✦</span>AI 助手</div>
+          </div>
+          <div class="sb-user">
+            <div class="row">
+              <div class="avatar">DE</div>
+              <div><div class="nm">demo</div><div class="rl">学生</div></div>
+            </div>
+            <div class="nav-item" style="margin-top:4px"><span class="ico">⚙</span>设置</div>
+          </div>
+        </aside>
+
+        <main class="main">
+          <div class="review-wrap">
+            <!-- 进度 -->
+            <div class="rv-progress">
+              <span class="cnt"><b>3</b> / 18</span>
+              <div class="bar"><i style="width:17%"></i></div>
+              <span style="font-size:12.5px;color:var(--slate-2)">本轮已评 <b style="color:var(--navy)">2</b> 题</span>
+            </div>
+
+            <!-- 闪卡 -->
+            <div class="flash">
+              <div class="flash__top">
+                <span class="badge badge--weak">薄弱 18%</span>
+                <span class="badge">一元二次方程</span>
+                <span class="badge">判别式</span>
+                <span class="badge badge--shaky">中等</span>
+                <span style="margin-left:auto;font-size:11.5px;color:var(--muted)">#482 · 录入于 09-14</span>
+              </div>
+
+              <div class="flash__body">
+                <!-- 图片缺失降级态 -->
+                <div class="flash__img" style="background:var(--shaky-soft);border-color:var(--shaky-line);color:#92400e">
+                  <div style="text-align:center">
+                    <div style="font-size:24px;margin-bottom:6px">🖼</div>
+                    <div style="font-size:13px;font-weight:600">原图暂时无法加载</div>
+                    <div style="font-size:12px;margin-top:3px;color:#a16207">已改用 OCR 文本作答，复习不受影响</div>
+                  </div>
+                </div>
+
+                <div class="flash__q">
+                  已知关于 <b>x</b> 的一元二次方程 <b>x² − (k+1)x + 2k + 1 = 0</b> 有两个不相等的实数根，
+                  求 <b>k</b> 的取值范围。
+                </div>
+
+                <!-- 显示解析后 -->
+                <div class="flash__ans">
+                  <h5>✓ 解析（已展开）</h5>
+                  <div class="line">
+                    <b>考点</b>：一元二次方程根的判别式 Δ = b² − 4ac &gt; 0<br><br>
+                    <b>第一步</b>　识别 a=1，b=−(k+1)，c=2k+1<br>
+                    <b>第二步</b>　Δ = (k+1)² − 4(2k+1) = k² − 6k − 3<br>
+                    <b>第三步</b>　令 Δ &gt; 0：k² − 6k − 3 &gt; 0，解得 k &lt; 3−2√3 或 k &gt; 3+2√3<br>
+                    <b>易错</b>　忘记「不相等」对应严格大于 0，写成 ≥ 0<br><br>
+                    <b>答案</b>　k &lt; 3−2√3 或 k &gt; 3+2√3
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 评分 -->
+            <div class="grade">
+              <button>
+                <span class="em">😵</span><span class="nm">忘了</span>
+                <span class="nx">明天再练</span><br><span class="key">1</span>
+              </button>
+              <button>
+                <span class="em">😅</span><span class="nm">勉强</span>
+                <span class="nx">2 天后</span><br><span class="key">2</span>
+              </button>
+              <button>
+                <span class="em">🙂</span><span class="nm">记得</span>
+                <span class="nx">6 天后</span><br><span class="key">3</span>
+              </button>
+              <button>
+                <span class="em">😎</span><span class="nm">秒懂</span>
+                <span class="nx">16 天后</span><br><span class="key">4</span>
+              </button>
+            </div>
+
+            <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-top:14px">
+              <span style="font-size:12.5px;color:var(--muted)"><kbd>空格</kbd> 显示/隐藏解析</span>
+              <span style="font-size:12.5px;color:var(--muted)">·</span>
+              <span style="font-size:12.5px;color:var(--muted)">⏭ 跳过这道</span>
+              <span style="font-size:12.5px;color:var(--muted)">·</span>
+              <span style="font-size:12.5px;color:var(--muted)">🏆 标记已掌握</span>
+            </div>
+
+            <!-- 错误边界对照 -->
+            <div class="errcard" style="margin-top:22px">
+              <div class="ic">⚠️</div>
+              <h5>这一张卡片的原图读取失败了</h5>
+              <p>已经切换到 OCR 文本作答。如果后续多张卡片都出现这个问题，请到「设置 → 数据健康」检查图片存储。</p>
+              <div class="detail">MediaFileStorageError: Error opening 'data/images/u2/20260915_000129_05b1051b.jpg'
+Traceback (most recent call last):
+  File "frontend/pages/review.py", line 101, in render_review_page
+    st.image(question.image_path, width=460)</div>
+              <div style="display:flex;gap:9px;justify-content:center">
+                <span class="btn btn--sm">跳过这道</span>
+                <span class="btn btn--sm">仅用文本复习</span>
+                <span class="btn btn--sm">报告问题</span>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---------- 成品 4：录题 ---------- -->
+  <div class="pane" id="p-tutor">
+    <div class="callout">
+      <b>改了什么：</b>原生 40px 上传控件 → <b>大面积拖拽区</b>（这是主入口，值得更多视觉权重）；
+      解析结果从纯 Markdown → <b>结构化分段卡</b>（考点 / 讲解 / 答案 / 易错 / 变式 五段固定结构）；
+      加入 <b>解析进度与逐题状态</b>，长文档解析时用户知道系统在做什么。
+    </div>
+
+    <div class="stage">
+      <div class="stage-bar">
+        <span class="dot" style="background:#ff5f57"></span>
+        <span class="dot" style="background:#febc2e"></span>
+        <span class="dot" style="background:#28c840"></span>
+        <span class="stage-url">localhost:8501 · AI 录题</span>
+      </div>
+      <div class="app">
+        <aside class="sb">
+          <div class="sb-brand">
+            <div class="logo"><span class="mark">M</span>MathMaster</div>
+            <div class="tag">视觉大模型 × RAG 错题本</div>
+          </div>
+          <div class="sb-group">
+            <div class="sb-group__label">今天</div>
+            <div class="nav-item"><span class="ico">◎</span>学情看板</div>
+            <div class="nav-item"><span class="ico">◷</span>今日复习<span class="cnt">18</span></div>
+          </div>
+          <div class="sb-group">
+            <div class="sb-group__label">学习</div>
+            <div class="nav-item nav-item--active"><span class="ico">⬆</span>AI 录题</div>
+            <div class="nav-item"><span class="ico">▤</span>错题本</div>
+            <div class="nav-item"><span class="ico">◔</span>能力画像</div>
+          </div>
+          <div class="sb-group">
+            <div class="sb-group__label">探索</div>
+            <div class="nav-item"><span class="ico">⁙</span>知识图谱</div>
+            <div class="nav-item"><span class="ico">✦</span>AI 助手</div>
+          </div>
+          <div class="sb-user">
+            <div class="row">
+              <div class="avatar">DE</div>
+              <div><div class="nm">demo</div><div class="rl">学生</div></div>
+            </div>
+            <div class="nav-item" style="margin-top:4px"><span class="ico">⚙</span>设置</div>
+          </div>
+        </aside>
+
+        <main class="main">
+          <div class="page-head">
+            <div>
+              <h2>AI 录题</h2>
+              <p class="desc">上传错题照片，自动完成考点分析、讲解与归档</p>
+            </div>
+          </div>
+
+          <div class="notice notice--shaky">
+            <span>⚠️</span>
+            <div><b>当前为演示模式</b>：未配置 <code style="font-family:var(--mono);font-size:12px">AI_API_KEY</code>，返回内置示例解析。
+            在 <code style="font-family:var(--mono);font-size:12px">.env</code> 配置后即可调用真实视觉模型。</div>
+          </div>
+
+          <div class="cols cols--12">
+            <div>
+              <!-- 拖拽区 -->
+              <div class="dropzone">
+                <div class="ic">⬆</div>
+                <h4>把错题照片拖到这里</h4>
+                <p>支持 JPG / PNG / WEBP · 单张不超过 200MB · 可一次选多张</p>
+                <span class="btn btn--primary">选择文件</span>
+              </div>
+
+              <div class="card" style="margin-top:16px">
+                <div class="card-h"><h4>解析选项</h4></div>
+                <div style="display:flex;flex-direction:column;gap:11px">
+                  <div>
+                    <div style="font-size:12.5px;color:var(--slate-2);margin-bottom:5px">标签（可选，逗号分隔）</div>
+                    <div class="search" style="background:var(--card)">例如：期末复习, 几何</div>
+                  </div>
+                  <div>
+                    <div style="font-size:12.5px;color:var(--slate-2);margin-bottom:5px">给老师的话（可选）</div>
+                    <div class="search" style="background:var(--card)">例如：第二问总是不知道从哪里下手</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <!-- 已选文件 -->
+              <div class="card card--pad0">
+                <div class="card-h" style="padding:14px 18px 10px;margin:0">
+                  <h4>待解析 <span style="color:var(--muted);font-weight:400">· 3 张</span></h4>
+                  <a href="#" style="font-size:12.5px">全部清除</a>
+                </div>
+                <div style="padding:0 18px 16px">
+                  <div class="thumbs">
+                    <div class="thumb">
+                      <div class="ph">📐</div><div class="x">✕</div>
+                      <div class="st"><span class="ok">✓ 已解析</span><span style="color:var(--muted)">1 题</span></div>
+                    </div>
+                    <div class="thumb">
+                      <div class="ph">📐</div><div class="x">✕</div>
+                      <div class="st"><span class="ok">✓ 已解析</span><span style="color:var(--muted)">2 题</span></div>
+                    </div>
+                    <div class="thumb">
+                      <div class="ph">📊</div><div class="x">✕</div>
+                      <div class="st"><span class="wait">◷ 解析中 62%</span><span style="color:var(--muted)">—</span></div>
+                    </div>
+                    <div class="thumb" style="border-style:dashed;display:grid;place-items:center;min-height:128px">
+                      <span style="font-size:11.5px;color:var(--muted)">+ 添加</span>
+                    </div>
+                  </div>
+                  <div class="btn btn--primary" style="width:100%;margin-top:14px">✦ 解析并归档 3 张</div>
+                </div>
+              </div>
+
+              <!-- 解析结果 -->
+              <div class="result">
+                <div class="result__h">
+                  <span class="badge badge--good">✓ 数学一致性已验证 96%</span>
+                  <span class="badge">中等</span>
+                  <span class="badge">一元二次方程</span>
+                  <span class="badge">判别式</span>
+                  <span style="margin-left:auto;font-size:12px;color:var(--muted)">已存入错题本 #483</span>
+                </div>
+                <div class="result__b">
+                  <div class="sect-h"><span class="n">1</span>考点在哪里</div>
+                  <div class="sect-b">一元二次方程根的判别式。要求「两个不相等实根」对应 Δ &gt; 0，注意与「有实根」的 Δ ≥ 0 区分。</div>
+
+                  <div class="sect-h"><span class="n">2</span>老师来细讲</div>
+                  <div class="sect-b">
+                    a = 1，b = −(k+1)，c = 2k+1<br>
+                    Δ = (k+1)² − 4(2k+1) = k² − 6k − 3<br>
+                    令 Δ &gt; 0：k² − 6k − 3 &gt; 0 → k &lt; 3−2√3 或 k &gt; 3+2√3
+                  </div>
+
+                  <div class="sect-h"><span class="n">3</span>正确答案</div>
+                  <div class="sect-b" style="font-size:15px;color:var(--navy);font-weight:600">k &lt; 3 − 2√3　或　k &gt; 3 + 2√3</div>
+
+                  <div class="sect-h"><span class="n">4</span>为什么容易错</div>
+                  <div class="sect-b">看到「有根」就写 Δ ≥ 0，漏掉「不相等」的严格性。这是本知识点最高频的失分点。</div>
+
+                  <div class="sect-h"><span class="n">5</span>举一反三</div>
+                  <div class="sect-b">已知 x² − (k−1)x + k = 0 有两个相等的实根，求 k 的值。<br>
+                    <span class="btn btn--sm" style="margin-top:8px">📥 存为变式练习</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 5. 落地建议 ============ -->
+  <h2 class="sec"><span class="n">05</span>落地路径</h2>
+  <p class="sec-lead">
+    以下是设计稿到 Streamlit 代码的映射关系。设计稿只到「长什么样」，具体怎么写由你决定。
+  </p>
+
+  <h3 class="sub-h">5.1 改动量估算</h3>
+  <table class="token-table">
+    <thead><tr><th style="width:60px">阶段</th><th style="width:180px">内容</th><th style="width:90px">工作量</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="pill pill--weak">第一批</span></td>
+        <td>错误边界 + 图片路径修复</td>
+        <td><b>小</b></td>
+        <td>纯防御性代码，不改任何视觉。可独立先合，解决 P0。</td>
+      </tr>
+      <tr>
+        <td><span class="pill pill--shaky">第二批</span></td>
+        <td>CSS 变量化 + 三档语义色</td>
+        <td><b>中</b></td>
+        <td>改 <code>style.css</code> 与 <code>theme.py</code>，不碰页面逻辑。收益立竿见影。</td>
+      </tr>
+      <tr>
+        <td><span class="pill pill--shaky">第三批</span></td>
+        <td>侧边栏分组 + 今日复习红点</td>
+        <td><b>中</b></td>
+        <td>改 <code>app.py</code> 与 <code>nav.py</code>，需新增一个 due 计数查询。</td>
+      </tr>
+      <tr>
+        <td><span class="pill">第四批</span></td>
+        <td>看板重排（行动卡 + metric 条）</td>
+        <td><b>中</b></td>
+        <td>纯 <code>st.markdown</code> 重排，后端数据已够用（<code>stats</code> 已返回所需字段）。</td>
+      </tr>
+      <tr>
+        <td><span class="pill">第五批</span></td>
+        <td>错题本卡片网格 + 工具条</td>
+        <td><b>大</b></td>
+        <td>需要新的卡片渲染函数，筛选器从 <code>toggle</code> 改为 popover。改动最重但收益最大。</td>
+      </tr>
+      <tr>
+        <td><span class="pill">第六批</span></td>
+        <td>录题页结构化结果卡</td>
+        <td><b>中</b></td>
+        <td>解析结果本就是固定五段结构，拆成卡片即可。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub-h">5.2 Streamlit 实现要点</h3>
+  <div class="grid-2">
+    <div class="panel">
+      <h4 style="margin:0 0 10px;font-size:14.5px;color:var(--navy)">能做到的</h4>
+      <ul style="margin:0;padding-left:18px;font-size:13.5px;color:var(--slate);line-height:1.9">
+        <li>全部视觉：卡片、metric 条、chip、色环 —— 纯 CSS + <code>st.markdown</code></li>
+        <li>色环进度用内联 SVG（见本稿示例）</li>
+        <li>折叠区用 <code>st.expander</code> 或原生 <code>&lt;details&gt;</code></li>
+        <li>工具条用 <code>st.popover</code> 做筛选抽屉</li>
+        <li>评分按钮的「下次 N 天后」可由现有 SM-2 函数直接算出，无需新后端</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h4 style="margin:0 0 10px;font-size:14.5px;color:var(--navy)">需要权衡的</h4>
+      <ul style="margin:0;padding-left:18px;font-size:13.5px;color:var(--slate);line-height:1.9">
+        <li><b>错题本卡片网格</b>：Streamlit 的 <code>st.image</code> 无法 hover 出操作层，勾选框需另想办法（可用 <code>st.checkbox</code> 置于卡片顶部）</li>
+        <li><b>底部常驻操作条</b>：<code>position: sticky</code> 在 Streamlit 容器里不完全可靠，可能需要 <code>components.html</code> 模拟</li>
+        <li><b>卡片点击展开详情</b>：网格视图下建议点卡片跳转到独立详情页，而非原位展开</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3 class="sub-h">5.3 配套的技术债</h3>
+  <div class="issue" style="border-left-color:var(--shaky)">
+    <h4><span class="sev sev--p1">P1</span> 图片路径建议改为相对路径</h4>
+    <p>当前入库的是绝对路径，换机器必然失效。落库时改存
+       <code>data/images/xxx.jpg</code> 这样的相对路径，读取时用
+       <code>pathlib.Path(__file__).parent.parent / image_path</code> 拼接。
+       这个修复本身和 UI 无关，但不做的话新 UI 一样会崩。</p>
+  </div>
+
+  <!-- ============ 页脚 ============ -->
+  <footer class="doc-foot">
+    <div>MathMaster Edu · 界面重设计方案 v1.0 · 2026-10-01</div>
+    <div>本地设计稿 · 未部署公网 · 供评审使用</div>
+  </footer>
+</div>
+
+<script>
+document.querySelectorAll('#tabs .tab').forEach(function (t) {
+  t.addEventListener('click', function () {
+    document.querySelectorAll('#tabs .tab').forEach(function (x) { x.classList.remove('on'); });
+    document.querySelectorAll('.pane').forEach(function (p) { p.classList.remove('on'); });
+    t.classList.add('on');
+    document.getElementById(t.dataset.t).classList.add('on');
+  });
+});
+</script>
+</body>
+</html>
