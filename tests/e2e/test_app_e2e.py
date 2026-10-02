@@ -69,7 +69,8 @@ def test_navigate_all_pages(page):
     _goto(page, "错题本", "语义搜索")
     _goto(page, "能力画像", "知识点掌握度|还没有知识点数据")
     _goto(page, "知识图谱", "标签共现网络|错题数量还太少")
-    _goto(page, "Ai 助手", "演示模式")  # sac.menu title 格式化把 AI 渲染成 Ai
+    # 与提供商无关：演示模式徽章或 AI Tutor 徽章都算到达
+    _goto(page, "Ai 助手", "演示模式|AI Tutor")
     _goto(page, "设置", "AI 引擎")
 
 

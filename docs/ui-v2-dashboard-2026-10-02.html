@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>MathMaster · 学情看板 v2</title>
+<style>
+  :root{
+    /* ---- 字体：中文优先单栈，西文由同一字体承担，避免数字与汉字两套字 ---- */
+    --font: "PingFang SC","Microsoft YaHei UI","Microsoft YaHei","Hiragino Sans GB","Source Han Sans SC","Noto Sans SC",system-ui,sans-serif;
+
+    /* ---- 色板：暖调，本土教育 ---- */
+    --side:#132339;          /* 侧栏 深藏青 */
+    --side-2:#1B2F49;
+    --side-ink:#9FB0C4;
+    --side-ink-on:#FFFFFF;
+    --bg:#F7F5F1;            /* 页面底 暖白 */
+    --surface:#FFFFFF;
+    --surface-2:#FAF8F5;
+    --line:#E4E0D8;
+    --line-2:#EFECE6;
+    --ink:#1A1C1F;
+    --ink-2:#4A4F57;
+    --muted:#8A8F98;
+    --brand:#1D4E89;
+    --brand-2:#163D6B;
+    --accent:#E8590C;        /* 行动橙：只给"要做的事" */
+    --accent-soft:#FFF2E8;
+    --ok:#0F9D6E;
+    --ok-soft:#E6F5EF;
+    --warn:#D97706;
+    --warn-soft:#FDF3E3;
+    --weak:#D93F3F;
+    --weak-soft:#FCEBEB;
+
+    --r:8px;                 /* 圆角统一 8，不超过 */
+    --sh:0 1px 2px rgba(26,28,31,.05);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--font);background:var(--bg);color:var(--ink);
+       -webkit-font-smoothing:antialiased;font-size:13px;line-height:1.5}
+  .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+  .app{display:flex;width:1600px;background:var(--bg)}
+
+  /* ================= 侧栏 ================= */
+  .side{width:238px;flex:none;background:var(--side);color:var(--side-ink);
+        display:flex;flex-direction:column;padding:16px 0 0}
+  .brand{display:flex;gap:9px;align-items:center;padding:0 16px 16px}
+  .brand-mk{width:28px;height:28px;border-radius:7px;background:var(--brand);
+            color:#fff;display:grid;place-items:center;font-weight:700;font-size:14px}
+  .brand-tx b{display:block;color:#fff;font-size:14px;font-weight:600;letter-spacing:.01em}
+  .brand-tx span{display:block;font-size:11px;color:#7F91A6;margin-top:1px}
+
+  .nav{padding:0 10px;flex:1;overflow:hidden}
+  .nav-g{margin-bottom:14px}
+  .nav-gl{font-size:10.5px;font-weight:600;color:#63778D;letter-spacing:.10em;
+         padding:0 6px 6px;text-transform:uppercase}
+  .nav-i{display:flex;align-items:center;gap:9px;height:32px;padding:0 8px;
+         border-radius:6px;font-size:13px;color:var(--side-ink);margin-bottom:1px}
+  .nav-i svg{width:16px;height:16px;flex:none;opacity:.85}
+  .nav-i .cnt{margin-left:auto;font-size:11px;font-weight:600;
+              background:rgba(255,255,255,.10);color:#C6D3E0;padding:1px 6px;border-radius:9px}
+  .nav-i.on{background:var(--side-2);color:#fff;font-weight:600}
+  .nav-i.on svg{opacity:1}
+  .nav-i.on .cnt{background:var(--accent);color:#fff}
+  .nav-i .cnt.hot{background:rgba(217,63,63,.22);color:#FF9A9A}
+
+  .side-foot{border-top:1px solid rgba(255,255,255,.09);padding:12px 16px 14px}
+  .rolesw{display:flex;background:rgba(0,0,0,.24);border-radius:7px;padding:2px;margin-bottom:11px}
+  .rolesw div{flex:1;text-align:center;font-size:11.5px;padding:5px 0;border-radius:5px;color:#8698AC}
+  .rolesw div.on{background:rgba(255,255,255,.14);color:#fff;font-weight:600}
+  .me{display:flex;gap:9px;align-items:center}
+  .av{width:30px;height:30px;border-radius:50%;background:#2C4A70;color:#fff;
+      display:grid;place-items:center;font-size:11.5px;font-weight:600;flex:none}
+  .me-t b{display:block;color:#fff;font-size:12.5px;font-weight:600}
+  .me-t span{display:block;font-size:11px;color:#7F91A6}
+
+  /* ================= 主区 ================= */
+  .main{flex:1;padding:18px 22px 22px;overflow:hidden}
+  .pghead{display:flex;align-items:flex-end;gap:12px;margin-bottom:14px}
+  .pghead h1{font-size:20px;font-weight:600;letter-spacing:-.01em}
+  .pghead .sub{font-size:12.5px;color:var(--muted);padding-bottom:2px}
+  .pghead .sp{flex:1}
+  .ghostbtn{display:flex;align-items:center;gap:6px;height:30px;padding:0 11px;
+            border:1px solid var(--line);border-radius:6px;background:var(--surface);
+            font-size:12.5px;color:var(--ink-2);box-shadow:var(--sh)}
+  .ghostbtn svg{width:14px;height:14px;color:var(--muted)}
+
+  .row{display:flex;gap:12px;margin-bottom:12px}
+  .row>*{flex:1}
+  .row>.f2{flex:2}
+  .row>.f135{flex:1.35}
+
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+        box-shadow:var(--sh);padding:14px 15px}
+  .card-h{display:flex;align-items:center;gap:8px;margin-bottom:11px}
+  .card-h h2{font-size:14px;font-weight:600}
+  .card-h .sp{flex:1}
+  .card-h .lnk{font-size:12px;color:var(--brand);display:flex;align-items:center;gap:2px}
+  .card-h .lnk svg{width:12px;height:12px}
+
+  /* ---- 今日任务 ---- */
+  .task{background:linear-gradient(180deg,#1B3A5E 0%,#16304D 100%);border:0;color:#fff}
+  .task .tk-top{display:flex;align-items:flex-start;gap:14px}
+  .task .tk-t{flex:1}
+  .task h2{font-size:16px;font-weight:600;letter-spacing:-.01em}
+  .task p{font-size:12.5px;color:#A9BDD4;margin-top:4px}
+  .cta{display:flex;align-items:center;gap:7px;height:36px;padding:0 16px;border-radius:7px;
+       background:var(--accent);color:#fff;font-size:13.5px;font-weight:600;
+       box-shadow:0 2px 8px rgba(232,89,12,.30)}
+  .cta svg{width:14px;height:14px}
+  .task .tk-bot{margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.13);
+                display:flex;gap:28px;align-items:flex-end;flex-wrap:wrap}
+  .task .tk-bot .k{font-size:21px;font-weight:650;line-height:1.1}
+  .task .tk-bot .k.warn{color:#FFC46B}
+  .task .tk-bot .kl{font-size:11.5px;color:#93A9C2;margin-top:3px}
+  .pwrap{flex:1;min-width:200px}
+  .pbar{height:6px;border-radius:3px;background:rgba(255,255,255,.16);overflow:hidden;margin-bottom:6px}
+  .pbar i{display:block;height:100%;background:#FFC46B;border-radius:3px}
+  .pnote{font-size:11.5px;color:#93A9C2;display:flex;gap:14px;white-space:nowrap}
+  /* 复习构成 分段条 */
+  .seg{display:flex;height:9px;border-radius:5px;overflow:hidden;gap:2px;margin-top:11px}
+  .seg i{display:block;height:100%;border-radius:5px}
+  .seglg{display:flex;gap:18px;margin-top:8px;font-size:11.5px;color:#93A9C2}
+  .seglg span{display:flex;align-items:center;gap:5px}
+  .seglg em{width:7px;height:7px;border-radius:2px;font-style:normal;display:block}
+  .seglg b{color:#E4ECF4;font-weight:600}
+
+  /* ---- 连续学习 ---- */
+  .streak-n{display:flex;align-items:baseline;gap:7px;margin-bottom:3px}
+  .streak-n .big{font-size:30px;font-weight:650;line-height:1;letter-spacing:-.02em}
+  .streak-n .u{font-size:12.5px;color:var(--ink-2)}
+  .streak-n .fl{margin-left:auto;display:flex;align-items:center;gap:4px;
+                font-size:11.5px;font-weight:600;color:var(--accent);
+                background:var(--accent-soft);padding:2px 7px;border-radius:9px}
+  .streak-n .fl svg{width:12px;height:12px}
+  .heat{margin-top:12px;display:grid;grid-template-columns:repeat(6,1fr);gap:4px;max-width:260px}
+  .heat-row{display:contents}
+  .heat-cell{height:15px;border-radius:3px;background:#EDEAE3}
+  .heat-cell.l1{background:#CBE6DA}.heat-cell.l2{background:#93D2B7}
+  .heat-cell.l3{background:#4FB88D}.heat-cell.l4{background:var(--ok)}
+  .heat-cell.future{background:#F5F3EF;border:1px dashed #E2DED5}
+  .heat-x{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-bottom:6px;
+          grid-column:1/-1;max-width:260px}
+  .heat-x span{font-size:10px;color:var(--muted);text-align:center}
+  .heat-lg{display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--muted);margin-top:7px}
+  .heat-lg i{width:9px;height:9px;border-radius:2px;display:block}
+
+  /* ---- 待复习队列 ---- */
+  .qt{width:100%;border-collapse:collapse}
+  .qt th{font-size:11px;font-weight:600;color:var(--muted);text-align:left;
+         padding:0 8px 7px;border-bottom:1px solid var(--line-2);letter-spacing:.02em}
+  .qt td{padding:8px;border-bottom:1px solid var(--line-2);vertical-align:middle}
+  .qt tr:last-child td{border-bottom:0}
+  .qt .q{font-size:13px;font-weight:500;line-height:1.35}
+  .qt .why{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .qt .why b{color:var(--ink-2);font-weight:500}
+  .tag{font-size:11.5px;padding:1.5px 7px;border-radius:4px;font-weight:500;white-space:nowrap}
+  .tag.weak{background:var(--weak-soft);color:var(--weak)}
+  .tag.shaky{background:var(--warn-soft);color:var(--warn)}
+  .tag.ok{background:var(--ok-soft);color:var(--ok)}
+  .tag.n{background:#F1EFEA;color:var(--ink-2)}
+  .due{font-size:11.5px;font-weight:500;white-space:nowrap;display:flex;align-items:center;gap:4px}
+  .due svg{width:12px;height:12px}
+  .due.late{color:var(--weak)}
+  .due.today{color:var(--brand)}
+  .gobtn{width:26px;height:26px;border:1px solid var(--line);border-radius:6px;
+         display:grid;place-items:center;color:var(--ink-2);background:var(--surface)}
+  .gobtn svg{width:13px;height:13px}
+
+  /* ---- 薄弱知识点 ---- */
+  .wrow{padding:7px 0;border-bottom:1px solid var(--line-2)}
+  .wrow:last-child{border-bottom:0;padding-bottom:0}
+  .wrow .t{display:flex;align-items:baseline;gap:6px;margin-bottom:5px}
+  .wrow .t b{font-size:12.5px;font-weight:500}
+  .wrow .t .n{font-size:11px;color:var(--muted)}
+  .wrow .t .pct{margin-left:auto;font-size:12.5px;font-weight:650}
+  .wbar{height:5px;border-radius:3px;background:#EFECE6;overflow:hidden}
+  .wbar i{display:block;height:100%;border-radius:3px}
+
+  /* ---- 掌握度分布 ---- */
+  .donut{display:flex;align-items:center;gap:16px}
+  .ring{width:112px;height:112px;flex:none;position:relative}
+  .ring .ctr{position:absolute;inset:0;display:flex;flex-direction:column;
+             align-items:center;justify-content:center;gap:1px}
+  .ring .ctr .v{font-size:25px;font-weight:650;line-height:1}
+  .ring .ctr .l{font-size:10.5px;color:var(--muted);line-height:1.2}
+  .lgd{flex:1}
+  .lgd .li{display:flex;align-items:center;gap:7px;padding:3.5px 0;font-size:12.5px}
+  .lgd .li i{width:8px;height:8px;border-radius:2px;flex:none}
+  .lgd .li .v{margin-left:auto;font-weight:600}
+
+  /* ---- 近 7 日 ---- */
+  .bars{display:flex;align-items:flex-end;gap:8px;height:112px;padding-top:6px}
+  .bcol{flex:1;max-width:46px;margin:0 auto;display:flex;flex-direction:column;
+        align-items:center;gap:6px;height:100%}
+  .bcol .bw{flex:1;width:100%;display:flex;align-items:flex-end;background:#F1EFEA;border-radius:4px}
+  .bcol .bw i{display:block;width:100%;background:#7FA9D4;border-radius:4px}
+  .bcol .bw i.hi{background:var(--ok)}
+  .bcol .bw i.lo{background:var(--warn)}
+  .bcol .lb{font-size:10.5px;color:var(--muted)}
+  .bcol.today .lb{color:var(--brand);font-weight:600}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ============ 侧栏 ============ -->
+  <aside class="side">
+    <div class="brand">
+      <div class="brand-mk">M</div>
+      <div class="brand-tx"><b>MathMaster</b><span>错题本 · 家长端</span></div>
+    </div>
+    <nav class="nav">
+      <div class="nav-g">
+        <div class="nav-gl">今天</div>
+        <div class="nav-i on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 13h4l2.5-7 4 14 2.5-7H21"/></svg>学情看板</div>
+        <div class="nav-i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/><path d="m9 15 2 2 4-4"/></svg>今日复习<span class="cnt hot">18</span></div>
+      </div>
+      <div class="nav-g">
+        <div class="nav-gl">学习</div>
+        <div class="nav-i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 8V6a2 2 0 0 1 2-2h3l1.5 2H18a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="2.6"/></svg>AI 录题</div>
+        <div class="nav-i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 4.5A2.5 2.5 0 0 1 7.5 2H19v18H7.5A2.5 2.5 0 0 0 5 22.5z"/><path d="M5 19.5V4.5M9 7h6M9 11h4"/></svg>错题本<span class="cnt">128</span></div>
+        <div class="nav-i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>能力画像</div>
+      </div>
+      <div class="nav-g">
+        <div class="nav-gl">探索</div>
+        <div class="nav-i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M8.2 7.3 10.4 15.6M15.8 7.3 13.6 15.6M8.5 6h7"/></svg>知识图谱</div>
+        <div class="nav-i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18.5 15.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z"/></svg>AI 助手</div>
+      </div>
+    </nav>
+    <div class="side-foot">
+      <div class="rolesw"><div class="on">学生</div><div>家长</div></div>
+      <div class="me">
+        <div class="av">林</div>
+        <div class="me-t"><b>林小雨</b><span>初二 (3) 班</span></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============ 主区 ============ -->
+  <main class="main">
+    <div class="pghead">
+      <h1>晚上好，林小雨</h1>
+      <div class="sub">10 月 2 日 星期五 · 本周已复习 5 天</div>
+      <div class="sp"></div>
+      <div class="ghostbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>搜索错题</div>
+      <div class="ghostbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 20a2 2 0 0 1-3.4 0"/></svg>通知<span style="color:var(--accent);font-weight:600">3</span></div>
+    </div>
+
+    <!-- 第一行 -->
+    <div class="row">
+      <div class="card task f2">
+        <div class="tk-top">
+          <div class="tk-t">
+            <h2>今日主线：清掉 6 道逾期题</h2>
+            <p>预计 12 分钟。完成后连续学习将达 8 天，超过班上 82% 的同学。</p>
+          </div>
+          <div class="cta"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>开始今日复习</div>
+        </div>
+        <div class="tk-bot">
+          <div><div class="k num">18</div><div class="kl">待复习</div></div>
+          <div><div class="k num warn">6</div><div class="kl">已逾期</div></div>
+          <div><div class="k num">3</div><div class="kl">薄弱知识点</div></div>
+          <div>
+            <div class="pwrap">
+              <div class="pbar"><i style="width:38%"></i></div>
+              <div class="pnote"><span>今日进度 7 / 18</span><span>约剩 9 分钟</span><span>达标线 10 题</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="seg">
+          <i style="width:33%;background:#E8590C"></i>
+          <i style="width:50%;background:#4E86C6"></i>
+          <i style="width:17%;background:#3E6E9C"></i>
+        </div>
+        <div class="seglg">
+          <span><em style="background:#E8590C"></em>已逾期 <b>6</b> 题</span>
+          <span><em style="background:#4E86C6"></em>今天到期 <b>9</b> 题</span>
+          <span><em style="background:#3E6E9C"></em>巩固复习 <b>3</b> 题</span>
+          <span style="margin-left:auto">上次复习 今天 19:42 · 正确率 78%</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="streak-n">
+          <div class="big num">7</div><div class="u">天连续学习</div>
+          <div class="fl"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2s.5 3-2 5.5S7 11 7 14a5 5 0 0 0 10 0c0-2-1-3.5-1-3.5S14 13 13 12s-2-2-2-4 2-4 2-6z"/></svg>最长 14 天</div>
+        </div>
+        <div class="heat" id="heat"></div>
+        <div class="heat-lg">
+          <span>6 周前</span><div style="flex:1"></div>
+          <i style="background:#EDEAE3"></i><span>少</span>
+          <i style="background:#CBE6DA"></i><i style="background:#93D2B7"></i>
+          <i style="background:#4FB88D"></i><i style="background:#0F9D6E"></i><span>多</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 第二行 -->
+    <div class="row">
+      <div class="card f2">
+        <div class="card-h">
+          <h2>待复习队列</h2>
+          <span class="sp"></span>
+          <div class="lnk">全部 18 道<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m9 5 7 7-7 7"/></svg></div>
+        </div>
+        <table class="qt">
+          <thead><tr><th style="width:38%">错题</th><th style="width:15%">掌握度</th><th style="width:24%">推荐理由</th><th style="width:17%">到期</th><th style="width:6%"></th></tr></thead>
+          <tbody>
+            <tr>
+              <td><div class="q">一元二次方程判别式判断 · 已知实数根求参数范围</div></td>
+              <td><span class="tag weak">薄弱 18%</span></td>
+              <td><div class="why">已逾期 <b>5 天</b> · 掌握度低于 30%</div></td>
+              <td><div class="due late"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.5l3.5 2"/></svg>逾期 5 天</div></td>
+              <td><div class="gobtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 5 7 7-7 7"/></svg></div></td>
+            </tr>
+            <tr>
+              <td><div class="q">相似三角形判定：两角对应相等的证明</div></td>
+              <td><span class="tag weak">薄弱 32%</span></td>
+              <td><div class="why"><b>SM-2 到期</b> · 间隔 3 天</div></td>
+              <td><div class="due today"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.5l3.5 2"/></svg>今天</div></td>
+              <td><div class="gobtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 5 7 7-7 7"/></svg></div></td>
+            </tr>
+            <tr>
+              <td><div class="q">一次函数与反比例函数交点坐标求解</div></td>
+              <td><span class="tag shaky">不稳定 58%</span></td>
+              <td><div class="why">本周录入 <b>3 次</b> · 属薄弱知识点群</div></td>
+              <td><div class="due today"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.5l3.5 2"/></svg>今天</div></td>
+              <td><div class="gobtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 5 7 7-7 7"/></svg></div></td>
+            </tr>
+            <tr>
+              <td><div class="q">圆周角定理的应用 · 直径所对圆周角为直角</div></td>
+              <td><span class="tag shaky">不稳定 64%</span></td>
+              <td><div class="why"><b>SM-2 到期</b> · 间隔 4 天</div></td>
+              <td><div class="due today"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.5l3.5 2"/></svg>今天</div></td>
+              <td><div class="gobtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 5 7 7-7 7"/></svg></div></td>
+            </tr>
+            <tr>
+              <td><div class="q">分式方程增根的检验与去分母</div></td>
+              <td><span class="tag ok">良好 78%</span></td>
+              <td><div class="why">巩固 · 距上次复习 <b>6 天</b></div></td>
+              <td><div class="due today"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.5l3.5 2"/></svg>今天</div></td>
+              <td><div class="gobtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 5 7 7-7 7"/></svg></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card f135">
+        <div class="card-h"><h2>薄弱知识点</h2><span class="sp"></span><div class="lnk">全部 42<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m9 5 7 7-7 7"/></svg></div></div>
+        <div class="wrow"><div class="t"><b>一元二次方程判别式</b><span class="n">6 题</span><span class="pct num" style="color:var(--weak)">18%</span></div><div class="wbar"><i style="width:18%;background:var(--weak)"></i></div></div>
+        <div class="wrow"><div class="t"><b>相似三角形</b><span class="n">4 题</span><span class="pct num" style="color:var(--weak)">32%</span></div><div class="wbar"><i style="width:32%;background:var(--weak)"></i></div></div>
+        <div class="wrow"><div class="t"><b>圆周角与直径</b><span class="n">5 题</span><span class="pct num" style="color:var(--warn)">41%</span></div><div class="wbar"><i style="width:41%;background:var(--warn)"></i></div></div>
+        <div class="wrow"><div class="t"><b>代数运算</b><span class="n">9 题</span><span class="pct num" style="color:var(--warn)">58%</span></div><div class="wbar"><i style="width:58%;background:var(--warn)"></i></div></div>
+        <div class="wrow"><div class="t"><b>分式方程</b><span class="n">7 题</span><span class="pct num" style="color:var(--ok)">71%</span></div><div class="wbar"><i style="width:71%;background:var(--ok)"></i></div></div>
+        <div class="wrow"><div class="t"><b>一次函数图像</b><span class="n">11 题</span><span class="pct num" style="color:var(--ok)">76%</span></div><div class="wbar"><i style="width:76%;background:var(--ok)"></i></div></div>
+      </div>
+    </div>
+
+    <!-- 第三行 -->
+    <div class="row">
+      <div class="card">
+        <div class="card-h"><h2>掌握度分布</h2><span class="sp"></span><div class="lnk">近 30 天</div></div>
+        <div class="donut">
+          <div class="ring">
+            <svg viewBox="0 0 42 42" width="112" height="112">
+              <circle cx="21" cy="21" r="15.9" fill="none" stroke="#EDEAE3" stroke-width="3.4"/>
+              <circle cx="21" cy="21" r="15.9" fill="none" stroke="#0F9D6E" stroke-width="3.4"
+                      stroke-dasharray="72 100" stroke-dashoffset="25" stroke-linecap="butt"/>
+              <circle cx="21" cy="21" r="15.9" fill="none" stroke="#D97706" stroke-width="3.4"
+                      stroke-dasharray="21 100" stroke-dashoffset="53" stroke-linecap="butt"/>
+              <circle cx="21" cy="21" r="15.9" fill="none" stroke="#D93F3F" stroke-width="3.4"
+                      stroke-dasharray="7 100" stroke-dashoffset="75" stroke-linecap="butt"/>
+            </svg>
+            <div class="ctr"><div class="v num">86%</div><div class="l">整体掌握</div></div>
+          </div>
+          <div class="lgd">
+            <div class="li"><i style="background:#0F9D6E"></i>良好<span class="v num">72</span></div>
+            <div class="li"><i style="background:#D97706"></i>不稳定<span class="v num">38</span></div>
+            <div class="li"><i style="background:#D93F3F"></i>薄弱<span class="v num">18</span></div>
+            <div class="li" style="color:var(--muted);font-size:12px;border-top:1px solid var(--line-2);padding-top:7px;margin-top:4px">较上周<span class="v num" style="color:var(--ok)">▲ 3%</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card f135">
+        <div class="card-h"><h2>近 7 日复习正确率</h2><span class="sp"></span><div class="lnk">查看趋势</div></div>
+        <div class="bars">
+          <div class="bcol"><div class="bw"><i style="height:78%"></i></div><div class="lb">周一</div></div>
+          <div class="bcol"><div class="bw"><i style="height:61%"></i></div><div class="lb">周二</div></div>
+          <div class="bcol"><div class="bw"><i class="hi" style="height:85%"></i></div><div class="lb">周三</div></div>
+          <div class="bcol"><div class="bw"><i style="height:70%"></i></div><div class="lb">周四</div></div>
+          <div class="bcol"><div class="bw"><i class="hi" style="height:92%"></i></div><div class="lb">周五</div></div>
+          <div class="bcol"><div class="bw"><i class="lo" style="height:22%"></i></div><div class="lb">周六</div></div>
+          <div class="bcol today"><div class="bw"><i style="height:66%"></i></div><div class="lb">今天</div></div>
+        </div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;padding-top:11px;border-top:1px solid var(--line-2);font-size:11.5px;color:var(--muted)">
+          <span>本周 42 次复习 · 正确 <b style="color:var(--ink-2)">29</b> 次</span>
+          <span>平均耗时 <b style="color:var(--ink-2)">51 秒</b>/题</span>
+          <span>目标正确率 <b style="color:var(--ink-2)">80%</b></span>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+// 学习热力图：6 个自然周 x 周一..周日，今天 = 10/2（周五）
+// 最后一列是本周（9/28 起），周六周日为未来，留空。
+// 第 5 列的周六日 + 最后一列的周一至周五 = 连续 7 天，与「7 天连续学习」自洽。
+var WEEKS = [
+  [2,1,0,3,2,1,0],   // 8/24
+  [2,3,1,0,2,1,0],   // 8/31
+  [3,2,1,4,3,0,2],   // 9/7
+  [1,0,2,3,4,1,0],   // 9/14
+  [2,3,4,2,1,2,3],   // 9/21  <- 连续 7 天的起点
+  [4,3,2,4,4,-1,-1]  // 9/28  <- 本周，周六周日为未来
+];
+var LB = ["8/24","8/31","9/7","9/14","9/21","9/28"];
+var x = document.getElementById("heat");
+x.innerHTML = '<div class="heat-x">' + LB.map(function(w){return "<span>"+w+"</span>";}).join("") + "</div>";
+for (var r = 0; r < 7; r++) {
+  var row = document.createElement("div");
+  row.className = "heat-row";
+  var html = "";
+  for (var c = 0; c < 6; c++) {
+    var v = WEEKS[c][r];
+    var cls = v < 0 ? "future" : (v ? "l"+v : "");
+    var tip = (LB[c] + " 周" + ["一","二","三","四","五","六","日"][r] + " · " + (v < 0 ? "未来" : (v ? v + " 次复习" : "未学习")));
+    html += '<div class="heat-cell ' + cls + '" title="' + tip + '"></div>';
+  }
+  row.innerHTML = html;
+  x.appendChild(row);
+}
+</script>
+</body>
+</html>

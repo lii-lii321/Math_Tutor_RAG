@@ -226,3 +226,41 @@ div[data-testid="stExpander"] {
 }
 
 .block-container { padding-top: 2.2rem; max-width: 1200px; }
+
+/* ---------------- 看板 Hero：深藏青行动卡（v2 模板） ---------------- */
+.mm-hero {
+  background: #132339;
+  border-radius: 16px;
+  color: #eef2f7;
+  padding: 1.5rem 1.8rem;
+}
+.mm-hero__title { font-size: 1.25rem; font-weight: 700; color: #ffffff; margin: 0 0 0.2rem 0; }
+.mm-hero__sub { font-size: 0.85rem; color: #9fb0c9; margin: 0 0 0.9rem 0; }
+.mm-hero__btn {
+  background: #e8590c; color: #ffffff; border: none; border-radius: 10px;
+  padding: 0.55rem 1.4rem; font-weight: 600; font-size: 0.95rem;
+}
+.mm-kpi-row { display: flex; gap: 2.2rem; margin: 1rem 0 0.6rem 0; flex-wrap: wrap; }
+.mm-kpi__value { font-size: 1.8rem; font-weight: 700; color: #ffffff; line-height: 1.1; }
+.mm-kpi__label { font-size: 0.76rem; color: #9fb0c9; }
+.mm-segbar { display: flex; height: 10px; border-radius: 6px; overflow: hidden; background: #24395c; }
+.mm-segbar__overdue { background: #e8590c; }
+.mm-segbar__today { background: #3b82f6; }
+.mm-segbar__later { background: #64748b; }
+.mm-segbar__legend { display: flex; gap: 1.4rem; margin-top: 0.45rem; font-size: 0.76rem; color: #9fb0c9; }
+.mm-dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; }
+
+/* ---------------- 掌握度 pill（队列表格用） ---------------- */
+.mm-pill { display: inline-block; padding: 0.1rem 0.55rem; border-radius: 999px; font-size: 0.78rem; font-weight: 600; }
+.mm-pill--weak { background: #fdecea; color: #dc2626; }
+.mm-pill--shaky { background: #fef3e2; color: #b45309; }
+.mm-pill--good { background: #e7f6ef; color: #059669; }
+.mm-pill--none { background: #f1f5f9; color: #94a3b8; }
+
+/* ---------------- 连续学习卡 ---------------- */
+.mm-streak__value { font-size: 2.6rem; font-weight: 700; color: var(--navy); line-height: 1; }
+.mm-streak__unit { font-size: 0.85rem; color: var(--slate-light); }
+
+/* ---------------- 队列行 ---------------- */
+.mm-queue-row { padding: 0.55rem 0; border-bottom: 1px solid var(--border); }
+.mm-queue-row:last-child { border-bottom: none; }

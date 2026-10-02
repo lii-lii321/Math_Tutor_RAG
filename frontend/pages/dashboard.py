@@ -1,4 +1,8 @@
-"""学情看板：统计卡、知识点分布、掌握度排行、活跃度趋势。"""
+"""学情看板 v2：Hero 行动卡 + 待复习队列表格 + 薄弱横条 + 分布/正确率图表。
+
+布局对齐 docs/deck v2 模板：第一屏回答"今天该做什么"，
+全部数据来自现有 stats / today_plan / mastery_by_question，无新增后端接口。
+"""
 from __future__ import annotations
 
 import datetime as dt
@@ -7,6 +11,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
+from backend.services.mastery import SHAKY_THRESHOLD, WEAK_THRESHOLD
 from frontend.common import (
     get_question_service,
     go_to,
@@ -15,76 +20,15 @@ from frontend.common import (
     provider_badges,
     stat_card,
 )
-from frontend.components import mastery_bar_html
+from frontend.components import mastery_bar_html, safe_call
 
 _BLUE = "#2563eb"
 
-
-def _picked_tag(event) -> str | None:
-    """从 plotly on_select 事件里取被点击色条/扇区对应的标签。"""
-    selection = getattr(event, "selection", None)
-    points = getattr(selection, "points", None) if selection else None
-    for point in points or []:
-        for key in ("y", "label", "customdata", "name"):
-            value = point.get(key) if isinstance(point, dict) else getattr(point, key, None)
-            if value:
-                return str(value[0] if isinstance(value, list) else value)
-    return None
-
-
-def _render_calendar(calendar: dict) -> None:
-    z = calendar["z"]
-    if calendar["max"] == 0:
-        st.caption("还没有学习记录，录入或复习错题后这里会点亮。")
-        return
-    heatmap = go.Heatmap(
-        z=z,
-        x=calendar["x"],
-        y=calendar["y"],
-        customdata=calendar.get("dates"),
-        colorscale=[[0, "#e2e8f0"], [0.4, "#93c5fd"], [0.75, "#2563eb"], [1, "#1a365d"]],
-        showscale=False,
-        xgap=3,
-        ygap=3,
-        zmin=0,
-        hovertemplate="%{customdata}（周 %{y}）：<b>%{z}</b> 题<extra></extra>",
-    )
-    fig = go.Figure(data=heatmap)
-    fig.update_layout(
-        margin=dict(t=10, b=10, l=10, r=10),
-        height=210,
-        paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="sans-serif", color="#334155"),
-    )
-    fig.update_xaxes(tickangle=0, tickfont=dict(size=9))
-    fig.update_yaxes(tickfont=dict(size=9))
-    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
-
-
-def _render_accuracy_trend(trend: list[dict]) -> None:
-    if not trend:
-        st.caption("还没有复习记录；完成一轮复习后这里会出现正确率曲线。")
-        return
-    line = px.line(
-        x=[t["date"] for t in trend],
-        y=[t["accuracy"] for t in trend],
-        markers=True,
-        labels={"x": "日期", "y": "正确率%"},
-    )
-    line.update_traces(line_color=_BLUE)
-    line.update_layout(
-        margin=dict(t=10, b=10, l=10, r=10),
-        height=210,
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="sans-serif", color="#334155"),
-        yaxis=dict(range=[0, 105], gridcolor="#e2e8f0"),
-        xaxis=dict(showgrid=False),
-    )
-    st.plotly_chart(line, width="stretch", config={"displayModeBar": False})
+_PLOTLY_FONT = dict(family="sans-serif", color="#334155")
 
 
 def _render_difficulty(dist: dict) -> None:
+    """难度分布环形图（旧版辅助函数，收进折叠区使用）。"""
     if not dist or sum(dist.values()) == 0:
         st.caption("还没有错题数据。")
         return
@@ -101,32 +45,21 @@ def _render_difficulty(dist: dict) -> None:
         margin=dict(t=10, b=10, l=10, r=10),
         height=240,
         paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="sans-serif", color="#334155"),
+        font=_PLOTLY_FONT,
     )
     st.plotly_chart(pie, width="stretch", config={"displayModeBar": False})
 
 
-def _render_mastery_trend(trend: list[dict]) -> None:
-    if not trend or all(p["mastery"] == 0 for p in trend):
-        st.caption("复习几道题后，这里会出现掌握度成长曲线。")
-        return
-    line = px.line(
-        x=[p["date"] for p in trend],
-        y=[p["mastery"] for p in trend],
-        markers=True,
-        labels={"x": "日期", "y": "掌握度%"},
-    )
-    line.update_traces(line_color="#059669", fill="tozeroy", fillcolor="rgba(5,150,105,0.08)")
-    line.update_layout(
-        margin=dict(t=10, b=10, l=10, r=10),
-        height=200,
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="sans-serif", color="#334155"),
-        yaxis=dict(range=[0, 105], gridcolor="#e2e8f0"),
-        xaxis=dict(showgrid=False),
-    )
-    st.plotly_chart(line, width="stretch", config={"displayModeBar": False})
+def _picked_tag(event) -> str | None:
+    """从 plotly on_select 事件里取被点击色条/扇区对应的标签。"""
+    selection = getattr(event, "selection", None)
+    points = getattr(selection, "points", None) if selection else None
+    for point in points or []:
+        for key in ("y", "label", "customdata", "name"):
+            value = point.get(key) if isinstance(point, dict) else getattr(point, key, None)
+            if value:
+                return str(value[0] if isinstance(value, list) else value)
+    return None
 
 
 def _greeting() -> str:
@@ -140,162 +73,361 @@ def _greeting() -> str:
     return "晚上好"
 
 
+def _aware(value: dt.datetime | None) -> dt.datetime | None:
+    return value if value is None or value.tzinfo else value.replace(tzinfo=dt.timezone.utc)
+
+
+def _today_bounds() -> tuple[dt.datetime, dt.datetime]:
+    """本地今天的零点与明天零点（aware）。"""
+    now_local = dt.datetime.now().astimezone()
+    start = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+    return start, start + dt.timedelta(days=1)
+
+
+def _render_heatmap(calendar: dict) -> None:
+    z = calendar["z"]
+    if calendar["max"] == 0:
+        st.caption("还没有学习记录，录入或复习错题后这里会点亮。")
+        return
+    heatmap = go.Heatmap(
+        z=z,
+        x=calendar["x"],
+        y=calendar["y"],
+        customdata=calendar.get("dates"),
+        colorscale=[[0, "#eef2ee"], [0.4, "#a7d7b8"], [0.75, "#4caf83"], [1, "#059669"]],
+        showscale=False,
+        xgap=4,
+        ygap=4,
+        zmin=0,
+        hovertemplate="%{customdata}（周 %{y}）：<b>%{z}</b> 题<extra></extra>",
+    )
+    fig = go.Figure(data=heatmap)
+    fig.update_layout(
+        margin=dict(t=10, b=10, l=10, r=10),
+        height=190,
+        paper_bgcolor="rgba(0,0,0,0)",
+        font=_PLOTLY_FONT,
+    )
+    fig.update_xaxes(tickangle=0, tickfont=dict(size=9))
+    fig.update_yaxes(tickfont=dict(size=9))
+    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
+
+
+def _render_mastery_donut(mastery_map: dict[int, float]) -> None:
+    """掌握度三档分布环形图（数据=每题掌握度映射，无记录的题不参与）。"""
+    if not mastery_map:
+        st.caption("复习几道题后，这里会出现掌握度分布。")
+        return
+    buckets = {"已掌握": 0, "不稳固": 0, "薄弱": 0}
+    for m in mastery_map.values():
+        if m >= SHAKY_THRESHOLD:
+            buckets["已掌握"] += 1
+        elif m >= WEAK_THRESHOLD:
+            buckets["不稳固"] += 1
+        else:
+            buckets["薄弱"] += 1
+    total = sum(buckets.values())
+    if total == 0:
+        st.caption("尚无复习数据。")
+        return
+    overall = round(sum(mastery_map.values()) / total * 100)
+    colors = {"已掌握": "#059669", "不稳固": "#d97706", "薄弱": "#dc2626"}
+    fig = go.Figure(
+        go.Pie(
+            labels=list(buckets),
+            values=list(buckets.values()),
+            hole=0.66,
+            sort=False,
+            marker=dict(colors=[colors[k] for k in buckets]),
+            textinfo="none",
+        )
+    )
+    fig.update_layout(
+        annotations=[
+            dict(
+                text=f"<b>{overall}%</b><br><span style='font-size:11px'>整体掌握</span>",
+                x=0.5,
+                y=0.5,
+                font=dict(size=22, color="#1a365d"),
+                showarrow=False,
+            )
+        ],
+        margin=dict(t=6, b=6, l=6, r=6),
+        height=190,
+        paper_bgcolor="rgba(0,0,0,0)",
+        font=_PLOTLY_FONT,
+        showlegend=True,
+        legend=dict(orientation="v", y=0.5, x=1.02, font=dict(size=11)),
+    )
+    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
+    for label, count in buckets.items():
+        st.markdown(
+            f"<div style='display:flex;justify-content:space-between;font-size:0.85rem'>"
+            f"<span style='color:{colors[label]}'>● {label}</span>"
+            f"<span>{count}</span></div>",
+            unsafe_allow_html=True,
+        )
+
+
+def _render_accuracy_week(trend: list[dict]) -> None:
+    """近 7 日复习正确率：柱色按正确率分档（好绿/一般蓝/差橙）。"""
+    recent = trend[-7:] if trend else []
+    if not recent:
+        st.caption("还没有复习记录；完成一轮复习后这里会出现正确率。")
+        return
+
+    def _bar_color(acc) -> str:
+        if acc is None:
+            return "#cbd5e1"
+        if acc >= 80:
+            return "#059669"
+        if acc >= 60:
+            return "#3b82f6"
+        return "#e8590c"
+
+    fig = go.Figure(
+        go.Bar(
+            x=[t["date"][-5:] for t in recent],
+            y=[t["accuracy"] or 0 for t in recent],
+            marker_color=[_bar_color(t.get("accuracy")) for t in recent],
+            width=0.55,
+        )
+    )
+    fig.update_layout(
+        margin=dict(t=10, b=10, l=10, r=10),
+        height=200,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=_PLOTLY_FONT,
+        yaxis=dict(range=[0, 105], visible=False),
+        xaxis=dict(showgrid=False),
+        showlegend=False,
+    )
+    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
+
+
 def render_dashboard(user: dict) -> None:
     service = get_question_service()
-    stats = service.dashboard_stats(user["id"], include_others=user["role"] == "teacher")
+    page_header(
+        "学情看板",
+        f"{dt.datetime.now():%m 月 %d 日} · 功能已经很完整，这一屏回答“今天该做什么”",
+    )
 
+    ok, stats = safe_call(service.dashboard_stats, user["id"], error_title="学情数据加载失败")
+    if not ok:
+        st.stop()
+    ok, due_list = safe_call(service.due_questions, user["id"], error_title="复习队列加载失败")
+    if not ok:
+        st.stop()
+    ok, mastery_map = safe_call(
+        service.mastery_by_question, user["id"], error_title="掌握度数据加载失败"
+    )
+    mastery_map = mastery_map or {}
+
+    # ---- 逾期/今天到期拆分（到期池内的三色构成）----
+    today_start, tomorrow_start = _today_bounds()
+    overdue = today_due = 0
+    for q in due_list:
+        if q.due_at is None:
+            continue
+        d = _aware(q.due_at)
+        if d < today_start:
+            overdue += 1
+        elif d < tomorrow_start:
+            today_due += 1
+
+    weak_tags = stats.get("weak_tags", [])
+
+    # ---- 顶栏问候 ----
     st.markdown(
         f"""
-        <div class="mm-welcome">
-            <h1>{_greeting()}，{user['username']}</h1>
-            <p>今天有 {stats['due']} 道错题等待复习 · 保持节奏，把每一道错题变成得分点。</p>
-            <p style="margin-top:0.4rem">🔥 连续学习 {stats.get('streak', 0)} 天　🏆 已掌握 {stats.get('mastered', 0)} 题</p>
-            <div style="margin-top:0.8rem">{provider_badges()}</div>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap">
+          <div><span style="font-size:1.35rem;font-weight:700;color:var(--navy)">{_greeting()}，{user['username']}</span>
+          <span class="mm-muted" style="margin-left:0.8rem">{dt.datetime.now():%m 月 %d 日 星期}{'一二三四五六日'[dt.datetime.now().weekday()]}</span></div>
+          <div>{provider_badges()}</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    # 今日主线：第一屏直接回答"现在该做什么"（数据全部来自 stats，无需新接口）
-    if stats["due"] > 0:
-        mainline = f"主线任务：先清空 {stats['due']} 道到期题，再巩固 {len(stats['weak_tags'])} 个薄弱知识点"
-    else:
-        mainline = "到期题已清空——去「能力画像」巩固薄弱知识点，或录入一道新错题"
-    st.markdown(
-        f"""<div class="mm-card" style="padding:0.7rem 1.2rem;margin-top:-0.6rem">
-        <strong>🎯 今日主线</strong>　{mainline}
-        </div>""",
-        unsafe_allow_html=True,
-    )
+    main_col, side_col = st.columns([2.4, 1], gap="large")
 
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        stat_card(stats["total"], "累计错题", accent=True)
-    with col2:
-        stat_card(len(stats["tag_stats"]), "涉及知识点")
-    with col3:
-        stat_card(stats["reviewed"], "已复习错题")
-    with col4:
-        stat_card(stats["due"], "待复习", accent=True)
-
-    action_col1, action_col2, action_col3, action_col4 = st.columns(4)
-    with action_col1:
-        if st.button("🎬 开始复习", type="primary", width="stretch", disabled=stats["due"] == 0):
-            go_to("review", mode="due")
-    with action_col2:
-        if st.button("📸 录一道错题", width="stretch"):
-            go_to("tutor")
-    with action_col3:
-        if st.button("📒 打开错题本", width="stretch"):
-            go_to("notebook")
-    with action_col4:
-        if st.button("🎯 今日计划", width="stretch"):
-            go_to("mastery")
-
-    weekly = stats.get("weekly", {})
-    if weekly:
-        accuracy_text = f"{weekly['accuracy']}%" if weekly.get("accuracy") is not None else "—"
-        prev = weekly.get("prev") or {}
-        delta = ""
-        prev_reviews = prev.get("reviews")
-        if prev_reviews:
-            diff = weekly.get("reviews", 0) - prev_reviews
-            arrow = "↑" if diff > 0 else ("↓" if diff < 0 else "＝")
-            delta = f"（复习量较上周 {arrow} {abs(diff)}）"
+    # ---- Hero 行动卡 ----
+    with main_col:
+        seg_total = max(len(due_list), 1)
+        w_over = overdue / seg_total * 100
+        w_today = today_due / seg_total * 100
+        w_later = max(100 - w_over - w_today, 0)
         st.markdown(
-            f"""<div class="mm-card" style="padding:0.8rem 1.2rem">
-            <strong>📣 本周周报</strong>　录入 <b>{weekly['created']}</b> 题 ·
-            复习 <b>{weekly['reviews']}</b> 次{delta} · 正确率 <b>{accuracy_text}</b> ·
-            活跃 <b>{weekly['active_days']}</b> 天
-            </div>""",
+            f"""
+            <div class="mm-hero">
+              <div class="mm-hero__title">今日主线：清空 {len(due_list)} 道待复习题</div>
+              <div class="mm-hero__sub">{"⚠️ 其中有 " + str(overdue) + " 道已逾期，建议优先处理。" if overdue else "队列健康，按顺序复习即可。"}</div>
+              <div class="mm-kpi-row">
+                <div><div class="mm-kpi__value">{len(due_list)}</div><div class="mm-kpi__label">待复习</div></div>
+                <div><div class="mm-kpi__value" style="color:#ff8a4c">{overdue}</div><div class="mm-kpi__label">已逾期</div></div>
+                <div><div class="mm-kpi__value">{len(weak_tags)}</div><div class="mm-kpi__label">薄弱知识点</div></div>
+                <div><div class="mm-kpi__value">{stats.get("streak", 0)}</div><div class="mm-kpi__label">连续学习（天）</div></div>
+              </div>
+              <div class="mm-segbar">
+                <div class="mm-segbar__overdue" style="width:{w_over}%"></div>
+                <div class="mm-segbar__today" style="width:{w_today}%"></div>
+                <div class="mm-segbar__later" style="width:{w_later}%"></div>
+              </div>
+              <div class="mm-segbar__legend">
+                <span><span class="mm-dot mm-segbar__overdue"></span>已逾期 {overdue} 题</span>
+                <span><span class="mm-dot mm-segbar__today"></span>今天到期 {today_due} 题</span>
+                <span><span class="mm-dot mm-segbar__later"></span>稍后巩固 {len(due_list) - overdue - today_due} 题</span>
+              </div>
+            </div>
+            """,
             unsafe_allow_html=True,
         )
+        if st.button("▶ 开始今日复习", type="primary", width="stretch", key="hero_start"):
+            go_to("review", mode="due")
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    # ---- 连续学习 + 热力图 ----
+    with side_col:
+        streak_top, streak_best = st.columns(2)
+        with streak_top:
+            st.markdown(
+                f"""
+                <div class="mm-streak__value">{stats.get("streak", 0)}</div>
+                <div class="mm-streak__unit">天连续学习</div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with side_col:
+            _render_heatmap(stats.get("calendar", {}))
+            st.caption("■ 少 → 多")
 
-    chart_col, weak_col = st.columns([3, 2])
-    with chart_col:
-        page_header("知识点分布", "错题按标签聚合 · 点击色条直达该知识点的错题")
-        if stats["tag_stats"]:
-            top = stats["tag_stats"][:8]
-            bar_fig = px.bar(
-                x=[s.count for s in top],
-                y=[s.tag for s in top],
-                orientation="h",
-                labels={"x": "错题数", "y": ""},
-                color=[s.count for s in top],
-                color_continuous_scale=["#bfdbfe", "#2563eb"],
-            )
-            bar_fig.update_layout(
-                showlegend=False,
-                coloraxis_showscale=False,
-                margin=dict(t=10, b=10, l=10, r=20),
-                height=max(280, 44 * len(top)),
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(0,0,0,0)",
-                font=dict(family="sans-serif", color="#334155"),
-                xaxis=dict(showgrid=False, title=""),
-            )
-            bar_fig.update_yaxes(autorange="reversed")
-            event = st.plotly_chart(
-                bar_fig,
-                width="stretch",
-                on_select="rerun",
-                key="tag_bar",
-                config={"displayModeBar": False},
-            )
-            clicked = _picked_tag(event)
-            if clicked:
-                go_to("notebook", tag=clicked)
+    # ---- KPI 卡行（紧凑保留，E2E 与信息锚点） ----
+    k1, k2, k3, k4 = st.columns(4)
+    with k1:
+        stat_card(stats["total"], "累计错题", accent=True)
+    with k2:
+        stat_card(len(stats["tag_stats"]), "涉及知识点")
+    with k3:
+        stat_card(stats["reviewed"], "已复习错题")
+    with k4:
+        stat_card(stats["mastered"], "已掌握 🏆")
+
+    # ---- 待复习队列表格 + 薄弱知识点 ----
+    queue_col, weak_col = st.columns([2.4, 1], gap="large")
+    with queue_col:
+        st.subheader("待复习队列")
+        plan = service.today_plan(user["id"], size=5)
+        if not plan:
+            st.info("🎉 今日复习任务已清空，错题本处于健康状态。")
         else:
-            st.info("还没有错题，去「AI 录题」上传第一张错题图片吧。")
+            for item in plan:
+                q = item.question
+                m = mastery_map.get(q.id)
+                if m is None:
+                    pill = '<span class="mm-pill mm-pill--none">未复习</span>'
+                else:
+                    pct = round(m * 100)
+                    if m < WEAK_THRESHOLD:
+                        pill = f'<span class="mm-pill mm-pill--weak">薄弱 {pct}%</span>'
+                    elif m < SHAKY_THRESHOLD:
+                        pill = f'<span class="mm-pill mm-pill--shaky">不稳定 {pct}%</span>'
+                    else:
+                        pill = f'<span class="mm-pill mm-pill--good">良好 {pct}%</span>'
+                cols = st.columns([5, 2, 3, 2, 1])
+                with cols[0]:
+                    st.markdown(
+                        f"**{q.content_markdown[:38]}**",
+                        unsafe_allow_html=True,
+                    )
+                with cols[1]:
+                    st.markdown(pill, unsafe_allow_html=True)
+                with cols[2]:
+                    st.caption(item.reason)
+                with cols[3]:
+                    st.caption("今天" if q.due_at is None else f"{_aware(q.due_at):%m-%d}")
+                with cols[4]:
+                    if st.button("›", key=f"queue_go_{q.id}", help="去复习这道"):
+                        go_to("review", mode="plan", question_id=q.id)
+            if st.button(f"全部 {len(due_list)} 道 ›", key="queue_all"):
+                go_to("review", mode="due")
 
     with weak_col:
-        page_header("薄弱知识点", "按掌握度升序，建议优先复习")
-        if stats["weak_tags"]:
-            for tag_stat in stats["weak_tags"]:
+        st.subheader("薄弱知识点")
+        if weak_tags:
+            for tag_stat in weak_tags[:6]:
                 st.markdown(
                     mastery_bar_html(
-                        f"{tag_stat.tag} <span class='mm-muted'>({tag_stat.count} 题)</span>",
+                        f"{tag_stat.tag} {tag_stat.count} 题",
                         tag_stat.mastery * 100,
                         color=mastery_color(tag_stat.mastery),
                         right=f"{int(tag_stat.mastery * 100)}%",
                     ),
                     unsafe_allow_html=True,
                 )
-            if st.button("📚 去错题本复习最薄弱的知识点", width="stretch"):
-                go_to("notebook", tag=stats["weak_tags"][0].tag)
+            if st.button("查看全部 ›", key="weak_all", width="stretch"):
+                go_to("notebook", tag=weak_tags[0].tag)
         else:
-            st.caption("复习几道题后，这里会生成掌握度分析。")
+            st.caption("复习几道题后，这里会生成薄弱点分析。")
 
     st.markdown("<br>", unsafe_allow_html=True)
-    page_header("近 14 天录入趋势")
-    activity = stats["activity"]
-    bar = px.bar(
-        x=[a["date"] for a in activity],
-        y=[a["count"] for a in activity],
-        labels={"x": "日期", "y": "新增错题"},
-    )
-    bar.update_traces(marker_color=_BLUE)
-    bar.update_layout(
-        margin=dict(t=10, b=20, l=20, r=20),
-        height=260,
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="sans-serif", color="#334155"),
-        xaxis=dict(type="category", showgrid=False),
-        yaxis=dict(dtick=1, range=[0, max(3, max(a["count"] for a in activity) + 1)], gridcolor="#e2e8f0"),
-    )
-    st.plotly_chart(bar, width="stretch", config={"displayModeBar": False})
 
-    cal_col, trend_col = st.columns([3, 2])
-    with cal_col:
-        page_header("学习日历", "近 90 天 · 颜色越深，当天学得越多")
-        _render_calendar(stats["calendar"])
-    with trend_col:
-        page_header("复习正确率", "近 30 天 · 记得/秒懂占比")
-        _render_accuracy_trend(stats["accuracy_trend"])
+    # ---- 掌握度分布 + 近 7 日正确率 ----
+    dist_col, acc_col = st.columns(2, gap="large")
+    with dist_col:
+        st.subheader("掌握度分布")
+        _render_mastery_donut(mastery_map)
+    with acc_col:
+        st.subheader("近 7 日复习正确率")
+        _render_accuracy_week(stats.get("accuracy_trend", []))
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    page_header("难度分布", "easy / medium / hard 错题构成")
-    _render_difficulty(stats.get("difficulty", {}))
+    # ---- 次要图表收进折叠 ----
+    with st.expander("更多图表（录入趋势 / 学习日历 / 难度分布 / 掌握度趋势）"):
+        page_header("近 14 天录入趋势")
+        activity = stats["activity"]
+        bar = px.bar(
+            x=[a["date"] for a in activity],
+            y=[a["count"] for a in activity],
+            labels={"x": "日期", "y": "新增错题"},
+        )
+        bar.update_traces(marker_color=_BLUE)
+        bar.update_layout(
+            margin=dict(t=10, b=20, l=20, r=20),
+            height=260,
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=_PLOTLY_FONT,
+            xaxis=dict(type="category", showgrid=False),
+            yaxis=dict(dtick=1, range=[0, max(3, max((a["count"] for a in activity), default=0) + 1)], gridcolor="#e2e8f0"),
+        )
+        st.plotly_chart(bar, width="stretch", config={"displayModeBar": False})
+
+        cal_col, trend_col = st.columns(2)
+        with cal_col:
+            st.markdown("**学习日历**")
+            _render_heatmap(stats["calendar"])
+        with trend_col:
+            st.markdown("**掌握度趋势**")
+            m_trend = stats.get("mastery_trend", [])
+            if not m_trend or all(p["mastery"] == 0 for p in m_trend):
+                st.caption("复习几道题后，这里会出现掌握度成长曲线。")
+            else:
+                line = px.line(
+                    x=[p["date"] for p in m_trend],
+                    y=[p["mastery"] for p in m_trend],
+                    markers=True,
+                    labels={"x": "日期", "y": "掌握度%"},
+                )
+                line.update_traces(line_color="#059669")
+                line.update_layout(
+                    margin=dict(t=10, b=10, l=10, r=10),
+                    height=220,
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    font=_PLOTLY_FONT,
+                    yaxis=dict(range=[0, 105], gridcolor="#e2e8f0"),
+                    xaxis=dict(showgrid=False),
+                )
+                st.plotly_chart(line, width="stretch", config={"displayModeBar": False})
+
+        st.markdown("**难度分布**")
+        _render_difficulty(stats.get("difficulty", {}))

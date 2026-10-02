@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>MathMaster Edu · UI 提升方案 v2.0</title>
+<style>
+  :root {
+    --navy: #16294a;
+    --ink: #1f2937;
+    --slate: #475569;
+    --slate2: #64748b;
+    --muted: #94a3b8;
+    --line: #e5e7eb;
+    --soft: #f1f5f9;
+    --bg: #f7f8fa;
+    --card: #ffffff;
+    --brand: #2563eb;
+    --brand-soft: #eff6ff;
+    --brand-line: #bfdbfe;
+    --weak: #dc2626;
+    --weak-soft: #fef2f2;
+    --weak-line: #fecaca;
+    --shaky: #d97706;
+    --shaky-soft: #fffbeb;
+    --shaky-line: #fde68a;
+    --good: #059669;
+    --good-soft: #ecfdf5;
+    --good-line: #a7f3d0;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+            "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    --mono: "SF Mono", "Cascadia Mono", Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  @page { size: A4; margin: 15mm 14mm 16mm 14mm; }
+
+  html, body {
+    margin: 0; padding: 0;
+    font-family: var(--sans);
+    color: var(--ink);
+    font-size: 10pt;
+    line-height: 1.62;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  h1, h2, h3, h4 { margin: 0; font-weight: 650; }
+  p { margin: 0 0 8pt; }
+  ul, ol { margin: 0 0 8pt; padding-left: 15pt; }
+  li { margin-bottom: 3pt; }
+
+  code, .mono { font-family: var(--mono); font-size: 8.4pt; }
+
+  /* ---------- cover ---------- */
+  .cover { page-break-after: always; padding-top: 6mm; }
+  .cover-brand { display: flex; align-items: center; gap: 8pt; margin-bottom: 22mm; }
+  .cover-mark {
+    width: 30pt; height: 30pt; border-radius: 8pt;
+    background: var(--navy); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14pt;
+  }
+  .cover-brand b { color: var(--navy); font-size: 12pt; }
+  .cover h1 { font-size: 27pt; color: var(--navy); letter-spacing: -.02em; line-height: 1.25; margin-bottom: 6pt; }
+  .cover .lede { font-size: 12pt; color: var(--slate2); margin-bottom: 5mm; }
+  .cover-rule { width: 42pt; height: 3pt; background: var(--brand); margin: 7mm 0; }
+
+  .meta-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6mm; margin-bottom: 9mm; }
+  .meta-grid .k { font-size: 7.5pt; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 2pt; }
+  .meta-grid .v { font-size: 10pt; color: var(--ink); font-weight: 550; line-height: 1.45; }
+
+  .cover-note {
+    background: var(--card); border: 1px solid var(--line);
+    border-left: 3pt solid var(--brand); border-radius: 5pt;
+    padding: 9pt 11pt; font-size: 9pt; color: var(--slate); line-height: 1.68;
+  }
+  .cover-note b { color: var(--navy); }
+
+  /* ---------- sections ---------- */
+  .sec { page-break-before: always; }
+  .sec-h { display: flex; align-items: baseline; gap: 7pt; margin-bottom: 3mm; }
+  .sec-n {
+    font-size: 7.5pt; font-weight: 700; color: var(--brand);
+    background: var(--brand-soft); border-radius: 3pt; padding: 1.5pt 5pt; letter-spacing: .06em;
+  }
+  .sec-h h2 { font-size: 15pt; color: var(--navy); letter-spacing: -.01em; }
+  .sec-lead { font-size: 9.5pt; color: var(--slate2); margin-bottom: 5mm; }
+
+  h3 { font-size: 11pt; color: var(--navy); margin: 6mm 0 2.5mm; }
+  h4 { font-size: 9.5pt; color: var(--navy); margin: 4mm 0 2mm; }
+
+  /* ---------- components ---------- */
+  .card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 6pt; padding: 10pt 12pt;
+  }
+  .card--warn { background: var(--shaky-soft); border-color: var(--shaky-line); }
+  .card--bad  { background: var(--weak-soft);  border-color: var(--weak-line); }
+  .card--ok   { background: var(--good-soft);  border-color: var(--good-line); }
+  .card--brand{ background: var(--brand-soft); border-color: var(--brand-line); }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3.5mm; }
+  .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3mm; }
+
+  .pill {
+    display: inline-block; font-size: 7.5pt; padding: 1pt 5pt;
+    border-radius: 3pt; border: 1px solid var(--line);
+    background: var(--card); color: var(--slate2); font-weight: 600;
+  }
+  .pill--done { background: var(--good-soft); border-color: var(--good-line); color: var(--good); }
+  .pill--part { background: var(--shaky-soft); border-color: var(--shaky-line); color: var(--shaky); }
+  .pill--todo { background: var(--weak-soft); border-color: var(--weak-line); color: var(--weak); }
+  .pill--info { background: var(--brand-soft); border-color: var(--brand-line); color: var(--brand); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 8.4pt; margin-bottom: 4mm; }
+  th, td { text-align: left; padding: 4.5pt 6pt; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--soft); font-weight: 650; color: var(--navy); font-size: 7.8pt; letter-spacing: .03em; }
+  tbody tr:last-child td { border-bottom: none; }
+  td code { font-size: 7.8pt; color: var(--slate); }
+
+  .finding { display: flex; gap: 7pt; margin-bottom: 3.5mm; }
+  .finding .bar { width: 2.5pt; border-radius: 2pt; flex: none; background: var(--muted); }
+  .finding--bad .bar { background: var(--weak); }
+  .finding--shaky .bar { background: var(--shaky); }
+  .finding--good .bar { background: var(--good); }
+  .finding .t { font-size: 9.5pt; font-weight: 650; color: var(--navy); margin-bottom: 1.5pt; }
+  .finding .d { font-size: 8.8pt; color: var(--slate); line-height: 1.6; }
+
+  .imgwrap { border: 1px solid var(--line); border-radius: 6pt; overflow: hidden; margin-bottom: 3mm; background: var(--card); }
+  .imgwrap img { display: block; width: 100%; }
+  .imgwrap .cap { padding: 5pt 8pt; font-size: 7.8pt; color: var(--slate2); border-top: 1px solid var(--line); background: var(--soft); }
+
+  .beforeafter { display: grid; grid-template-columns: 1fr; gap: 2mm; margin-bottom: 3mm; }
+  .ba-row { display: grid; grid-template-columns: 1fr 1fr; gap: 3mm; font-size: 8.6pt; }
+  .ba-b { color: var(--muted); line-height: 1.5; }
+  .ba-a { color: var(--navy); font-weight: 550; line-height: 1.5; }
+
+  .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3mm; margin-bottom: 4mm; }
+  .stat {
+    background: var(--card); border: 1px solid var(--line);
+    border-top: 2.5pt solid var(--brand); border-radius: 5pt; padding: 7pt 8pt;
+  }
+  .stat .n { font-size: 19pt; font-weight: 700; color: var(--navy); line-height: 1.1; }
+  .stat .l { font-size: 7.6pt; color: var(--slate2); margin-top: 2pt; }
+  .stat--weak { border-top-color: var(--weak); } .stat--weak .n { color: var(--weak); }
+  .stat--shaky { border-top-color: var(--shaky); } .stat--shaky .n { color: var(--shaky); }
+  .stat--good { border-top-color: var(--good); } .stat--good .n { color: var(--good); }
+
+  .kv { font-size: 8.6pt; }
+  .kv div { display: flex; gap: 6pt; padding: 2.5pt 0; border-bottom: 1px dashed var(--line); }
+  .kv div:last-child { border-bottom: none; }
+  .kv .k { width: 62pt; flex: none; color: var(--slate2); }
+  .kv .v { flex: 1; color: var(--ink); }
+
+  .foot {
+    margin-top: 8mm; padding-top: 4mm; border-top: 1px solid var(--line);
+    font-size: 7.5pt; color: var(--muted);
+    display: flex; justify-content: space-between;
+  }
+
+  .avoid { page-break-inside: avoid; }
+</style>
+</head>
+<body>
+
+<!-- ============ COVER ============ -->
+<div class="cover">
+  <div class="cover-brand">
+    <div class="cover-mark">M</div>
+    <b>MathMaster Edu</b>
+  </div>
+
+  <h1>UI 提升方案 v2.0</h1>
+  <p class="lede">批 1-4 已落地之后的现状核实, 与剩余工作的施工规格</p>
+  <div class="cover-rule"></div>
+
+  <div class="meta-grid">
+    <div><div class="k">版本</div><div class="v">v2.0 落地版</div></div>
+    <div><div class="k">日期</div><div class="v">2026-10-02</div></div>
+    <div><div class="k">核实基线</div><div class="v">71223af 批5 首两项</div></div>
+    <div><div class="k">性质</div><div class="v">施工规格 / 未落代码</div></div>
+  </div>
+
+  <div class="cover-note">
+    <b>一句话结论：</b>地基已经打好了 —— <code>safe_call</code> / <code>error_card</code> /
+    <code>badge</code> / <code>empty_state</code> / <code>mastery_color</code> 五个原语都写好了,
+    CSS 变量与三档语义色也进表了, 侧边栏也分组了。
+    <b>但其中三个原语目前全库零调用</b>, 七个页面仍然在裸调 service。
+    当前最大的问题不是"还缺什么", 而是<b>"建好了没人用"</b>。
+    下一批的收益不在于加新功能, 而在于把已有地基接上。
+  </div>
+
+  <div class="cover-note" style="margin-top:4mm; border-left-color:var(--shaky)">
+    <b>本方案不改动的东西：</b>后端 service 契约、数据库 schema 与迁移链、AI provider 抽象、
+    RAG 检索与融合逻辑。全部改动只发生在 <code>frontend/</code> 与少量 <code>backend/utils/</code>。
+  </div>
+</div>
+
+<!-- ============ 01 进度总览 ============ -->
+<div class="sec">
+  <div class="sec-h"><span class="sec-n">01</span><h2>进度总览</h2></div>
+  <p class="sec-lead">
+    六个批次的真实落地状态, 依据当前工作区代码逐项核实, 不依赖提交信息。
+  </p>
+
+  <table>
+    <thead>
+      <tr><th style="width:32pt">批次</th><th style="width:96pt">主题</th><th style="width:44pt">状态</th><th>核实结论</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><b>1</b></td><td>止血 · 错误边界</td>
+        <td><span class="pill pill--part">部分</span></td>
+        <td><code>safe_call()</code> 与 <code>error_card</code> 已实现, 但仅 <b>3 个页面 5 处</b>在用;
+          <code>dashboard / notebook / tutor / settings / students / assistant / auth</code> 七个文件仍是裸调。
+          <code>tutor.py:205</code> 的图片路径遗漏未改 —— 正是原方案点名的位置。</td>
+      </tr>
+      <tr>
+        <td><b>1b</b></td><td>图片路径相对化</td>
+        <td><span class="pill pill--part">部分</span></td>
+        <td>写入端 <code>question_mixins.py:392</code> 已走 <code>to_stored_path()</code>;
+          读取端 <code>backend/utils/paths.py:23-30</code> 提供 <code>resolve_image_path()</code>;
+          迁移脚本 <code>scripts/migrate_image_paths.py</code> 就位。
+          <code>frontend/</code> 内已无裸 <code>os.path.exists</code>。
+          剩余: <code>tutor.py:205</code> 直接用库存值, 无解析也无存在性检查。</td>
+      </tr>
+      <tr>
+        <td><b>2</b></td><td>地基 · CSS 变量与语义色</td>
+        <td><span class="pill pill--part">部分</span></td>
+        <td><code>style.css:4-18</code> 已有 13 个变量, <code>--weak / --shaky / --good</code> 三档就位。
+          但 <code>[data-theme="dark"]</code> 变量对<b>没做</b> —— <code>theme.py:13-22</code> 仍是
+          <code>:root, .stApp</code> 整块重定义 + 20 余条 <code>!important</code> 组件补丁。</td>
+      </tr>
+      <tr>
+        <td><b>3</b></td><td>原语 · 五个公共件</td>
+        <td><span class="pill pill--todo">未接上</span></td>
+        <td><code>badge()</code> 与 <code>empty_state()</code> 已定义, <b>全库零 import</b>。
+          <code>mastery_color()</code> 仅 <code>dashboard.py:261</code> 一处调用, 另 4 处各写各的。
+          <code>stat_card()</code> 收到 7 处, 但 <code>review.py:131-139</code> 仍是手写副本。</td>
+      </tr>
+      <tr>
+        <td><b>4</b></td><td>导航 · 分组与待办</td>
+        <td><span class="pill pill--done">已落地</span></td>
+        <td><code>nav.py:20</code> 已有 <code>group</code> 字段与 <code>GROUP_LABELS</code>, 9 项全标组;
+          <code>app.py:104-116</code> 三组循环渲染。
+          待办数是 <code>app.py:98-101</code> 的文字后缀 <code>"今日复习 · 18"</code>,
+          非红点 —— <code>sac.MenuItem</code> 标题不支持 HTML 徽标, 属组件能力边界。</td>
+      </tr>
+      <tr>
+        <td><b>5</b></td><td>页面 · 看板/复习/录题</td>
+        <td><span class="pill pill--part">2 / 11</span></td>
+        <td>已做: 复习进度按已完成数 <code>review.py:141-142</code>;
+          看板今日主线文案 <code>dashboard.py:159-169</code>。
+          评分档 <code>format_interval</code> 预览 <code>review.py:190-195</code>。
+          其余 8 项未做, 详见第 04 节。</td>
+      </tr>
+      <tr>
+        <td><b>6</b></td><td>难点 · 错题本卡片网格</td>
+        <td><span class="pill pill--todo">未开始</span></td>
+        <td><code>notebook.py</code> 400 行<b>一行未改</b>。且存在一个功能性缺陷, 详见第 05 节。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="grid4">
+    <div class="stat stat--good"><div class="n">4</div><div class="l">个原语已实现</div></div>
+    <div class="stat stat--shaky"><div class="n">2</div><div class="l">个原语零调用</div></div>
+    <div class="stat stat--weak"><div class="n">7</div><div class="l">个页面仍裸调 service</div></div>
+    <div class="stat stat--weak"><div class="n">59</div><div class="l">处 unsafe_allow_html</div></div>
+  </div>
+</div>
+
+<!-- ============ 02 技术债 ============ -->
+<div class="sec">
+  <div class="sec-h"><span class="sec-n">02</span><h2>技术债重新计数</h2></div>
+  <p class="sec-lead">
+    方案 v1.0 记录的债务数字, 在批 1-4 落地后需要重新核对。以下是按当前工作区重新数的结果。
+  </p>
+
+  <div class="finding finding--bad">
+    <div class="bar"></div>
+    <div>
+      <div class="t">unsafe_allow_html: 49 处 → 实际 59 处</div>
+      <div class="d">
+        其中 <b>6 处把 AI 生成内容当 HTML 渲染</b>, 这是真正的注入面:
+        <code>components.py:86</code>（<code>q.content_markdown</code> 全文）、
+        <code>tutor.py:215</code>（<code>analysis.analysis</code>）、
+        <code>tutor.py:229-232</code>（题干摘要塞进 <code>&lt;span&gt;</code>）、
+        <code>review.py:173 / 176 / 184</code>。
+        <br>正确处理的反例: <code>components.py:117-122</code> 先 <code>re_escape_and_mark</code> 转义再高亮。
+        收口方式已有现成范式, 照抄即可。
+      </div>
+    </div>
+  </div>
+
+  <div class="finding finding--bad">
+    <div class="bar"></div>
+    <div>
+      <div class="t">掌握度状态色: 2 套 → 实际 5 套映射</div>
+      <div class="d">
+        <code>shaky</code> 出现两个值: <code>common.py:80-83</code> 与 <code>graph.py:13-18</code> 是
+        <code>#d97706</code>, 而 <code>mastery.py:15</code> 与 <code>notebook.py:249-254</code> 是
+        <code>#94a3b8</code>。<code>good</code> 同样分裂: <code>#059669</code> vs <code>#2563eb</code>。
+        <br>另有一处语义反了: <code>style.css:133</code> 的 <code>.mm-mastery__fill--weak</code>
+        填的是 <code>#d97706</code>（琥珀）, 类名说 weak 却是 shaky 的色, 且全库无人使用该 class。
+        <br><code>mastery_color()</code> 已经写好了, 这 4 处替换是纯机械改动。
+      </div>
+    </div>
+  </div>
+
+  <div class="finding finding--shaky">
+    <div class="bar"></div>
+    <div>
+      <div class="t">空状态: 4 种写法依旧</div>
+      <div class="d">
+        手写 <code>.mm-empty</code> HTML 两处（<code>notebook.py:180</code>、<code>mastery.py:71</code>）、
+        <code>st.info</code> 五处、<code>st.caption</code> 五处以上、
+        <code>st.success</code> 表达"无数据"（<code>review.py:78,82</code>）。
+        <code>empty_state()</code> 支持可选的下一步按钮, 这正是现在缺的。
+      </div>
+    </div>
+  </div>
+
+  <div class="finding finding--shaky">
+    <div class="bar"></div>
+    <div>
+      <div class="t">i18n: 框架 32 个 key, 页面 0 处使用</div>
+      <div class="d">
+        <code>frontend/pages/</code> 下没有任何文件 <code>from frontend.i18n import</code>。
+        只有 <code>nav.py:10</code> 与 <code>app.py:30</code> 在用。全部页面标题与按钮文案硬编码中文。
+        短期不影响使用, 但一旦要加第二种语言就是全面返工 —— 建议至少让新增页面走 key。
+      </div>
+    </div>
+  </div>
+
+  <div class="finding finding--bad">
+    <div class="bar"></div>
+    <div>
+      <div class="t">深色模式: 变量对没做成, 且语义色在深色下是错的</div>
+      <div class="d">
+        <code>theme.py:13-22</code> 的深色块重定义了 <code>--bg / --card / --navy / --slate / --border</code> 等,
+        <b>但漏了 <code>--weak / --shaky / --good</code></b>。
+        后果: <code>mastery_color()</code> 返回 <code>var(--weak)</code> 这类引用,
+        深色模式下仍取浅色模式的 <code>#dc2626</code>, 在深底上对比度不足。
+        <br>另外 <code>theme.py:23-43</code> 仍有 20 余条 <code>!important</code> 组件补丁, 新组件必漏。
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 03 施工顺序 ============ -->
+<div class="sec">
+  <div class="sec-h"><span class="sec-n">03</span><h2>下一批做什么</h2></div>
+  <p class="sec-lead">
+    按"确定性缺口优先"排序。前三项都是<b>函数已存在、只是没人调</b>, 风险最低、收益最直接。
+  </p>
+
+  <table>
+    <thead>
+      <tr><th style="width:26pt">序</th><th style="width:112pt">动作</th><th style="width:44pt">工作量</th><th>落点与验收</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><b>1</b></td><td>接上 <code>empty_state()</code></td>
+        <td><span class="pill pill--info">小</span></td>
+        <td><code>notebook.py:180-188</code>、<code>mastery.py:71-77</code> 两处手写 HTML 换成原语,
+          并补上"去录题"「清除筛选」的下一步按钮。<br>
+          验收: 错题本与画像页的空状态都能一键跳到下一步。</td>
+      </tr>
+      <tr>
+        <td><b>2</b></td><td>补 <code>tutor.py:205</code> 图片解析</td>
+        <td><span class="pill pill--info">小</span></td>
+        <td>该行是批 1 原方案点名的位置, 当时漏改。直接用
+          <code>resolve_image_path()</code> + <code>error_card</code>。<br>
+          验收: 图片被清理后录题结果页不再抛异常。</td>
+      </tr>
+      <tr>
+        <td><b>3</b></td><td>接上 <code>badge()</code> 与 <code>mastery_color()</code></td>
+        <td><span class="pill pill--info">小</span></td>
+        <td>替换 <code>mastery.py:15</code>、<code>graph.py:13-18</code>、<code>notebook.py:249-254</code>
+          四处自写色表; 7 个页面裸拼的 <code>mm-badge</code> f-string 收成原语。<br>
+          验收: 全库搜索 <code>#94a3b8</code> 与 <code>#d97706</code> 各只剩定义处一处。</td>
+      </tr>
+      <tr>
+        <td><b>4</b></td><td>七个页面补 <code>safe_call</code></td>
+        <td><span class="pill pill--part">中</span></td>
+        <td><code>dashboard.py:145</code>、<code>notebook.py:63/85/98/110</code>、
+          <code>tutor.py:15/226</code>、<code>settings.py</code> 七处、
+          <code>students.py:151-211</code>、<code>assistant.py</code> 四处、<code>auth.py</code>。
+          <code>students.py:141-148</code> 的手写 except 应并入。<br>
+          验收: 全库再无裸调 service 的地方。</td>
+      </tr>
+      <tr>
+        <td><b>5</b></td><td>收口 6 处 AI 内容渲染</td>
+        <td><span class="pill pill--part">中</span></td>
+        <td>改用 <code>st.markdown(text)</code> 不带 <code>unsafe_allow_html</code>;
+          确需富文本的先过 <code>html.escape</code>。<br>
+          验收: <code>unsafe_allow_html</code> 降到 30 处以内, 且无一处接收 AI 输出。</td>
+      </tr>
+      <tr>
+        <td><b>6</b></td><td>深色模式补语义色变量</td>
+        <td><span class="pill pill--info">小</span></td>
+        <td><code>theme.py:13-22</code> 补 <code>--weak / --shaky / --good</code> 的深色取值。<br>
+          验收: 深色模式下三档色环与徽章对比度达标。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="card card--brand">
+    <b>为什么把这六项排在批 5 页面重排之前：</b>
+    这六项都在基建层, 一次做完, 第 5 批的页面重排就变成"纯排版"而不是"边排版边补地基"。
+    反过来做, 页面里会继续散落新的裸调用和新的色值。
+  </div>
+</div>
+
+<!-- ============ 04 批5 剩余 ============ -->
+<div class="sec">
+  <div class="sec-h"><span class="sec-n">04</span><h2>批 5 剩余项规格</h2></div>
+  <p class="sec-lead">
+    看板 / 复习 / 录题 三页逐项对照。已完成的两项列在最前, 供确认方向。
+  </p>
+
+  <h3>4.1　看板 · 学情看板</h3>
+  <div class="imgwrap">
+    <img src="deck/assets/mock-dashboard.png" alt="学情看板目标态">
+    <div class="cap">目标态 —— 今日行动卡 + metric 条 + 今日复习队列（每题带推荐理由）</div>
+  </div>
+
+  <div class="beforeafter">
+    <div class="ba-row">
+      <div class="ba-b">现状: <code>dashboard.py:159-169</code> 今日主线是一行 <code>mm-card</code> 纯文本, 无跳转按钮、无目标数字</div>
+      <div class="ba-a">规格: 升级为可点击的行动卡 —— 数字 + 主线一句话 + 主 CTA 跳复习页</div>
+    </div>
+    <div class="ba-row">
+      <div class="ba-b">现状: <code>dashboard.py:181-193</code> 四个平铺 <code>st.button</code>, 与上方统计卡等权重</div>
+      <div class="ba-a">规格: 收进行动卡内部, 降为次级操作</div>
+    </div>
+    <div class="ba-row">
+      <div class="ba-b">现状: <code>dashboard.py:199-212</code> 周环比拼进文字 banner, 无独立指标</div>
+      <div class="ba-a">规格: 抽成 metric 条的一格, 数字 + 环比箭头</div>
+    </div>
+    <div class="ba-row">
+      <div class="ba-b">现状: 六个 Plotly 图同尺寸纵向平铺</div>
+      <div class="ba-a">规格: 留 2 个主图, 其余进原生 <code>&lt;details&gt;</code> 折叠</div>
+    </div>
+    <div class="ba-row">
+      <div class="ba-b">现状: 点图表色条才能进错题本</div>
+      <div class="ba-a">规格: 今日复习队列, 每题缩略图 + 推荐理由（已逾期 N 天 / SM-2 到期）</div>
+    </div>
+  </div>
+
+  <h3>4.2　复习 · 今日复习</h3>
+  <div class="imgwrap">
+    <img src="deck/assets/mock-review.png" alt="今日复习目标态">
+    <div class="cap">目标态 —— 错误边界降级卡 + 评分按钮内直接预告下次复习时间</div>
+  </div>
+
+  <div class="beforeafter">
+    <div class="ba-row">
+      <div class="ba-b">已完成: <code>review.py:141-142</code> 进度按已完成数, 首题即 1/N</div>
+      <div class="ba-a">规格: 保持</div>
+    </div>
+    <div class="ba-row">
+      <div class="ba-b">已完成: <code>review.py:190-195</code> 每档 <code>format_interval(preview.next_interval)</code></div>
+      <div class="ba-a">规格: 从按钮<b>外</b>的 <code>st.caption</code> 移进按钮内, 视觉上成为按钮的一部分</div>
+    </div>
+    <div class="ba-row">
+      <div class="ba-b">现状: 错误边界只覆盖队列构建（<code>review.py:41,50</code>）</div>
+      <div class="ba-a">规格: <code>st.session_state</code> 读写、<code>grade_review</code>（:198）、
+        <code>restore_review_state</code>（:113）全部走 <code>safe_call</code></div>
+    </div>
+    <div class="ba-row">
+      <div class="ba-b">现状: 图片缺失时 traceback 打屏（v1.0 的 P0 现场）</div>
+      <div class="ba-a">规格: <code>error_card</code> 降级 —— 切 OCR 文本继续复习, 原始异常折叠供排查</div>
+    </div>
+  </div>
+
+  <h3>4.3　录题 · AI 录题</h3>
+  <div class="imgwrap">
+    <img src="deck/assets/mock-tutor.png" alt="AI 录题目标态">
+    <div class="cap">目标态 —— 拖拽上传区 + 逐题状态 + 五段结构化结果卡</div>
+  </div>
+
+  <div class="beforeafter">
+    <div class="ba-row">
+      <div class="ba-b">现状: <code>tutor.py:205</code> 原图裸用库存路径, 无解析无检查</div>
+      <div class="ba-a">规格: <code>resolve_image_path()</code> + <code>error_card</code>（同时是第 03 节第 2 项）</div>
+    </div>
+    <div class="ba-row">
+      <div class="ba-b">现状: <code>tutor.py:202-235</code> 两栏布局 + 裸 Markdown, 无五段结构</div>
+      <div class="ba-a">规格: 考点 / 讲解 / 答案 / 易错 / 举一反三 五段固定卡</div>
+    </div>
+    <div class="ba-row">
+      <div class="ba-b">现状: <code>tutor.py:189-199</code> 状态只是 expander 前缀 ✅/❌ + <code>st.error(str(exc))</code></div>
+      <div class="ba-a">规格: 结构化状态行, 走 <code>error_card</code> 而非裸异常字符串</div>
+    </div>
+    <div class="ba-row">
+      <div class="ba-b">现状: 解析结果仅存于函数局部变量, 刷新或切页全丢</div>
+      <div class="ba-a">规格: 逐题状态落 <code>st.session_state</code>, 刷新后可恢复</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 05 错题本 ============ -->
+<div class="sec">
+  <div class="sec-h"><span class="sec-n">05</span><h2>批 6 起点：错题本</h2></div>
+  <p class="sec-lead">
+    <code>notebook.py</code> 400 行一行未改。动手前必须先解决下面这个功能性缺陷, 否则后面的批量操作都建不起来。
+  </p>
+
+  <div class="card card--bad avoid">
+    <b>先修：批量选择当前是失效的。</b><br>
+    <code>notebook.py:233</code> 的 <code>selected_ids</code> 是<b>函数局部变量</b>，每轮 rerun 重建。
+    而勾选框 <code>notebook.py:266</code> 嵌在 <code>with st.expander(...)</code> 内部 ——
+    只有<b>当时处于展开状态</b>的那 8 个 checkbox 会被实例化。
+    <br>后果: 用户展开第一张卡、勾选、切到第二张卡, 第一张的选择立即消失;
+    一个都没展开时 <code>selected_ids</code> 恒为空, 批量操作条永远不出现。
+    <br><b>修法:</b> 勾选框移出 expander, 改用 <code>st.session_state["sel_{id}"]</code> 持状态,
+    底部操作条改为常驻渲染（按选中数决定是否展开按钮组）。
+  </div>
+
+  <div class="imgwrap">
+    <img src="deck/assets/mock-notebook.png" alt="错题本目标态">
+    <div class="cap">目标态 —— 工具条 + chip 回显 + 三列缩略图卡片 + 常驻批量操作条</div>
+  </div>
+
+  <table>
+    <thead><tr><th style="width:80pt">落点</th><th>规格</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><code>notebook.py:259-267</code></td>
+        <td>元数据现在全部拼进 <code>expander_title</code> 字符串（到期标记 / 星标 / 标签 / 难度 /
+          日期 / 掌握度 / 未读 7 类信息挤一行）。
+          规格: 拆成卡片四层 —— 缩略图 / 标签组 / 掌握度色环 / 到期状态。掌握度用 <code>mastery_color()</code>。</td>
+      </tr>
+      <tr>
+        <td><code>notebook.py:38-177</code></td>
+        <td>筛选区（5 个 toggle + 2 个下拉 + 搜索框）占首屏约 60%。
+          规格: 收成一行工具条 —— 搜索框 + 视图切换 + <code>st.popover</code> 筛选抽屉 + <code>⋯</code> 导出菜单。
+          当前生效条件用 chip 回显, 取代三个大导出按钮。</td>
+      </tr>
+      <tr>
+        <td><code>notebook.py:95-96</code></td>
+        <td><code>col_export</code> 是个只塞了 <code>&lt;br&gt;</code> 的空占位列, 删掉。</td>
+      </tr>
+      <tr>
+        <td><code>notebook.py:269-309</code></td>
+        <td>批量条在列表之后条件渲染, 每次 rerun 重建 6 个按钮。
+          规格: 改常驻底部条 + <code>st.session_state</code> 持选择状态（见上方红框）。</td>
+      </tr>
+      <tr>
+        <td><code>notebook.py:215-231</code></td>
+        <td>分页器在列表<b>上方</b>, 视线要来回跳。规格: 移到列表下方, 补充"命中 N 题 / 每页条数"。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="card card--warn avoid">
+    <b>Streamlit 能力边界（动手前要接受的三条）：</b>
+    <ol style="margin:4pt 0 0; padding-left:14pt">
+      <li><code>st.image</code> 只输出图片节点, 没有 HTML 包裹与 hover 层。卡片上的悬浮操作按钮做不出来, 勾选框必须占据静态位置。</li>
+      <li>网格可用 <code>st.columns</code>, 但每张卡的独立按钮/勾选会各自占垂直空间, 与"卡片等高"冲突 —— 需接受一定的高度参差, 或改为固定行高的纯展示卡 + 单独操作区。</li>
+      <li>点卡片展开详情会让页面高度剧烈跳动, 建议改为跳独立详情页。</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ============ 06 待拍板 ============ -->
+<div class="sec">
+  <div class="sec-h"><span class="sec-n">06</span><h2>需要拍板的两件事</h2></div>
+  <p class="sec-lead">这两项不定, 后面会返工。</p>
+
+  <h3>6.1　掌握度以哪套口径为准</h3>
+  <div class="card card--warn">
+    项目里<b>两套口径并存</b>: 一套是掌握度引擎（<code>backend/services/mastery.py</code>,
+    复习日志时间加权 + 遗忘衰减, 阈值 0.4 / 0.7）; 另一套是看板的标签级启发式估算
+    （复习表现 + 调度间隔的看板口径）。<b>用户可见的数据会不自洽</b>。
+    <br><br>
+    <b>建议：以引擎为准。</b> 理由是引擎有时间加权与遗忘衰减, 能反映"三天没复习"这件事,
+    启发式做不到。代价是要改看板的统计查询 —— 但那本来就是 <code>stats.py</code> 里的一个方法,
+    改动范围可控。
+    <br><br>
+    <b>注意这一步的顺序：</b>口径没定之前不要做 <code>mastery_color()</code> 的全站替换 ——
+    换色是低成本的, 换口径是可能牵动看板/画像/图谱三处的。先定口径, 再统一颜色。
+  </div>
+
+  <h3>6.2　深色模式是继续打补丁, 还是推倒做变量对</h3>
+  <div class="card">
+    现状是 <code>:root, .stApp</code> 整块重定义 + 20 余条 <code>!important</code> 组件补丁。
+    每加一个新组件就要记得加一条, 漏了就白底黑字。
+    <br><br>
+    <b>建议: 先补语义色变量（第 03 节第 6 项，一行的事），暂不推倒。</b>
+    推倒做 <code>[data-theme]</code> 变量对的收益是"以后不用打补丁",
+    成本是要把所有组件的硬编码色值改成变量引用 —— 在批 5 页面重排还没做完之前做这个,
+    会和页面改动搅在一起, 不好回归。
+    <br><br>
+    建议顺序: 批 5 页面重排完成 → 所有页面稳定后 → 再做一次纯深色模式重构。
+    那时改动面固定, 一次到位。
+  </div>
+
+  <div class="foot">
+    <div>MathMaster Edu · UI 提升方案 v2.0 · 2026-10-02</div>
+    <div>施工规格 / 未落代码 · 基线 71223af</div>
+  </div>
+</div>
+
+</body>
+</html>
