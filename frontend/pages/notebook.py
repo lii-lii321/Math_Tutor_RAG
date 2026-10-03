@@ -307,7 +307,14 @@ def render_notebook_page(user: dict) -> None:
         selected = [q for q in questions if q.id in set(selected_ids)]
         act1, act2, act3, act4 = st.columns(4)
         with act1:
+            confirm_key = "confirm_delete"
             if st.button("🗑️ 批量删除", type="primary", width="stretch"):
+                if st.session_state.get(confirm_key) != selected_ids:
+                    # 首次点击：记录选中 ID 并要求二次确认
+                    st.session_state[confirm_key] = list(selected_ids)
+                    st.warning(f"⚠️ 即将删除 {len(selected_ids)} 题，再次点击确认。")
+                    st.stop()
+                st.session_state.pop(confirm_key, None)
                 service.delete_questions(selected_ids, user["id"])
                 st.toast(f"已删除 {len(selected_ids)} 题", icon="🗑️")
                 st.rerun()
