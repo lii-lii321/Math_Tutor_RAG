@@ -20,33 +20,35 @@ def render_tutor_page(user: dict) -> None:
 
     with tab_photo:
         with st.container(border=True):
-            col_upload, col_meta = st.columns([3, 2])
-            with col_upload:
-                camera_photo = st.camera_input("📱 直接拍摄（手机端推荐）")
-                if camera_photo:
-                    uploads = [camera_photo]
-                else:
-                    uploads = st.file_uploader(
-                        "或从相册选择错题图片（支持多选）",
-                        type=["jpg", "jpeg", "png", "webp"],
-                        accept_multiple_files=True,
-                    )
-                if uploads:
-                    preview_cols = st.columns(min(len(uploads), 4))
-                    for i, upload in enumerate(uploads[:4]):
-                        with preview_cols[i]:
-                            st.image(upload.getvalue(), width="stretch", caption=upload.name)
-                    if len(uploads) > 4:
-                        st.caption(f"已选择 {len(uploads)} 张图片")
-            with col_meta:
-                tags_input = st.text_input("标签（可选，逗号分隔）", placeholder="例如：期末复习, 几何", key="photo_tags")
+            st.markdown("**📷 拍摄或上传错题图片**")
+            st.caption("支持 JPG / PNG / WebP，单张 ≤ 10MB，可多选。AI 自动识别考点并生成结构化解析。")
+            camera_photo = st.camera_input("📱 直接拍摄（手机端推荐）")
+            if camera_photo:
+                uploads = [camera_photo]
+            else:
+                uploads = st.file_uploader(
+                    "或从相册选择错题图片",
+                    type=["jpg", "jpeg", "png", "webp"],
+                    accept_multiple_files=True,
+                )
+            if uploads:
+                preview_cols = st.columns(min(len(uploads), 4))
+                for i, upload in enumerate(uploads[:4]):
+                    with preview_cols[i]:
+                        st.image(upload.getvalue(), width="stretch", caption=upload.name)
+                if len(uploads) > 4:
+                    st.caption(f"已选择 {len(uploads)} 张图片")
+
+            meta_col1, meta_col2 = st.columns(2)
+            with meta_col1:
+                tags_input = st.text_input("标签（逗号分隔）", placeholder="例如：期末复习, 几何", key="photo_tags")
+            with meta_col2:
                 hint = st.text_area(
-                    "给老师的话（可选）",
+                    "给老师的话",
                     placeholder="例如：第二问总是不知道从哪里下手",
                     height=68,
                 )
-
-            if uploads and st.button("开始 AI 解析", type="primary", width="stretch"):
+            if uploads and st.button("🚀 开始 AI 解析", type="primary", width="stretch"):
                 _process_uploads(service, user, uploads, sanitize_tags(tags_input), hint)
 
     with tab_word:
@@ -200,9 +202,18 @@ def _process_uploads(service, user, uploads, tags: list[str], hint: str) -> None
 
 
 def _render_analysis(saved, analysis, service, user) -> None:
-    img_col, content_col = st.columns([2, 3])
-    with img_col:
-        st.image(saved.image_path, width="stretch")
+    """五段结构化结果卡：原图 / 考点与难度 / 详解 / 答案 / 易错 + 变式。"""
+    from backend.utils.paths import resolve_image_path
+
+    image_abs = resolve_image_path(saved.image_path)
+
+    # ---- 原图 + 元信息 ----
+    with st.container(border=True):
+        st.markdown("##### 📷 题目原图")
+        if image_abs and image_abs.exists():
+            st.image(str(image_abs), width="stretch")
+        else:
+            st.caption("(原图缺失，以下解析基于 AI 识别文本)")
         badges = " ".join(f'<span class="mm-badge">{t}</span>' for t in saved.tags)
         st.markdown(
             f"""<div style="margin-top:0.5rem">
@@ -210,19 +221,38 @@ def _render_analysis(saved, analysis, service, user) -> None:
             </div>""",
             unsafe_allow_html=True,
         )
-    with content_col:
-        st.markdown(f"**考点**：{'、'.join(analysis.knowledge_points)}")
-        st.markdown(analysis.analysis, unsafe_allow_html=True)
-        st.markdown(f"**正确答案**：{analysis.answer}")
-        if analysis.mistake_cause:
-            st.info(f"常见错因：{analysis.mistake_cause}")
-        if analysis.followup_question:
-            with st.expander("举一反三 · 变式练习"):
-                st.markdown(analysis.followup_question)
-                save_followup_button(service, saved, user, analysis.followup_question)
 
-        st.divider()
-        st.markdown("**相似错题（向量召回）**")
+    # ---- 考点 ----
+    if analysis.knowledge_points:
+        with st.container(border=True):
+            st.markdown("##### 🎯 考点")
+            st.markdown("、".join(f"**{kp}**" for kp in analysis.knowledge_points))
+
+    # ---- 详解 ----
+    with st.container(border=True):
+        st.markdown("##### 📝 逐步详解")
+        st.markdown(analysis.analysis, unsafe_allow_html=True)
+
+    # ---- 答案 ----
+    with st.container(border=True):
+        st.markdown("##### ✅ 正确答案")
+        st.markdown(f"**{analysis.answer}**")
+
+    # ---- 易错 ----
+    if analysis.mistake_cause:
+        st.info(f"⚠️ 常见错因：{analysis.mistake_cause}")
+
+    # ---- 变式 + 追问 ----
+    if analysis.followup_question:
+        with st.container(border=True):
+            st.markdown("##### 🔁 举一反三 · 变式练习")
+            st.markdown(analysis.followup_question)
+            save_followup_button(service, saved, user, analysis.followup_question)
+
+    with st.expander("💬 就这道题追问老师"):
+        followup_chat(service, saved, user)
+
+    with st.expander("🔗 相似错题（向量召回）"):
         similar = service.similar_questions(saved, user_id=user["id"])
         if similar:
             for q in similar:
@@ -233,6 +263,3 @@ def _render_analysis(saved, analysis, service, user) -> None:
                 )
         else:
             st.caption("暂无相似错题。随着错题积累，这里会自动出现同知识点的历史题目。")
-
-    with st.expander("💬 就这道题追问老师"):
-        followup_chat(service, saved, user)
