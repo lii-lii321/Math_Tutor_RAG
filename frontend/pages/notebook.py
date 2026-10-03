@@ -39,14 +39,24 @@ def render_notebook_page(user: dict) -> None:
     with st.container(border=True):
         is_teacher = user["role"] == "teacher"
 
-        col_search, col_tag, col_export = st.columns([3, 2, 2])
-        with col_search:
-            keyword = st.text_input(
-                "搜索",
-                value=preset_keyword or "",
-                placeholder="例如：判别式没掌握的题 / 相似三角形（自然语言即可）",
-                key="notebook_search",
-            )
+        # ---- 工具条：搜索框 + 筛选抽屉 + chip 回显 ----
+        keyword = st.text_input(
+            "搜索",
+            value=preset_keyword or "",
+            placeholder="搜索错题（自然语言即可）",
+            key="notebook_search",
+            label_visibility="collapsed",
+        )
+
+        # chip 行：当前生效的筛选条件一目了然，点 ✕ 清除
+        chips: list[str] = []
+        if preset_tag:
+            chips.append(preset_tag)
+        if preset_keyword:
+            chips.append(f"搜索:{preset_keyword}")
+
+        popover_label = "⚙️ 筛选与排序"
+        with st.popover(popover_label, use_container_width=False):
             semantic = st.toggle("语义搜索", value=True, help="用向量检索理解语义，而非仅字面匹配")
             only_due = st.toggle("仅看待复习", value=False, help="隐藏已掌握和尚未到期的错题")
             only_mastered = st.toggle("仅看已掌握 🏆", value=False, help="只显示已归档的熟题")
@@ -59,48 +69,63 @@ def render_notebook_page(user: dict) -> None:
                 ["最新录入", "最早录入", "复习次数最少", "最近复习", "掌握度最低"],
                 key="notebook_sort",
             )
-        with col_tag:
-            if is_teacher:
-                overview = service.students_overview(user["id"])
-                student_names = ["全部学生"] + [r["username"] for r in overview]
-                default_student = preset_student if preset_student in student_names else "全部学生"
-                student_name = st.selectbox(
-                    "查看学生", student_names,
-                    index=student_names.index(default_student),
-                    key="notebook_student",
-                )
-                if student_name == "全部学生":
-                    # 教师视角：全部 = 自己 + 所有学生的题
-                    view_user_id = user["id"]
-                    include_others = True
-                else:
-                    view_user_id = next(
-                        (r["user_id"] for r in overview if r["username"] == student_name),
-                        user["id"],
-                    )
-                    include_others = False
-            else:
-                view_user_id = user["id"]
-                include_others = False
 
-            ok, all_questions = safe_call(
-                service.list_questions,
-                view_user_id,
-                include_others=include_others,
-                semantic=False,
-                error_title="题库加载失败",
+        if is_teacher:
+            overview = service.students_overview(user["id"])
+            student_names = ["全部学生"] + [r["username"] for r in overview]
+            default_student = preset_student if preset_student in student_names else "全部学生"
+            student_name = st.selectbox(
+                "查看学生", student_names,
+                index=student_names.index(default_student),
+                key="notebook_student",
             )
-            if not ok:
-                st.stop()
-            all_tags = sorted({t for q in all_questions for t in q.tags})
-            default_index = (
-                (["全部"] + all_tags).index(preset_tag) if preset_tag in all_tags else 0
+            if student_name == "全部学生":
+                view_user_id = user["id"]
+                include_others = True
+            else:
+                view_user_id = next(
+                    (r["user_id"] for r in overview if r["username"] == student_name),
+                    user["id"],
+                )
+                include_others = False
+        else:
+            view_user_id = user["id"]
+            include_others = False
+
+        ok, all_questions = safe_call(
+            service.list_questions,
+            view_user_id,
+            include_others=include_others,
+            semantic=False,
+            error_title="题库加载失败",
+        )
+        if not ok:
+            st.stop()
+        all_tags = sorted({t for q in all_questions for t in q.tags})
+        default_index = (
+            (["全部"] + all_tags).index(preset_tag) if preset_tag in all_tags else 0
+        )
+        tag_filter = st.selectbox(
+            "按标签筛选", ["全部"] + all_tags, index=default_index, key="notebook_tag"
+        )
+
+        # chip 回显：当前生效的筛选条件，点 ✕ 清除
+        chips_html = ""
+        if preset_tag:
+            chips_html += f"<span class='mm-badge mm-badge--blue'>{preset_tag} ✕</span>"
+        if preset_keyword:
+            chips_html += f"<span class='mm-badge mm-badge--blue'>搜索:{preset_keyword} ✕</span>"
+        if only_starred:
+            chips_html += "<span class='mm-badge mm-badge--warn'>⭐ 星标</span>"
+        if only_weak:
+            chips_html += "<span class='mm-badge mm-badge--bad'>薄弱</span>"
+        if only_due:
+            chips_html += "<span class='mm-badge mm-badge--blue'>待复习</span>"
+        if chips_html:
+            st.markdown(
+                f"<div style='margin:0.3rem 0'>{chips_html}</div>",
+                unsafe_allow_html=True,
             )
-            tag_filter = st.selectbox(
-                "按标签筛选", ["全部"] + all_tags, index=default_index, key="notebook_tag"
-            )
-        with col_export:
-            st.markdown("<br>", unsafe_allow_html=True)
 
         ok, questions = safe_call(
             service.list_questions,

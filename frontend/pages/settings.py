@@ -10,7 +10,8 @@ from backend.config import get_settings
 from backend.database import get_session
 from backend.services.ai import get_provider_status
 from backend.services.auth import AuthService
-from frontend.common import get_question_service, initials, page_header, safe_call
+from frontend.common import get_question_service, initials, page_header
+from frontend.components import safe_call
 
 
 def render_settings_page(user: dict) -> None:
