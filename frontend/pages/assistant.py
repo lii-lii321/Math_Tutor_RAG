@@ -15,9 +15,16 @@ from frontend.common import get_question_service, page_header
 
 def _demo_reply(user_message: str, service: QuestionService, user: dict) -> str:
     """无 Key 时的本地规则应答：覆盖最常见的三类意图。"""
+    from frontend.components import safe_call
+
     message = user_message.lower()
     if any(word in message for word in ("周报", "本周", "报告")):
-        weekly = service.dashboard_stats(user["id"])["weekly"]
+        ok, stats = safe_call(
+            service.dashboard_stats, user["id"], error_title="学情数据加载失败"
+        )
+        if not ok:
+            return "⚠️ 学情数据暂时加载失败，请稍后再试。"
+        weekly = stats["weekly"]
         accuracy = f"{weekly['accuracy']}%" if weekly.get("accuracy") is not None else "—"
         return (
             f"📣 **本周学习概况**（演示模式）\n\n"
@@ -28,7 +35,9 @@ def _demo_reply(user_message: str, service: QuestionService, user: dict) -> str:
             f"配置 `AI_API_KEY` 后，我可以帮你搜题、录题、安排复习。"
         )
     if any(word in message for word in ("到期", "待复习", "今天复习")):
-        due = service.due_questions(user["id"])
+        ok, due = safe_call(service.due_questions, user["id"], error_title="复习队列加载失败")
+        if not ok:
+            return "⚠️ 复习队列暂时加载失败，请稍后再试。"
         if not due:
             return "🎉 今日复习任务已清空，错题本处于健康状态。"
         lines = "\n".join(
@@ -37,7 +46,12 @@ def _demo_reply(user_message: str, service: QuestionService, user: dict) -> str:
         return f"📌 **今日待复习 {len(due)} 题**：\n{lines}\n\n（演示模式，去「今日复习」页开始）"
     if any(word in message for word in ("搜索", "找", "查")):
         keyword = message.replace("搜索", "").replace("找", "").replace("查", "").strip()
-        hits = service.list_questions(user["id"], keyword=keyword or None)
+        ok, hits = safe_call(
+            service.list_questions, user["id"], keyword=keyword or None,
+            error_title="搜索失败",
+        )
+        if not ok:
+            return "⚠️ 搜索暂时不可用，请稍后再试。"
         if not hits:
             return f"没有找到与「{keyword}」相关的错题。"
         lines = "\n".join(f"- #{q.id}　{'、'.join(q.tags[:3])}" for q in hits[:8])

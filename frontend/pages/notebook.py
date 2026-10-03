@@ -20,6 +20,7 @@ from frontend.common import (
 from frontend.components import (
     question_detail_view,
     regrade_buttons,
+    safe_call,
     save_followup_button,
 )
 
@@ -82,9 +83,15 @@ def render_notebook_page(user: dict) -> None:
                 view_user_id = user["id"]
                 include_others = False
 
-            all_questions = service.list_questions(
-                view_user_id, include_others=include_others, semantic=False
+            ok, all_questions = safe_call(
+                service.list_questions,
+                view_user_id,
+                include_others=include_others,
+                semantic=False,
+                error_title="题库加载失败",
             )
+            if not ok:
+                st.stop()
             all_tags = sorted({t for q in all_questions for t in q.tags})
             default_index = (
                 (["全部"] + all_tags).index(preset_tag) if preset_tag in all_tags else 0
@@ -95,14 +102,18 @@ def render_notebook_page(user: dict) -> None:
         with col_export:
             st.markdown("<br>", unsafe_allow_html=True)
 
-        questions = service.list_questions(
+        ok, questions = safe_call(
+            service.list_questions,
             view_user_id,
             include_others=include_others,
             tag=None if tag_filter == "全部" else tag_filter,
             keyword=keyword or None,
             starred=only_starred,
             semantic=semantic,
+            error_title="错题检索失败",
         )
+        if not ok:
+            st.stop()
 
         def _aware_dt(value: dt.datetime | None) -> dt.datetime:
             return value if value is None or value.tzinfo else value.replace(tzinfo=dt.timezone.utc)

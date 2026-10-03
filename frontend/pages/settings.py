@@ -10,7 +10,7 @@ from backend.config import get_settings
 from backend.database import get_session
 from backend.services.ai import get_provider_status
 from backend.services.auth import AuthService
-from frontend.common import get_question_service, initials, page_header
+from frontend.common import get_question_service, initials, page_header, safe_call
 
 
 def render_settings_page(user: dict) -> None:
@@ -147,7 +147,9 @@ def render_settings_page(user: dict) -> None:
 
     with st.container(border=True):
         st.markdown("#### 标签管理")
-        usage = service.tag_usage(user["id"])
+        ok, usage = safe_call(service.tag_usage, user["id"], error_title="标签加载失败")
+        if not ok:
+            usage = {}
         if not usage:
             st.caption("暂无标签。")
         else:
@@ -220,23 +222,32 @@ def render_settings_page(user: dict) -> None:
     with st.container(border=True):
         st.markdown("#### 数据备份")
         st.caption("导出全部错题为 JSON 备份文件；导入时按手动错题恢复，已含解析、标签与考点。")
-        backup_data = service.export_user_data(user["id"])
+        # 惰性生成：点「生成备份」才做全量导出，不再每次渲染都全表扫描
+        if st.button("📦 生成备份内容", width="stretch", key="backup_generate"):
+            with st.spinner("生成备份中…"):
+                st.session_state["backup_data"] = service.export_user_data(user["id"])
+                st.session_state["backup_csv"] = service.export_user_csv(user["id"])
+            st.toast("备份内容已生成", icon="📦")
+        backup_data = st.session_state.get("backup_data")
         col_dl, col_up = st.columns(2)
         with col_dl:
+            download_disabled = backup_data is None
             st.download_button(
                 "导出备份 (JSON)",
-                data=json.dumps(backup_data, ensure_ascii=False, indent=2),
+                data=json.dumps(backup_data, ensure_ascii=False, indent=2) if backup_data else "",
                 file_name=f"mathmaster_backup_{datetime.date.today():%Y%m%d}.json",
                 mime="application/json",
                 width="stretch",
+                disabled=download_disabled,
             )
-            csv_data = service.export_user_csv(user["id"])
+            csv_data = st.session_state.get("backup_csv")
             st.download_button(
                 "导出 CSV（Excel）",
-                data=csv_data,
+                data=csv_data or "",
                 file_name=f"mathmaster_{datetime.date.today():%Y%m%d}.csv",
                 mime="text/csv",
                 width="stretch",
+                disabled=not csv_data,
             )
         with col_up:
             upload = st.file_uploader("导入备份", type=["json"], key="backup_import")
