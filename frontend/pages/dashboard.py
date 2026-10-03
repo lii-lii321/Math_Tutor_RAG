@@ -299,6 +299,7 @@ def render_dashboard(user: dict) -> None:
                 <div><div class="mm-kpi__value">{len(due_list)}</div><div class="mm-kpi__label">待复习</div></div>
                 <div><div class="mm-kpi__value" style="color:#ff8a4c">{overdue}</div><div class="mm-kpi__label">已逾期</div></div>
                 <div><div class="mm-kpi__value">{len(weak_tags)}</div><div class="mm-kpi__label">薄弱知识点</div></div>
+                <div><div class="mm-kpi__value" style="color:{'#34d399' if goal_met else '#ffffff'}">{today_graded}<span style="font-size:0.8rem;color:#9fb0c9">/{daily_goal}</span></div><div class="mm-kpi__label">今日目标{' ✅' if goal_met else ''}</div></div>
                 <div><div class="mm-kpi__value">{stats.get("streak", 0)}</div><div class="mm-kpi__label">连续学习（天）</div></div>
               </div>
               <div style="display:flex;align-items:center;gap:0.8rem;margin:0.8rem 0">
