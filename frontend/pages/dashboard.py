@@ -25,7 +25,14 @@ from frontend.components import mastery_bar_html, safe_call
 
 _BLUE = "#2563eb"
 
-_PLOTLY_FONT = dict(family="sans-serif", color="#334155")
+def _plotly_font() -> dict:
+    dark = st.session_state.get("dark_mode", False)
+    return dict(family="sans-serif", color="#e2e8f0" if dark else "#334155")
+
+
+def _plotly_grid() -> str:
+    dark = st.session_state.get("dark_mode", False)
+    return "#334155" if dark else "#e2e8f0"
 
 
 def _plotly_layout(fig, height: int = 220) -> None:
@@ -62,7 +69,7 @@ def _render_difficulty(dist: dict) -> None:
         margin=dict(t=10, b=10, l=10, r=10),
         height=240,
         paper_bgcolor="rgba(0,0,0,0)",
-        font=_PLOTLY_FONT,
+        font=_plotly_font(),
     )
     st.plotly_chart(pie, width="stretch", config={"displayModeBar": False})
 
@@ -123,10 +130,10 @@ def _render_heatmap(calendar: dict) -> None:
         margin=dict(t=10, b=10, l=10, r=10),
         height=190,
         paper_bgcolor="rgba(0,0,0,0)",
-        font=_PLOTLY_FONT,
+        font=_plotly_font(),
     )
-    fig.update_xaxes(tickangle=0, tickfont=dict(size=9))
-    fig.update_yaxes(tickfont=dict(size=9))
+    fig.update_xaxes(tickangle=0, tickfont=dict(size=9), gridcolor=_plotly_grid())
+    fig.update_yaxes(tickfont=dict(size=9), gridcolor=_plotly_grid())
     st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
 
@@ -165,14 +172,14 @@ def _render_mastery_donut(mastery_map: dict[int, float]) -> None:
                 text=f"<b>{overall}%</b><br><span style='font-size:11px'>整体掌握</span>",
                 x=0.5,
                 y=0.5,
-                font=dict(size=22, color="#1a365d"),
+                font=dict(size=22, color=st.session_state.get("dark_mode", False) and "#f1f5f9" or "#1a365d"),
                 showarrow=False,
             )
         ],
         margin=dict(t=6, b=6, l=6, r=6),
         height=190,
         paper_bgcolor="rgba(0,0,0,0)",
-        font=_PLOTLY_FONT,
+        font=_plotly_font(),
         showlegend=True,
         legend=dict(orientation="v", y=0.5, x=1.02, font=dict(size=11)),
     )
@@ -215,7 +222,7 @@ def _render_accuracy_week(trend: list[dict]) -> None:
         height=200,
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=_PLOTLY_FONT,
+        font=_plotly_font(),
         yaxis=dict(range=[0, 105], visible=False),
         xaxis=dict(showgrid=False),
         showlegend=False,
@@ -426,9 +433,9 @@ def render_dashboard(user: dict) -> None:
             height=260,
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
-            font=_PLOTLY_FONT,
+            font=_plotly_font(),
             xaxis=dict(type="category", showgrid=False),
-            yaxis=dict(dtick=1, range=[0, max(3, max((a["count"] for a in activity), default=0) + 1)], gridcolor="#e2e8f0"),
+            yaxis=dict(dtick=1, range=[0, max(3, max((a["count"] for a in activity), default=0) + 1)], gridcolor=_plotly_grid()),
         )
         st.plotly_chart(bar, width="stretch", config={"displayModeBar": False})
 
@@ -454,8 +461,8 @@ def render_dashboard(user: dict) -> None:
                     height=220,
                     paper_bgcolor="rgba(0,0,0,0)",
                     plot_bgcolor="rgba(0,0,0,0)",
-                    font=_PLOTLY_FONT,
-                    yaxis=dict(range=[0, 105], gridcolor="#e2e8f0"),
+                    font=_plotly_font(),
+                    yaxis=dict(range=[0, 105], gridcolor=_plotly_grid()),
                     xaxis=dict(showgrid=False),
                 )
                 st.plotly_chart(line, width="stretch", config={"displayModeBar": False})

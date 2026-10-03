@@ -62,6 +62,18 @@ def render_auth_page() -> None:
                         st.stop()
                     if result.ok:
                         login_user(result.user_id, result.username, result.role)
+                        try:
+                            from frontend.common import get_question_service
+
+                            due = get_question_service().due_questions(result.user_id)
+                            overdue = sum(1 for q in due if q.due_at is not None)
+                            if overdue > 0:
+                                st.toast(
+                                    f"📌 有 {overdue} 道错题已逾期，建议优先复习",
+                                    icon="⏰",
+                                )
+                        except Exception:  # noqa: BLE001
+                            pass
                         st.rerun()
                     else:
                         st.error(result.message)
