@@ -753,6 +753,14 @@ class EditTagMixin:
                     repo.session.delete(newest)
         return True
 
+    def today_graded_count(self, user_id: int) -> int:
+        """今日已评分次数（看板每日目标进度）。"""
+        with self._session() as repo:
+            today_start = dt.datetime.now().astimezone().replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )
+            return repo.today_graded_count(user_id, today_start)
+
     def tag_usage(self, user_id: int) -> dict[str, int]:
         """用户错题标签使用统计：{标签: 题数}，按题数降序。"""
         questions = self.list_questions(user_id, semantic=False)

@@ -313,6 +313,15 @@ class QuestionRepository:
         )
         return list(self.session.execute(stmt).scalars())
 
+    def today_graded_count(self, user_id: int, today_start: dt.datetime) -> int:
+        """今日已评分次数（ReviewLog 今日新增条数）。"""
+        stmt = (
+            select(func.count())
+            .select_from(ReviewLog)
+            .where(ReviewLog.user_id == user_id, ReviewLog.reviewed_at >= today_start)
+        )
+        return int(self.session.execute(stmt).scalar_one())
+
     def all_review_logs(self) -> list[ReviewLog]:
         """全部用户的复习记录（教师报表用）。"""
         stmt = select(ReviewLog).order_by(ReviewLog.reviewed_at.asc())

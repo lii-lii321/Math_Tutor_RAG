@@ -11,6 +11,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
+from backend.config import get_settings
 from backend.services.mastery import SHAKY_THRESHOLD, WEAK_THRESHOLD
 from frontend.common import (
     get_question_service,
@@ -25,6 +26,22 @@ from frontend.components import mastery_bar_html, safe_call
 _BLUE = "#2563eb"
 
 _PLOTLY_FONT = dict(family="sans-serif", color="#334155")
+
+
+def _plotly_layout(fig, height: int = 220) -> None:
+    """统一 Plotly 主题：字体/底色/网格，深色模式时切暗色 token。"""
+    dark = st.session_state.get("dark_mode", False)
+    ink = "#e2e8f0" if dark else "#334155"
+    grid = "#334155" if dark else "#e2e8f0"
+    paper = "rgba(0,0,0,0)"
+    fig.update_layout(
+        paper_bgcolor=paper,
+        plot_bgcolor=paper,
+        font=dict(family="sans-serif", color=ink),
+        height=height,
+    )
+    fig.update_xaxes(gridcolor=grid, linecolor=grid)
+    fig.update_yaxes(gridcolor=grid)
 
 
 def _render_difficulty(dist: dict) -> None:
@@ -223,6 +240,14 @@ def render_dashboard(user: dict) -> None:
         service.mastery_by_question, user["id"], error_title="掌握度数据加载失败"
     )
     mastery_map = mastery_map or {}
+    ok, today_graded = safe_call(
+        service.today_graded_count, user["id"], error_title="今日进度加载失败"
+    )
+    today_graded = today_graded if ok else 0
+
+    daily_goal = get_settings().daily_goal
+    goal_pct = min(today_graded / daily_goal * 100, 100)
+    goal_met = today_graded >= daily_goal
 
     # ---- 逾期/今天到期拆分（到期池内的三色构成）----
     today_start, tomorrow_start = _today_bounds()
@@ -268,6 +293,12 @@ def render_dashboard(user: dict) -> None:
                 <div><div class="mm-kpi__value" style="color:#ff8a4c">{overdue}</div><div class="mm-kpi__label">已逾期</div></div>
                 <div><div class="mm-kpi__value">{len(weak_tags)}</div><div class="mm-kpi__label">薄弱知识点</div></div>
                 <div><div class="mm-kpi__value">{stats.get("streak", 0)}</div><div class="mm-kpi__label">连续学习（天）</div></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:0.8rem;margin:0.8rem 0">
+                <div style="flex:1;background:#24395c;border-radius:6px;height:8px;overflow:hidden">
+                  <div style="background:{'#059669' if goal_met else '#3b82f6'};height:8px;width:{goal_pct:.0f}%;border-radius:6px"></div>
+                </div>
+                <span style="font-size:0.78rem;color:#9fb0c9;white-space:nowrap">今日目标 {today_graded}/{daily_goal} 题{' ✅' if goal_met else ''}</span>
               </div>
               <div class="mm-segbar">
                 <div class="mm-segbar__overdue" style="width:{w_over}%"></div>
