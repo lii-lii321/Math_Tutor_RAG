@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import streamlit as st
 
+from frontend.charts import plotly_font, plotly_grid
 from frontend.common import get_question_service, go_to, page_header
 from frontend.components import mastery_fill_html, safe_call
 
@@ -28,19 +29,20 @@ def _render_radar(profile) -> None:
             r=[round(item.mastery * 100) for item in items],
             theta=[item.knowledge_point for item in items],
             fill="toself",
-            fillcolor="rgba(37, 99, 235, 0.12)",
+            fillcolor="rgba(37, 99, 235, 0.18)",
             line_color="#2563eb",
             name="掌握度%",
         )
     )
+    grid = plotly_grid()
     fig.update_layout(
         margin=dict(t=16, b=16, l=40, r=40),
         height=330,
         paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="sans-serif", color="#334155", size=11),
+        font=dict(**plotly_font(), size=11),
         polar=dict(
-            radialaxis=dict(range=[0, 100], gridcolor="#e2e8f0", showticklabels=False),
-            angularaxis=dict(gridcolor="#e2e8f0"),
+            radialaxis=dict(range=[0, 100], gridcolor=grid, showticklabels=False),
+            angularaxis=dict(gridcolor=grid),
         ),
         showlegend=False,
     )

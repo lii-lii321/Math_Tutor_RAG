@@ -22,33 +22,15 @@ from frontend.common import (
     stat_card,
 )
 from frontend.components import mastery_bar_html, safe_call
+from frontend.charts import (
+    heatmap_colorscale,
+    plotly_font as _plotly_font,
+    plotly_grid as _plotly_grid,
+    plotly_ink as _plotly_ink,
+    plotly_layout as _plotly_layout,
+)
 
 _BLUE = "#2563eb"
-
-def _plotly_font() -> dict:
-    dark = st.session_state.get("dark_mode", False)
-    return dict(family="sans-serif", color="#e2e8f0" if dark else "#334155")
-
-
-def _plotly_grid() -> str:
-    dark = st.session_state.get("dark_mode", False)
-    return "#334155" if dark else "#e2e8f0"
-
-
-def _plotly_layout(fig, height: int = 220) -> None:
-    """统一 Plotly 主题：字体/底色/网格，深色模式时切暗色 token。"""
-    dark = st.session_state.get("dark_mode", False)
-    ink = "#e2e8f0" if dark else "#334155"
-    grid = "#334155" if dark else "#e2e8f0"
-    paper = "rgba(0,0,0,0)"
-    fig.update_layout(
-        paper_bgcolor=paper,
-        plot_bgcolor=paper,
-        font=dict(family="sans-serif", color=ink),
-        height=height,
-    )
-    fig.update_xaxes(gridcolor=grid, linecolor=grid)
-    fig.update_yaxes(gridcolor=grid)
 
 
 def _render_difficulty(dist: dict) -> None:
@@ -118,7 +100,7 @@ def _render_heatmap(calendar: dict) -> None:
         x=calendar["x"],
         y=calendar["y"],
         customdata=calendar.get("dates"),
-        colorscale=[[0, "#eef2ee"], [0.4, "#a7d7b8"], [0.75, "#4caf83"], [1, "#059669"]],
+        colorscale=heatmap_colorscale(),
         showscale=False,
         xgap=4,
         ygap=4,
@@ -172,7 +154,7 @@ def _render_mastery_donut(mastery_map: dict[int, float]) -> None:
                 text=f"<b>{overall}%</b><br><span style='font-size:11px'>整体掌握</span>",
                 x=0.5,
                 y=0.5,
-                font=dict(size=22, color=st.session_state.get("dark_mode", False) and "#f1f5f9" or "#1a365d"),
+                font=dict(size=22, color=_plotly_ink()),
                 showarrow=False,
             )
         ],
