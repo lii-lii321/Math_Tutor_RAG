@@ -55,6 +55,23 @@ def track_ai_call(operation: str) -> Iterator[dict]:
         )
 
 
+def record_event(operation: str, *, error: str | None = None) -> None:
+    """记录一次非调用型事件（如验证器异常告警），与 AI 调用共用 JSONL。
+
+    静默降级的防线组件在这里留痕：summarize() 可直接统计发生率，
+    把「曾经静默失效」变成「异常发生即可观测」。
+    """
+    _write(
+        {
+            "ts": dt.datetime.now(dt.timezone.utc).isoformat(),
+            "operation": operation,
+            "latency_ms": 0,
+            "ok": False,
+            "error": (error or "")[:300] or None,
+        }
+    )
+
+
 _MAX_LINES = 5000  # JSONL 上限：写入超限时保留尾部，防止文件无界增长
 
 

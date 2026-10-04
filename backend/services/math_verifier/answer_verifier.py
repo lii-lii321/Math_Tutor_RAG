@@ -1,11 +1,15 @@
 """统一验证入口：编排 SymPy/数值验证方法，产出 VerificationResult。"""
 from __future__ import annotations
 
+from backend.services.ai.telemetry import record_event
 from backend.services.math_verifier.models import VerificationResult
 from backend.services.math_verifier.sympy_verifier import (
     check_derivative_inverse,
     check_solution_substitution,
 )
+from backend.utils.logging import get_logger
+
+logger = get_logger("math_verifier")
 
 _VERIFIERS = (
     ("solution_substitution", check_solution_substitution),
@@ -28,8 +32,12 @@ def verify_answer(
     for name, verifier in _VERIFIERS:
         try:
             outcome = verifier(question_text or "", solution_text or "", answer_text or "")
-        except Exception:  # noqa: BLE001 - 单个验证器异常不影响整体
+        except Exception as exc:  # noqa: BLE001 - 单个验证器异常不影响整体
+            # v2.11 教训：这里的静默曾是「验证器上线即失效数日无人知」的根源；
+            # 降级保留，但必须留痕（遥测 + 告警日志），发生率可在 summarize() 复盘
             outcome = None
+            logger.warning("验证器 %s 异常，已跳过: %s", name, exc)
+            record_event(f"math_verify_error:{name}", error=f"{type(exc).__name__}: {exc}")
         if outcome is None:
             continue
         status, confidence, detail = outcome
