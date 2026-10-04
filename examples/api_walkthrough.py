@@ -5,10 +5,25 @@
 运行：python examples/api_walkthrough.py
 """
 import json
+import os
 import sys
 import urllib.request
+from urllib.parse import urlparse
 
-BASE = "http://localhost:8000"
+
+def _check_base(url: str) -> str:
+    """BASE 安全边界：仅 http(s)、非回环主机需显式 MM_ALLOW_REMOTE_HOST=1。"""
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme not in ("http", "https") or not host:
+        raise SystemExit(f"BASE 必须是合法 http(s) 地址: {url}")
+    loopback = host in ("localhost", "127.0.0.1", "::1")
+    if not loopback and os.getenv("MM_ALLOW_REMOTE_HOST") != "1":
+        raise SystemExit(f"拒绝请求非回环地址 {host}：确认目标后设 MM_ALLOW_REMOTE_HOST=1")
+    return url
+
+
+BASE = _check_base("http://localhost:8000")
 
 
 def request(method: str, path: str, token: str | None = None, data=None):

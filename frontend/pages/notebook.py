@@ -78,7 +78,7 @@ def _render_card_grid(
     now = dt.datetime.now(dt.timezone.utc)
     for start in range(0, len(page_items), 3):
         cols = st.columns(3, gap="small")
-        for col, q in zip(cols, page_items[start : start + 3]):
+        for col, q in zip(cols, page_items[start : start + 3], strict=False):
             with col:
                 with st.container(border=True):
                     thumb = display_image_source(q.image_path)

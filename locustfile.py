@@ -11,6 +11,8 @@ import random
 
 from locust import HttpUser, between, task
 
+# SystemRandom 消除可预测随机性告警（压测关键词抽样，本非安全场景，顺手加固）
+_rng = random.SystemRandom()
 _DEMO = {"username": "demo", "password": "demo123"}
 
 
@@ -48,7 +50,7 @@ class MathMasterUser(HttpUser):
 
     @task(1)
     def search_semantic(self):
-        keyword = random.choice(["判别式", "几何", "函数", "方程", "概率"])
+        keyword = _rng.choice(["判别式", "几何", "函数", "方程", "概率"])
         self.client.get(
             "/api/questions",
             headers=self.headers,

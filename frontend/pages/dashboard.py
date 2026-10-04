@@ -13,6 +13,18 @@ import streamlit as st
 
 from backend.config import get_settings
 from backend.services.mastery import SHAKY_THRESHOLD, WEAK_THRESHOLD
+from frontend.charts import (
+    heatmap_colorscale,
+)
+from frontend.charts import (
+    plotly_font as _plotly_font,
+)
+from frontend.charts import (
+    plotly_grid as _plotly_grid,
+)
+from frontend.charts import (
+    plotly_ink as _plotly_ink,
+)
 from frontend.common import (
     get_question_service,
     go_to,
@@ -22,13 +34,6 @@ from frontend.common import (
     stat_card,
 )
 from frontend.components import mastery_bar_html, safe_call
-from frontend.charts import (
-    heatmap_colorscale,
-    plotly_font as _plotly_font,
-    plotly_grid as _plotly_grid,
-    plotly_ink as _plotly_ink,
-    plotly_layout as _plotly_layout,
-)
 
 _BLUE = "#2563eb"
 

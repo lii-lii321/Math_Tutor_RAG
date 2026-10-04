@@ -414,3 +414,475 @@ TypeError: cannot unpack non-iterable EntryResult object
 2026-10-04 23:22:48.557 Please replace `st.components.v1.html` with `st.iframe`.
 
 `st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:40:35.342 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:40:37.760 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:40:37 | INFO    | mathmaster.auth | 用户登录成功: demo
+2026-10-04 23:40:38.074 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+────────────────────────── Traceback (most recent call last) ───────────────────────────
+  D:\Math_Tutor_RAG\.venv\lib\site-packages\streamlit\runtime\scriptrunner\exec_code.p  
+  y:136 in exec_func_with_error_handling                                                
+                                                                                        
+  D:\Math_Tutor_RAG\.venv\lib\site-packages\streamlit\runtime\scriptrunner\script_runn  
+  er.py:909 in code_to_exec                                                             
+                                                                                        
+  D:\Math_Tutor_RAG\app.py:186 in <module>                                              
+                                                                                        
+    183                                                                                 
+    184                                                                                 
+    185 if __name__ == "__main__":                                                      
+  > 186 │   main()                                                                      
+    187                                                                                 
+                                                                                        
+  D:\Math_Tutor_RAG\app.py:158 in main                                                  
+                                                                                        
+    155 │                                                                               
+    156 │   page = _render_sidebar(user)                                                
+    157 │   if page == "dashboard":                                                     
+  > 158 │   │   render_dashboard(user)                                                  
+    159 │   elif page == "tutor":                                                       
+    160 │   │   render_tutor_page(user)                                                 
+    161 │   elif page == "notebook":                                                    
+                                                                                        
+  D:\Math_Tutor_RAG\frontend\pages\dashboard.py:446 in render_dashboard                 
+                                                                                        
+    443 │   │   cal_col, trend_col = st.columns(2)                                      
+    444 │   │   with cal_col:                                                           
+    445 │   │   │   st.markdown("**学习日历**")                                         
+  > 446 │   │   │   _render_heatmap(stats["calendar"])                                  
+    447 │   │   with trend_col:                                                         
+    448 │   │   │   st.markdown("**掌握度趋势**")                                       
+    449 │   │   │   m_trend = stats.get("mastery_trend", [])                            
+                                                                                        
+  D:\Math_Tutor_RAG\frontend\pages\dashboard.py:137 in _render_heatmap                  
+                                                                                        
+    134 │   )                                                                           
+    135 │   fig.update_xaxes(tickangle=0, tickfont=dict(size=9), gridcolor=_plotly_gri  
+    136 │   fig.update_yaxes(tickfont=dict(size=9), gridcolor=_plotly_grid())           
+  > 137 │   st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})     
+    138                                                                                 
+    139                                                                                 
+    140 def _render_mastery_donut(mastery_map: dict[int, float]) -> None:               
+                                                                                        
+  D:\Math_Tutor_RAG\.venv\lib\site-packages\streamlit\runtime\metrics_util.py:725 in    
+  wrapped_func                                                                          
+                                                                                        
+  D:\Math_Tutor_RAG\.venv\lib\site-packages\streamlit\elements\plotly_chart.py:755 in   
+  plotly_chart                                                                          
+                                                                                        
+  D:\Math_Tutor_RAG\.venv\lib\site-packages\streamlit\elements\lib\utils.py:273 in      
+  compute_and_register_element_id                                                       
+                                                                                        
+  D:\Math_Tutor_RAG\.venv\lib\site-packages\streamlit\elements\lib\utils.py:158 in      
+  _register_element_id                                                                  
+────────────────────────────────────────────────────────────────────────────────────────
+StreamlitDuplicateElementId: There are multiple `plotly_chart` elements with the same 
+auto-generated ID. When this element is created, it is assigned an internal ID based on 
+the element type and provided parameters. Multiple elements with the same type and 
+parameters will cause this error.
+
+To fix this error, please pass a unique `key` argument to the `plotly_chart` element.
+2026-10-04 23:40:40.119 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:40:42.480 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:40:42 | INFO    | mathmaster.auth | 用户登录成功: demo
+2026-10-04 23:40:42.794 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+────────────────────────── Traceback (most recent call last) ───────────────────────────
+  D:\Math_Tutor_RAG\.venv\lib\site-packages\streamlit\runtime\scriptrunner\exec_code.p  
+  y:136 in exec_func_with_error_handling                                                
+                                                                                        
+  D:\Math_Tutor_RAG\.venv\lib\site-packages\streamlit\runtime\scriptrunner\script_runn  
+  er.py:909 in code_to_exec                                                             
+                                                                                        
+  D:\Math_Tutor_RAG\app.py:186 in <module>                                              
+                                                                                        
+    183                                                                                 
+    184                                                                                 
+    185 if __name__ == "__main__":                                                      
+  > 186 │   main()                                                                      
+    187                                                                                 
+                                                                                        
+  D:\Math_Tutor_RAG\app.py:158 in main                                                  
+                                                                                        
+    155 │                                                                               
+    156 │   page = _render_sidebar(user)                                                
+    157 │   if page == "dashboard":                                                     
+  > 158 │   │   render_dashboard(user)                                                  
+    159 │   elif page == "tutor":                                                       
+    160 │   │   render_tutor_page(user)                                                 
+    161 │   elif page == "notebook":                                                    
+                                                                                        
+  D:\Math_Tutor_RAG\frontend\pages\dashboard.py:446 in render_dashboard                 
+                                                                                        
+    443 │   │   │   │   │   margin=dict(t=10, b=10, l=10, r=10),                        
+    444 │   │   │   │   │   height=220,                                                 
+    445 │   │   │   │   │   paper_bgcolor="rgba(0,0,0,0)",                              
+  > 446 │   │   │   │   │   plot_bgcolor="rgba(0,0,0,0)",                               
+    447 │   │   │   │   │   font=_plotly_font(),                                        
+    448 │   │   │   │   │   yaxis=dict(range=[0, 105], gridcolor=_plotly_grid()),       
+    449 │   │   │   │   │   xaxis=dict(showgrid=False),                                 
+                                                                                        
+  D:\Math_Tutor_RAG\frontend\pages\dashboard.py:137 in _render_heatmap                  
+                                                                                        
+    134 │   │   │   buckets["薄弱"] += 1                                                
+    135 │   total = sum(buckets.values())                                               
+    136 │   if total == 0:                                                              
+  > 137 │   │   st.caption("尚无复习数据。")                                            
+    138 │   │   return                                                                  
+    139 │   overall = round(sum(mastery_map.values()) / total * 100)                    
+    140 │   colors = {"已掌握": "#059669", "不稳固": "#d97706", "薄弱": "#dc2626"}      
+                                                                                        
+  D:\Math_Tutor_RAG\.venv\lib\site-packages\streamlit\runtime\metrics_util.py:725 in    
+  wrapped_func                                                                          
+                                                                                        
+  D:\Math_Tutor_RAG\.venv\lib\site-packages\streamlit\elements\plotly_chart.py:755 in   
+  plotly_chart                                                                          
+                                                                                        
+  D:\Math_Tutor_RAG\.venv\lib\site-packages\streamlit\elements\lib\utils.py:273 in      
+  compute_and_register_element_id                                                       
+                                                                                        
+  D:\Math_Tutor_RAG\.venv\lib\site-packages\streamlit\elements\lib\utils.py:158 in      
+  _register_element_id                                                                  
+────────────────────────────────────────────────────────────────────────────────────────
+StreamlitDuplicateElementId: There are multiple `plotly_chart` elements with the same 
+auto-generated ID. When this element is created, it is assigned an internal ID based on 
+the element type and provided parameters. Multiple elements with the same type and 
+parameters will cause this error.
+
+To fix this error, please pass a unique `key` argument to the `plotly_chart` element.
+2026-10-04 23:40:45.172 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:40:45.304 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:40:46.997 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:40:47.183 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:40:48.766 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:40:48.935 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:40:50.533 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:40:50.684 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:40:52.281 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:40:52.562 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:40:54.560 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:40:56.443 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:40:56 | INFO    | mathmaster.auth | 用户登录成功: admin
+2026-10-04 23:40:56.755 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:40:56 | INFO    | mathmaster.backend.services.mastery | 已为 user=1 补建知识点 M2M 关联（老数据回填）
+2026-10-04 23:40:58.935 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:40:59.097 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:41:00.448 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:41:02.812 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:41:02 | INFO    | mathmaster.auth | 用户登录成功: demo
+2026-10-04 23:41:03.126 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+────────────────────────── Traceback (most recent call last) ───────────────────────────
+  D:\Math_Tutor_RAG\.venv\lib\site-packages\streamlit\runtime\scriptrunner\exec_code.p  
+  y:136 in exec_func_with_error_handling                                                
+                                                                                        
+  D:\Math_Tutor_RAG\.venv\lib\site-packages\streamlit\runtime\scriptrunner\script_runn  
+  er.py:909 in code_to_exec                                                             
+                                                                                        
+  D:\Math_Tutor_RAG\app.py:186 in <module>                                              
+                                                                                        
+    183                                                                                 
+    184                                                                                 
+    185 if __name__ == "__main__":                                                      
+  > 186 │   main()                                                                      
+    187                                                                                 
+                                                                                        
+  D:\Math_Tutor_RAG\app.py:158 in main                                                  
+                                                                                        
+    155 │                                                                               
+    156 │   page = _render_sidebar(user)                                                
+    157 │   if page == "dashboard":                                                     
+  > 158 │   │   render_dashboard(user)                                                  
+    159 │   elif page == "tutor":                                                       
+    160 │   │   render_tutor_page(user)                                                 
+    161 │   elif page == "notebook":                                                    
+                                                                                        
+  D:\Math_Tutor_RAG\frontend\pages\dashboard.py:446 in render_dashboard                 
+                                                                                        
+    443 │   │   │   │   │   margin=dict(t=10, b=10, l=10, r=10),                        
+    444 │   │   │   │   │   height=220,                                                 
+    445 │   │   │   │   │   paper_bgcolor="rgba(0,0,0,0)",                              
+  > 446 │   │   │   │   │   plot_bgcolor="rgba(0,0,0,0)",                               
+    447 │   │   │   │   │   font=_plotly_font(),                                        
+    448 │   │   │   │   │   yaxis=dict(range=[0, 105], gridcolor=_plotly_grid()),       
+    449 │   │   │   │   │   xaxis=dict(showgrid=False),                                 
+                                                                                        
+  D:\Math_Tutor_RAG\frontend\pages\dashboard.py:137 in _render_heatmap                  
+                                                                                        
+    134 │   │   │   buckets["薄弱"] += 1                                                
+    135 │   total = sum(buckets.values())                                               
+    136 │   if total == 0:                                                              
+  > 137 │   │   st.caption("尚无复习数据。")                                            
+    138 │   │   return                                                                  
+    139 │   overall = round(sum(mastery_map.values()) / total * 100)                    
+    140 │   colors = {"已掌握": "#059669", "不稳固": "#d97706", "薄弱": "#dc2626"}      
+                                                                                        
+  D:\Math_Tutor_RAG\.venv\lib\site-packages\streamlit\runtime\metrics_util.py:725 in    
+  wrapped_func                                                                          
+                                                                                        
+  D:\Math_Tutor_RAG\.venv\lib\site-packages\streamlit\elements\plotly_chart.py:755 in   
+  plotly_chart                                                                          
+                                                                                        
+  D:\Math_Tutor_RAG\.venv\lib\site-packages\streamlit\elements\lib\utils.py:273 in      
+  compute_and_register_element_id                                                       
+                                                                                        
+  D:\Math_Tutor_RAG\.venv\lib\site-packages\streamlit\elements\lib\utils.py:158 in      
+  _register_element_id                                                                  
+────────────────────────────────────────────────────────────────────────────────────────
+StreamlitDuplicateElementId: There are multiple `plotly_chart` elements with the same 
+auto-generated ID. When this element is created, it is assigned an internal ID based on 
+the element type and provided parameters. Multiple elements with the same type and 
+parameters will cause this error.
+
+To fix this error, please pass a unique `key` argument to the `plotly_chart` element.
+2026-10-04 23:41:05.471 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:41:05.631 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:41:06.032 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:41:06.282 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:41:06 | INFO    | mathmaster.questions | 重复图片 question=18 user=2，直接复用
+────────────────────────── Traceback (most recent call last) ───────────────────────────
+  D:\Math_Tutor_RAG\.venv\lib\site-packages\streamlit\runtime\scriptrunner\exec_code.p  
+  y:136 in exec_func_with_error_handling                                                
+                                                                                        
+  D:\Math_Tutor_RAG\.venv\lib\site-packages\streamlit\runtime\scriptrunner\script_runn  
+  er.py:909 in code_to_exec                                                             
+                                                                                        
+  D:\Math_Tutor_RAG\app.py:186 in <module>                                              
+                                                                                        
+    183                                                                                 
+    184                                                                                 
+    185 if __name__ == "__main__":                                                      
+  > 186 │   main()                                                                      
+    187                                                                                 
+                                                                                        
+  D:\Math_Tutor_RAG\app.py:160 in main                                                  
+                                                                                        
+    157 │   if page == "dashboard":                                                     
+    158 │   │   render_dashboard(user)                                                  
+    159 │   elif page == "tutor":                                                       
+  > 160 │   │   render_tutor_page(user)                                                 
+    161 │   elif page == "notebook":                                                    
+    162 │   │   render_notebook_page(user)                                              
+    163 │   elif page == "review":                                                      
+                                                                                        
+  D:\Math_Tutor_RAG\frontend\pages\tutor.py:54 in render_tutor_page                     
+                                                                                        
+     51 │   │   │   │   )                                                               
+     52 │   │   │   │   st.caption("AI 将自动识别考点、生成详解并归档入错题本。")       
+     53 │   │   │   │   if uploads and st.button("🚀 开始 AI 解析", type="primary", wi  
+  >  54 │   │   │   │   │   _process_uploads(service, user, uploads, sanitize_tags(tag  
+     55 │   │                                                                           
+     56 │   │   with result_col:                                                        
+     57 │   │   │   tutor_results = st.session_state.get("tutor_results")               
+                                                                                        
+  D:\Math_Tutor_RAG\frontend\pages\tutor.py:227 in _process_uploads                     
+                                                                                        
+    224 │   │   │   if error:                                                           
+    225 │   │   │   │   st.error(f"解析失败：{error}")                                  
+    226 │   │   │   │   continue                                                        
+  > 227 │   │   │   saved, analysis = result                                            
+    228 │   │   │   if result.duplicated:                                               
+    229 │   │   │   │   st.warning("检测到重复上传：已为你复用既有错题记录。")          
+    230 │   │   │   _render_analysis(saved, analysis, service, user)                    
+────────────────────────────────────────────────────────────────────────────────────────
+TypeError: cannot unpack non-iterable EntryResult object
+2026-10-04 23:41:07.649 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:41:07.745 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:41:09.747 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:41:12.122 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:41:12 | INFO    | mathmaster.auth | 用户登录成功: demo
+2026-10-04 23:41:12.436 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+────────────────────────── Traceback (most recent call last) ───────────────────────────
+  D:\Math_Tutor_RAG\.venv\lib\site-packages\streamlit\runtime\scriptrunner\exec_code.p  
+  y:136 in exec_func_with_error_handling                                                
+                                                                                        
+  D:\Math_Tutor_RAG\.venv\lib\site-packages\streamlit\runtime\scriptrunner\script_runn  
+  er.py:909 in code_to_exec                                                             
+                                                                                        
+  D:\Math_Tutor_RAG\app.py:186 in <module>                                              
+                                                                                        
+    183                                                                                 
+    184                                                                                 
+    185 if __name__ == "__main__":                                                      
+  > 186 │   main()                                                                      
+    187                                                                                 
+                                                                                        
+  D:\Math_Tutor_RAG\app.py:158 in main                                                  
+                                                                                        
+    155 │                                                                               
+    156 │   page = _render_sidebar(user)                                                
+    157 │   if page == "dashboard":                                                     
+  > 158 │   │   render_dashboard(user)                                                  
+    159 │   elif page == "tutor":                                                       
+    160 │   │   render_tutor_page(user)                                                 
+    161 │   elif page == "notebook":                                                    
+                                                                                        
+  D:\Math_Tutor_RAG\frontend\pages\dashboard.py:446 in render_dashboard                 
+                                                                                        
+    443 │   │   │   │   │   margin=dict(t=10, b=10, l=10, r=10),                        
+    444 │   │   │   │   │   height=220,                                                 
+    445 │   │   │   │   │   paper_bgcolor="rgba(0,0,0,0)",                              
+  > 446 │   │   │   │   │   plot_bgcolor="rgba(0,0,0,0)",                               
+    447 │   │   │   │   │   font=_plotly_font(),                                        
+    448 │   │   │   │   │   yaxis=dict(range=[0, 105], gridcolor=_plotly_grid()),       
+    449 │   │   │   │   │   xaxis=dict(showgrid=False),                                 
+                                                                                        
+  D:\Math_Tutor_RAG\frontend\pages\dashboard.py:137 in _render_heatmap                  
+                                                                                        
+    134 │   │   │   buckets["薄弱"] += 1                                                
+    135 │   total = sum(buckets.values())                                               
+    136 │   if total == 0:                                                              
+  > 137 │   │   st.caption("尚无复习数据。")                                            
+    138 │   │   return                                                                  
+    139 │   overall = round(sum(mastery_map.values()) / total * 100)                    
+    140 │   colors = {"已掌握": "#059669", "不稳固": "#d97706", "薄弱": "#dc2626"}      
+                                                                                        
+  D:\Math_Tutor_RAG\.venv\lib\site-packages\streamlit\runtime\metrics_util.py:725 in    
+  wrapped_func                                                                          
+                                                                                        
+  D:\Math_Tutor_RAG\.venv\lib\site-packages\streamlit\elements\plotly_chart.py:755 in   
+  plotly_chart                                                                          
+                                                                                        
+  D:\Math_Tutor_RAG\.venv\lib\site-packages\streamlit\elements\lib\utils.py:273 in      
+  compute_and_register_element_id                                                       
+                                                                                        
+  D:\Math_Tutor_RAG\.venv\lib\site-packages\streamlit\elements\lib\utils.py:158 in      
+  _register_element_id                                                                  
+────────────────────────────────────────────────────────────────────────────────────────
+StreamlitDuplicateElementId: There are multiple `plotly_chart` elements with the same 
+auto-generated ID. When this element is created, it is assigned an internal ID based on 
+the element type and provided parameters. Multiple elements with the same type and 
+parameters will cause this error.
+
+To fix this error, please pass a unique `key` argument to the `plotly_chart` element.
+2026-10-04 23:41:14.807 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:41:14.962 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:41:15.357 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:41:15.634 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:41:15 | INFO    | mathmaster.questions | 重复图片 question=18 user=2，直接复用
+────────────────────────── Traceback (most recent call last) ───────────────────────────
+  D:\Math_Tutor_RAG\.venv\lib\site-packages\streamlit\runtime\scriptrunner\exec_code.p  
+  y:136 in exec_func_with_error_handling                                                
+                                                                                        
+  D:\Math_Tutor_RAG\.venv\lib\site-packages\streamlit\runtime\scriptrunner\script_runn  
+  er.py:909 in code_to_exec                                                             
+                                                                                        
+  D:\Math_Tutor_RAG\app.py:186 in <module>                                              
+                                                                                        
+    183                                                                                 
+    184                                                                                 
+    185 if __name__ == "__main__":                                                      
+  > 186 │   main()                                                                      
+    187                                                                                 
+                                                                                        
+  D:\Math_Tutor_RAG\app.py:160 in main                                                  
+                                                                                        
+    157 │   if page == "dashboard":                                                     
+    158 │   │   render_dashboard(user)                                                  
+    159 │   elif page == "tutor":                                                       
+  > 160 │   │   render_tutor_page(user)                                                 
+    161 │   elif page == "notebook":                                                    
+    162 │   │   render_notebook_page(user)                                              
+    163 │   elif page == "review":                                                      
+                                                                                        
+  D:\Math_Tutor_RAG\frontend\pages\tutor.py:54 in render_tutor_page                     
+                                                                                        
+     51 │   │   │   │   )                                                               
+     52 │   │   │   │   st.caption("AI 将自动识别考点、生成详解并归档入错题本。")       
+     53 │   │   │   │   if uploads and st.button("🚀 开始 AI 解析", type="primary", wi  
+  >  54 │   │   │   │   │   _process_uploads(service, user, uploads, sanitize_tags(tag  
+     55 │   │                                                                           
+     56 │   │   with result_col:                                                        
+     57 │   │   │   tutor_results = st.session_state.get("tutor_results")               
+                                                                                        
+  D:\Math_Tutor_RAG\frontend\pages\tutor.py:227 in _process_uploads                     
+                                                                                        
+    224 │   │   │   if error:                                                           
+    225 │   │   │   │   st.error(f"解析失败：{error}")                                  
+    226 │   │   │   │   continue                                                        
+  > 227 │   │   │   saved, analysis = result                                            
+    228 │   │   │   if result.duplicated:                                               
+    229 │   │   │   │   st.warning("检测到重复上传：已为你复用既有错题记录。")          
+    230 │   │   │   _render_analysis(saved, analysis, service, user)                    
+────────────────────────────────────────────────────────────────────────────────────────
+TypeError: cannot unpack non-iterable EntryResult object
+2026-10-04 23:41:16.981 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:41:17.072 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.
+2026-10-04 23:41:24.531 Please replace `st.components.v1.html` with `st.iframe`.
+
+`st.components.v1.html` will be removed after 2026-06-01.

@@ -24,12 +24,16 @@ const theme = {
   bg: 'F7F8FA',        // page background
 };
 
-const ORDER = [
-  'slide-01', 'slide-02', 'slide-03', 'slide-04', 'slide-05',
-  'slide-06', 'slide-07', 'slide-08', 'slide-09', 'slide-10',
-  'slide-11', 'slide-12', 'slide-13', 'slide-14', 'slide-15',
-  'slide-16', 'slide-17', 'slide-18', 'slide-19', 'slide-20',
-  'slide-21', 'slide-22', 'slide-23', 'slide-24', 'slide-25',
+const slideModules = [
+  require('./slide-01.js'), require('./slide-02.js'), require('./slide-03.js'),
+  require('./slide-04.js'), require('./slide-05.js'), require('./slide-06.js'),
+  require('./slide-07.js'), require('./slide-08.js'), require('./slide-09.js'),
+  require('./slide-10.js'), require('./slide-11.js'), require('./slide-12.js'),
+  require('./slide-13.js'), require('./slide-14.js'), require('./slide-15.js'),
+  require('./slide-16.js'), require('./slide-17.js'), require('./slide-18.js'),
+  require('./slide-19.js'), require('./slide-20.js'), require('./slide-21.js'),
+  require('./slide-22.js'), require('./slide-23.js'), require('./slide-24.js'),
+  require('./slide-25.js'),
 ];
 
 /* ------------------------------------------------------------------ *
@@ -73,7 +77,10 @@ function createRecorder() {
       rectIn: r,
       normalizedRect: norm(r),
       style: pick(opts),
-      source: { file: 'slides/' + ORDER[current.slideNumber - 1] + '.js', method: opts.__method },
+      source: {
+        file: 'slides/slide-' + String(current.slideNumber).padStart(2, '0') + '.js',
+        method: opts.__method,
+      },
     });
   }
 
@@ -133,8 +140,8 @@ pres.subject = '信息架构 / 视觉层级 / 交互密度 重做方案';
 const recorder = createRecorder();
 recorder.attach(pres);
 
-ORDER.forEach(function (name) {
-  const mod = require('./' + name + '.js');
+slideModules.forEach(function (mod, i) {
+  const name = 'slide-' + String(i + 1).padStart(2, '0');
   if (typeof mod.createSlide !== 'function') throw new Error(name + ' does not export createSlide()');
   mod.createSlide(pres, theme);
 });
@@ -142,12 +149,14 @@ ORDER.forEach(function (name) {
 const outDir = path.resolve(__dirname, 'output');
 if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
 const outFile = path.join(outDir, OUT_NAME);
+// 输出文件必须落在 output/ 边界内（OUT_NAME 为常量，此处守住未来改动不越界）
+if (!outFile.startsWith(outDir + path.sep)) throw new Error('output path escapes outDir: ' + OUT_NAME);
 
 pres.writeFile({ fileName: outFile })
   .then(function () {
     const n = recorder.write(outFile.replace(/\.pptx$/, '.mavis-ppt-map.json'));
     console.log('WROTE ' + outFile);
-    console.log('slides: ' + ORDER.length + '  size: ' + Math.round(fs.statSync(outFile).size / 1024) + ' KB');
+    console.log('slides: ' + slideModules.length + '  size: ' + Math.round(fs.statSync(outFile).size / 1024) + ' KB');
     console.log('element-map: ' + n + ' elements');
   })
   .catch(function (err) {

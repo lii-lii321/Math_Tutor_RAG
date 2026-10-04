@@ -15,6 +15,17 @@
   （`STORAGE_BACKEND=s3` + `S3_ENDPOINT/S3_BUCKET/S3_ACCESS_KEY/S3_SECRET_KEY`）
 - s3 模式下数据体检自动跳过本地孤儿图片扫描（附说明）；新测试 `tests/test_storage.py`
 
+### 加固与质量
+- **Plotly 主题收敛**：`frontend/charts.py` 单点来源（font/grid/ink/layout/热力图色带），
+  dashboard 与能力画像雷达图全部接入；深色模式热力图零值格改卡片色
+- **降级防线测试补齐**（提升路线 #2）：reaper 状态回收 2 用例 + Redis 限流回退
+  1 用例（断言确实尝试过 Redis 后回退）；验证器异常不再纯静默——
+  record_event 遥测留痕 + warning 日志（提升路线 #3，v2.11 静默失效教训转化为防线）
+- **Mimosa 审计 8 项发现全部对账**（`docs/安全审计对账.md`）：5 修复
+  （slides 编译脚本去动态 require + 输出边界断言、两示例脚本 BASE 回环校验、
+  locust SystemRandom）、2 误报有据、1 有意为之；运行时核心路径零发现
+- 测试 353 → 373 全绿（+storage 6 +defense 4 + 图表批零破坏）
+
 ## [2.12.0] - 2026-10-01
 
 ### 新增（家校闭环批次）

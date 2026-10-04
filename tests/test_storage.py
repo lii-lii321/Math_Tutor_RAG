@@ -5,7 +5,6 @@ import io
 
 import pytest
 
-from backend.services import storage as storage_mod
 from backend.services.storage import (
     LocalStorage,
     S3Storage,

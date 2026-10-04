@@ -60,9 +60,8 @@ def test_reap_stuck_jobs_returns_zero_when_queue_clean():
 
 
 def test_get_rate_limiter_falls_back_to_inmemory_when_redis_broken(monkeypatch):
-    from backend.config import get_settings
-
     from api import deps
+    from backend.config import get_settings
 
     monkeypatch.setenv("RATE_LIMIT_BACKEND", "redis")
     monkeypatch.setenv("REDIS_URL", "redis://localhost:6399/0")
