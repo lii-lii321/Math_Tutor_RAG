@@ -9,6 +9,7 @@ from backend.services.comment_service import CommentService
 from backend.services.export import generate_pdf_exam, generate_word_exam
 from backend.services.mastery import SHAKY_THRESHOLD, WEAK_THRESHOLD
 from backend.services.question_service import sanitize_tags
+from backend.utils.paths import resolve_image_path
 from frontend.common import (
     edit_question_form,
     followup_chat,
@@ -18,6 +19,7 @@ from frontend.common import (
     pop_params,
 )
 from frontend.components import (
+    mastery_bar_html,
     question_detail_view,
     regrade_buttons,
     safe_call,
@@ -25,6 +27,145 @@ from frontend.components import (
 )
 
 _PAGE_SIZE = 8
+_DIFF_LABELS = {"easy": "简单", "medium": "中等", "hard": "困难"}
+
+
+def _due_mark(q, now: dt.datetime) -> str:
+    """复习状态图标：🏆 已归档 / ⏰ 到期待复习 / ✅ 已排期。"""
+    due_at = q.due_at
+    if due_at is not None and due_at.tzinfo is None:
+        due_at = due_at.replace(tzinfo=dt.timezone.utc)
+    if q.mastered:
+        return "🏆"
+    if due_at is None or due_at <= now:
+        return "⏰"
+    return "✅"
+
+
+def _mastery_parts(mastery_map: dict[int, float], q_id: int) -> tuple[int, str] | None:
+    """掌握度 -> (百分数, 档位色)，与后端 WEAK/SHAKY 阈值同源；未复习过返回 None。"""
+    if q_id not in mastery_map:
+        return None
+    ratio = mastery_map[q_id]
+    pct = round(ratio * 100)
+    if ratio < WEAK_THRESHOLD:
+        color = "#dc2626"
+    elif ratio < SHAKY_THRESHOLD:
+        color = "#94a3b8"
+    else:
+        color = "#2563eb"
+    return pct, color
+
+
+@st.dialog("错题详情", width="large")
+def _open_question_dialog(service, q, user: dict) -> None:
+    """卡片视图的详情弹窗（复用列表视图的完整四页签详情）。"""
+    _render_question_detail(service, q, user)
+
+
+def _render_card_grid(
+    page_items: list,
+    service,
+    user: dict,
+    mastery_map: dict[int, float],
+    unread_map: dict[int, int],
+) -> list[int]:
+    """卡片网格视图：三列缩略卡（原图 / 元信息徽章 / 掌握度条），查看走弹窗。
+
+    选中复选框与列表视图共用 `select_{id}` 键，切换视图不丢勾选。
+    """
+    selected_ids: list[int] = []
+    now = dt.datetime.now(dt.timezone.utc)
+    for start in range(0, len(page_items), 3):
+        cols = st.columns(3, gap="small")
+        for col, q in zip(cols, page_items[start : start + 3]):
+            with col:
+                with st.container(border=True):
+                    thumb = resolve_image_path(q.image_path)
+                    if thumb is not None and thumb.exists():
+                        st.image(str(thumb), width="stretch")
+                    else:
+                        label = (q.knowledge_points or q.tags or ["未分类"])[0]
+                        st.markdown(
+                            f"<div class='mm-card-thumb'>{label[:8]}</div>",
+                            unsafe_allow_html=True,
+                        )
+
+                    title = "、".join(q.tags[:2]) or "未分类"
+                    unread = unread_map.get(q.id, 0)
+                    unread_badge = (
+                        f" <span class='mm-badge mm-badge--bad'>🔴{unread} 新批注</span>"
+                        if unread
+                        else ""
+                    )
+                    star_mark = " ⭐" if q.starred else ""
+                    st.markdown(
+                        f"<p style='font-weight:600;margin:0.45rem 0 0.3rem;"
+                        f"white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>"
+                        f"{title}{star_mark}{unread_badge}</p>",
+                        unsafe_allow_html=True,
+                    )
+
+                    date_txt = q.created_at.strftime("%m-%d") if q.created_at else ""
+                    st.markdown(
+                        f"<span class='mm-badge'>{_DIFF_LABELS.get(q.difficulty, q.difficulty)}</span>"
+                        f"<span class='mm-badge mm-badge--blue'>{_due_mark(q, now)}</span>"
+                        f"<span class='mm-badge'>{date_txt}</span>",
+                        unsafe_allow_html=True,
+                    )
+
+                    parts = _mastery_parts(mastery_map, q.id)
+                    if parts is not None:
+                        pct, color = parts
+                        st.markdown(
+                            mastery_bar_html("掌握度", pct, color, right=f"{pct}%"),
+                            unsafe_allow_html=True,
+                        )
+                    else:
+                        st.caption("尚未复习")
+
+                    btn_col, sel_col = st.columns([3, 2])
+                    with btn_col:
+                        if st.button("查看", key=f"card_open_{q.id}", width="stretch"):
+                            _open_question_dialog(service, q, user)
+                    with sel_col:
+                        if st.checkbox("选中", key=f"select_{q.id}"):
+                            selected_ids.append(q.id)
+    return selected_ids
+
+
+def _render_list_view(
+    page_items: list,
+    service,
+    user: dict,
+    mastery_map: dict[int, float],
+    unread_map: dict[int, int],
+) -> list[int]:
+    """列表视图：expander 逐题展开，标题行带复习/星标/掌握度/未读标记。"""
+    selected_ids: list[int] = []
+    now = dt.datetime.now(dt.timezone.utc)
+    for q in page_items:
+        parts = _mastery_parts(mastery_map, q.id)
+        mastery_chip = ""
+        if parts is not None:
+            pct, color = parts
+            mastery_chip = (
+                f"　<span style='color:{color};font-weight:600'>掌握 {pct}%</span>"
+            )
+        star_mark = "⭐ " if q.starred else ""
+        unread = unread_map.get(q.id, 0)
+        unread_chip = f"　🔴 <b>{unread} 条新批注</b>" if unread else ""
+        expander_title = (
+            f"{_due_mark(q, now)} {star_mark}{'、'.join(q.tags[:4]) or '未分类'}　·　"
+            f"{_DIFF_LABELS.get(q.difficulty, q.difficulty)}　·　"
+            f"{(q.created_at.strftime('%Y-%m-%d') if q.created_at else '')}"
+            f"{mastery_chip}{unread_chip}"
+        )
+        with st.expander(expander_title):
+            _render_question_detail(service, q, user)
+            if st.checkbox("选中", key=f"select_{q.id}"):
+                selected_ids.append(q.id)
+    return selected_ids
 
 
 def render_notebook_page(user: dict) -> None:
@@ -39,21 +180,26 @@ def render_notebook_page(user: dict) -> None:
     with st.container(border=True):
         is_teacher = user["role"] == "teacher"
 
-        # ---- 工具条：搜索框 + 筛选抽屉 + chip 回显 ----
-        keyword = st.text_input(
-            "搜索",
-            value=preset_keyword or "",
-            placeholder="搜索错题（自然语言即可）",
-            key="notebook_search",
-            label_visibility="collapsed",
-        )
-
-        # chip 行：当前生效的筛选条件一目了然，点 ✕ 清除
-        chips: list[str] = []
-        if preset_tag:
-            chips.append(preset_tag)
-        if preset_keyword:
-            chips.append(f"搜索:{preset_keyword}")
+        # ---- 工具条：搜索框 + 视图切换 + 筛选抽屉 + chip 回显 ----
+        tool_col1, tool_col2 = st.columns([4, 1])
+        with tool_col1:
+            keyword = st.text_input(
+                "搜索",
+                value=preset_keyword or "",
+                placeholder="搜索错题（自然语言即可）",
+                key="notebook_search",
+                label_visibility="collapsed",
+            )
+        with tool_col2:
+            view_mode = st.segmented_control(
+                "视图",
+                ["📋", "🔲"],
+                selection_mode="single",
+                default="📋",
+                key="notebook_view",
+                label_visibility="collapsed",
+            )
+        card_view = view_mode == "🔲"
 
         popover_label = "⚙️ 筛选与排序"
         with st.popover(popover_label, use_container_width=False):
@@ -278,41 +424,16 @@ def render_notebook_page(user: dict) -> None:
             st.session_state[page_key] += 1
             st.rerun()
 
-    selected_ids: list[int] = []
-    now = dt.datetime.now(dt.timezone.utc)
-    for q in page_items:
-        due_at = q.due_at
-        if due_at is not None and due_at.tzinfo is None:
-            due_at = due_at.replace(tzinfo=dt.timezone.utc)
-        if q.mastered:
-            due_mark = "🏆 "
-        elif due_at is None or due_at <= now:
-            due_mark = "⏰ "
-        else:
-            due_mark = "✅ "
-        mastery_chip = ""
-        if q.id in mastery_map:
-            pct = round(mastery_map[q.id] * 100)
-            # 档位与后端掌握度引擎同源（WEAK/SHAKY 阈值换算为百分数）
-            if mastery_map[q.id] < WEAK_THRESHOLD:
-                color = "#dc2626"
-            elif mastery_map[q.id] < SHAKY_THRESHOLD:
-                color = "#94a3b8"
-            else:
-                color = "#2563eb"
-            mastery_chip = f"　<span style='color:{color};font-weight:600'>掌握 {pct}%</span>"
-        star_mark = "⭐ " if q.starred else ""
-        unread = unread_map.get(q.id, 0)
-        unread_chip = f"　🔴 <b>{unread} 条新批注</b>" if unread else ""
-        expander_title = (
-            f"{due_mark}{star_mark}{'、'.join(q.tags[:4]) or '未分类'}　·　{q.difficulty}　·　"
-            f"{(q.created_at.strftime('%Y-%m-%d') if q.created_at else '')}"
-            f"{mastery_chip}{unread_chip}"
+    if card_view:
+        # ---- 卡片网格视图（3 列） ----
+        selected_ids = _render_card_grid(
+            page_items, service, user, mastery_map, unread_map
         )
-        with st.expander(expander_title):
-            _render_question_detail(service, q, user)
-            if st.checkbox("选中", key=f"select_{q.id}"):
-                selected_ids.append(q.id)
+    else:
+        # ---- 列表视图（expander） ----
+        selected_ids = _render_list_view(
+            page_items, service, user, mastery_map, unread_map
+        )
 
     if selected_ids:
         st.warning(f"已选中 {len(selected_ids)} 题")
@@ -334,7 +455,7 @@ def render_notebook_page(user: dict) -> None:
             new_diff = st.selectbox(
                 "批量改难度",
                 ["easy", "medium", "hard"],
-                format_func=lambda v: {"easy": "简单", "medium": "中等", "hard": "困难"}[v],
+                format_func=lambda v: _DIFF_LABELS[v],
                 key="batch_diff",
                 label_visibility="collapsed",
             )

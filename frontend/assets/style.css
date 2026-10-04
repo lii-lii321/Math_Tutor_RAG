@@ -264,3 +264,22 @@ div[data-testid="stExpander"] {
 /* ---------------- 队列行 ---------------- */
 .mm-queue-row { padding: 0.55rem 0; border-bottom: 1px solid var(--border); }
 .mm-queue-row:last-child { border-bottom: none; }
+
+
+/* ---------------- 错题卡片网格 ---------------- */
+.mm-card-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 110px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--blue-soft);
+  color: var(--blue);
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-bottom: 0.55rem;
+  overflow: hidden;
+  white-space: nowrap;
+}
+div[data-testid='stVerticalBlockBorderWrapper'] { height: 100%; }
