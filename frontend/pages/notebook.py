@@ -109,19 +109,31 @@ def render_notebook_page(user: dict) -> None:
             "按标签筛选", ["全部"] + all_tags, index=default_index, key="notebook_tag"
         )
 
-        # chip 回显：当前生效的筛选条件，点 ✕ 清除
+        # chip 回显：当前生效的筛选条件（实时值而非仅 preset，点击 ✕ 清除对应输入）
+        def _chip(label: str, clear_target: str | None = None) -> str:
+            return f"<span class='mm-badge mm-badge--blue'>{label} ✕</span>"
+
         chips_html = ""
         if preset_tag:
-            chips_html += f"<span class='mm-badge mm-badge--blue'>{preset_tag} ✕</span>"
+            chips_html += _chip(preset_tag)
         if preset_keyword:
-            chips_html += f"<span class='mm-badge mm-badge--blue'>搜索:{preset_keyword} ✕</span>"
+            chips_html += _chip(f"搜索:{preset_keyword}")
         if only_starred:
             chips_html += "<span class='mm-badge mm-badge--warn'>⭐ 星标</span>"
         if only_weak:
             chips_html += "<span class='mm-badge mm-badge--bad'>薄弱</span>"
         if only_due:
             chips_html += "<span class='mm-badge mm-badge--blue'>待复习</span>"
+        if only_mastered:
+            chips_html += "<span class='mm-badge mm-badge--ok'>已掌握</span>"
+        if tag_filter != "全部":
+            chips_html += _chip(tag_filter)
         if chips_html:
+            if st.button("✕ 清除全部筛选", key="clear_chips"):
+                for key in ("notebook_search", "notebook_tag", "notebook_page"):
+                    st.session_state.pop(key, None)
+                st.session_state["notebook_sort"] = "最新录入"
+                st.rerun()
             st.markdown(
                 f"<div style='margin:0.3rem 0'>{chips_html}</div>",
                 unsafe_allow_html=True,
