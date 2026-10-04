@@ -18,6 +18,11 @@
 ### 加固与质量
 - **Plotly 主题收敛**：`frontend/charts.py` 单点来源（font/grid/ink/layout/热力图色带），
   dashboard 与能力画像雷达图全部接入；深色模式热力图零值格改卡片色
+- **分层门禁 import-linter 进 CI**（提升路线 #5）：三条契约（frontend 不依赖 api、
+  backend 不反向依赖 UI 层、services→repositories→models 分层）首次全部 KEPT
+  并成为 lint job 常驻门禁（`.importlinter`）；session-per-operation 收口——
+  comment_service(7)/job_service(4) 直连 SessionLocal 全部统一走 `session_scope()`，
+  `api/deps.get_db` 同源复用
 - **检索金标集持续门禁**（提升路线 #4）：`tests/test_retrieval_quality.py`——12 条
   金标语料（专属用户隔离）双问法进 CI：关键词路 Recall@1 = 100%（确定性）、
   混合路（真实向量检索）Recall@3 ≥ 60% 门禁（实测基线 67%，MiniLM 中文意译

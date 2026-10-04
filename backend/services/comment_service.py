@@ -4,7 +4,7 @@ from __future__ import annotations
 from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
-from backend.database import SessionLocal
+from backend.database import session_scope
 from backend.models.orm import Comment, CommentReadState, Question, User
 from backend.utils.logging import get_logger
 
@@ -39,7 +39,7 @@ class CommentService:
         _render_comments（教师浏览学生错题的批注 tab）仍依赖该旧路径，
         调用方迁移（传入查看者）前不可移除，属遗留债务。
         """
-        with SessionLocal() as session:
+        with session_scope() as session:
             self._require_visible(session, question_id, viewer_id, viewer_role)
             rows = session.execute(
                 select(Comment, User.username, User.role)
@@ -91,7 +91,7 @@ class CommentService:
         content = (content or "").strip()
         if not content:
             raise ValueError("批注内容不能为空")
-        with SessionLocal() as session:
+        with session_scope() as session:
             self._require_visible(
                 session,
                 question_id,
@@ -112,7 +112,7 @@ class CommentService:
 
     def delete(self, comment_id: int, user_id: int, is_teacher: bool = False) -> bool:
         """删除批注：作者本人或教师可删，且批注所在题目须对删除者可见。"""
-        with SessionLocal() as session:
+        with session_scope() as session:
             comment = session.get(Comment, comment_id)
             if comment is None:
                 return False
@@ -130,7 +130,7 @@ class CommentService:
         """批量取每题最新一条批注（列表页预览用）。"""
         if not question_ids:
             return {}
-        with SessionLocal() as session:
+        with session_scope() as session:
             rows = session.execute(
                 select(Comment)
                 .where(Comment.question_id.in_(question_ids))
@@ -153,7 +153,7 @@ class CommentService:
         """
         if not question_ids:
             return {}
-        with SessionLocal() as session:
+        with session_scope() as session:
             rows = session.execute(
                 select(Comment.question_id, func.count())
                 .join(User, Comment.author_id == User.id)
@@ -178,7 +178,7 @@ class CommentService:
 
     def total_unread(self, user_id: int) -> int:
         """该用户全部错题的未读教师批注总数（顶栏提示用）。"""
-        with SessionLocal() as session:
+        with session_scope() as session:
             value = session.execute(
                 select(func.count())
                 .select_from(Comment)
@@ -202,7 +202,7 @@ class CommentService:
 
     def mark_read(self, question_id: int, user_id: int) -> None:
         """把已读水位线推进到该题当前最大批注 ID（仅在确有未读时调用）。"""
-        with SessionLocal() as session:
+        with session_scope() as session:
             watermark = session.execute(
                 select(func.max(Comment.id)).where(Comment.question_id == question_id)
             ).scalar()

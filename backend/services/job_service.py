@@ -16,7 +16,7 @@ from pathlib import Path
 from sqlalchemy import select
 
 from backend.config import get_settings
-from backend.database import SessionLocal
+from backend.database import session_scope
 from backend.models.orm import Job
 from backend.utils.logging import get_logger
 
@@ -41,7 +41,7 @@ class JobService:
         image_path = job_dir / f"{job_id}.jpg"
         image_path.write_bytes(image_bytes)
 
-        with SessionLocal() as session:
+        with session_scope() as session:
             session.add(
                 Job(
                     id=job_id,
@@ -72,7 +72,7 @@ class JobService:
 
     def cancel(self, job_id: str, user_id: int) -> bool:
         """取消任务：仅 pending 状态可取消；执行中/已结束返回 False。"""
-        with SessionLocal() as session:
+        with session_scope() as session:
             job = session.execute(
                 select(Job).where(Job.id == job_id, Job.user_id == user_id)
             ).scalar_one_or_none()
@@ -90,7 +90,7 @@ class JobService:
 
     def get(self, job_id: str, user_id: int) -> dict | None:
         """查询任务状态（按用户隔离）。"""
-        with SessionLocal() as session:
+        with session_scope() as session:
             job = session.execute(
                 select(Job).where(Job.id == job_id, Job.user_id == user_id)
             ).scalar_one_or_none()
@@ -113,7 +113,7 @@ class JobService:
         在 API 启动时调用一次；返回重置数量。
         """
         cutoff = dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=timeout_minutes)
-        with SessionLocal() as session:
+        with session_scope() as session:
             stuck = (
                 session.execute(
                     select(Job).where(

@@ -1,0 +1,30 @@
+[importlinter]
+root_packages =
+    backend
+    api
+    frontend
+
+[importlinter:frontend-not-import-api]
+name = frontend 不依赖 api（跨端复用走服务层）
+type = forbidden
+source_modules =
+    frontend
+forbidden_modules =
+    api
+
+[importlinter:backend-not-import-ui]
+name = backend 不反向依赖 api / frontend（api 是 backend 的消费者）
+type = forbidden
+source_modules =
+    backend
+forbidden_modules =
+    api
+    frontend
+
+[importlinter:backend-layers]
+name = backend 分层 services -> repositories -> models
+type = layers
+layers =
+    backend.services
+    backend.repositories
+    backend.models

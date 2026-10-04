@@ -9,7 +9,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from backend.config import get_settings
-from backend.database import SessionLocal
+from backend.database import session_scope
 from backend.models.orm import User
 from backend.services.question_service import QuestionService
 from backend.utils.request_limiter import RequestRateLimiter
@@ -69,15 +69,9 @@ def rate_limit(scope: str) -> Callable[..., None]:
 
 
 def get_db() -> Iterator[Session]:
-    session = SessionLocal()
-    try:
+    # session-per-operation 统一收口（提交/回滚/归还，见 backend/database.py）
+    with session_scope() as session:
         yield session
-        session.commit()
-    except Exception:
-        session.rollback()
-        raise
-    finally:
-        session.close()
 
 
 def get_current_user(
