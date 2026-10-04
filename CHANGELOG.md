@@ -2,6 +2,19 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/)。
 
+## [2.13.0] - 2026-10-04
+
+### 新增
+- **错题本卡片网格视图**：工具条 📋/🔲 视图切换；3 列缩略卡 = 原图缩略（无图考点占位）
+  + 标签/星标/未读徽章 + 难度/复习态/日期 + 掌握度条，「查看」走 st.dialog 弹窗
+  （复用四页签详情）；选中复选框跨视图共享状态；列表视图抽为 `_render_list_view`
+- **对象存储抽象**（`backend/services/storage.py`）：图片读写经 `StorageBackend` 协议——
+  `local`（data_dir 本地盘，默认，与既有数据零迁移）或 `s3`（S3 兼容：MinIO / OSS / COS，
+  boto3 可选依赖）；s3 模式展示走预签名 URL、导出/OCR/分享卡经 `materialize_image`
+  落地本地缓存；key 与库存 image_path 一一对应，切换仅改 .env
+  （`STORAGE_BACKEND=s3` + `S3_ENDPOINT/S3_BUCKET/S3_ACCESS_KEY/S3_SECRET_KEY`）
+- s3 模式下数据体检自动跳过本地孤儿图片扫描（附说明）；新测试 `tests/test_storage.py`
+
 ## [2.12.0] - 2026-10-01
 
 ### 新增（家校闭环批次）

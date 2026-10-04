@@ -9,7 +9,7 @@ from backend.services.comment_service import CommentService
 from backend.services.export import generate_pdf_exam, generate_word_exam
 from backend.services.mastery import SHAKY_THRESHOLD, WEAK_THRESHOLD
 from backend.services.question_service import sanitize_tags
-from backend.utils.paths import resolve_image_path
+from backend.utils.paths import display_image_source
 from frontend.common import (
     edit_question_form,
     followup_chat,
@@ -81,9 +81,9 @@ def _render_card_grid(
         for col, q in zip(cols, page_items[start : start + 3]):
             with col:
                 with st.container(border=True):
-                    thumb = resolve_image_path(q.image_path)
-                    if thumb is not None and thumb.exists():
-                        st.image(str(thumb), width="stretch")
+                    thumb = display_image_source(q.image_path)
+                    if thumb:
+                        st.image(thumb, width="stretch")
                     else:
                         label = (q.knowledge_points or q.tags or ["未分类"])[0]
                         st.markdown(

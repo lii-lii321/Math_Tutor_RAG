@@ -6,7 +6,7 @@ import html
 import streamlit as st
 
 from backend.utils.logging import get_logger
-from backend.utils.paths import resolve_image_path
+from backend.utils.paths import display_image_source
 
 logger = get_logger("ui")
 
@@ -60,9 +60,9 @@ def question_detail_view(q, show_hit: bool = True) -> None:
     """
     img_col, content_col = st.columns([2, 3])
     with img_col:
-        image_abs = resolve_image_path(q.image_path)
-        if image_abs and image_abs.exists():
-            st.image(str(image_abs), width="stretch")
+        image_src = display_image_source(q.image_path)
+        if image_src:
+            st.image(image_src, width="stretch")
         else:
             st.caption("无原图（手动录入）")
         badges = " ".join(f"<span class='mm-badge'>{t}</span>" for t in q.tags)

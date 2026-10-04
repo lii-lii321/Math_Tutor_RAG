@@ -13,7 +13,6 @@ import time
 import uuid
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from backend.config import get_settings
@@ -37,7 +36,7 @@ from backend.services.stats import (
     weekly_report,
 )
 from backend.utils.logging import get_logger
-from backend.utils.paths import to_stored_path
+from backend.utils.paths import materialize_image
 
 if TYPE_CHECKING:  # pragma: no cover
     from sqlalchemy.orm import Session, sessionmaker
@@ -136,11 +135,11 @@ class CoreMixin:
         class_students = ClassService().student_ids_for_teacher(user_id)
         return [user_id, *(class_students or all_students)]
 
-    def _persist_image(self, user_id: int, image_bytes: bytes) -> Path:
-        """图片落盘：压缩到最长边 1600px 的 JPEG，节省存储并加快导出。"""
-        user_dir = self.settings.data_dir / "images" / f"u{user_id}"
-        user_dir.mkdir(parents=True, exist_ok=True)
-        path = user_dir / f"{dt.datetime.now():%Y%m%d_%H%M%S}_{uuid.uuid4().hex[:8]}.jpg"
+    def _persist_image(self, user_id: int, image_bytes: bytes) -> str:
+        """图片入库：压缩到最长边 1600px 的 JPEG，经存储后端写入，返回库存 key。"""
+        from backend.services.storage import get_storage
+
+        buf = io.BytesIO()
         try:
             from PIL import Image
 
@@ -148,11 +147,16 @@ class CoreMixin:
                 image = image.convert("RGB")
                 if max(image.size) > 1600:
                     image.thumbnail((1600, 1600))
-                image.save(path, "JPEG", quality=85, optimize=True)
+                image.save(buf, "JPEG", quality=85, optimize=True)
         except Exception as exc:  # noqa: BLE001 - 非 JPEG/损坏图片回退为原样保存
             logger.warning("图片压缩失败，按原样保存: %s", exc)
-            path.write_bytes(image_bytes)
-        return path
+            buf = io.BytesIO(image_bytes)
+        key = (
+            f"images/u{user_id}/"
+            f"{dt.datetime.now():%Y%m%d_%H%M%S}_{uuid.uuid4().hex[:8]}.jpg"
+        )
+        get_storage().save(key, buf.getvalue())
+        return key
 
     @staticmethod
     def _embeddable_text(analysis: QuestionAnalysis) -> str:
@@ -376,10 +380,13 @@ class EntryMixin:
         tags = analysis.merged_tags(user_tags or [])
 
         verification = self._verify_analysis(analysis)
-        image_path = self._persist_image(user_id, image_bytes)
+        image_key = self._persist_image(user_id, image_bytes)
         from backend.services.ocr import extract_text
 
-        ocr_text = extract_text(str(image_path))
+        ocr_text = ""
+        image_file = materialize_image(image_key)
+        if image_file is not None:
+            ocr_text = extract_text(str(image_file))
         with self._session() as repo:
             question = repo.create(
                 user_id,
@@ -389,7 +396,7 @@ class EntryMixin:
                 tags=tags,
                 difficulty=analysis.difficulty,
                 followup_question=analysis.followup_question,
-                image_path=to_stored_path(image_path),
+                image_path=image_key,
                 ocr_text=ocr_text,
                 image_hash=image_hash,
                 verification=verification,

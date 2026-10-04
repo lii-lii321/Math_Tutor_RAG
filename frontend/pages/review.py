@@ -6,7 +6,7 @@ import datetime as dt
 import streamlit as st
 
 from backend.services.review import GRADE_ORDER, format_interval
-from backend.utils.paths import resolve_image_path
+from backend.utils.paths import display_image_source
 from frontend.common import (
     edit_question_form,
     get_question_service,
@@ -166,9 +166,9 @@ def render_review_page(user: dict) -> None:
             days_ago = (dt.datetime.now(dt.timezone.utc) - last).days
             st.caption(f"上次复习：{days_ago} 天前 · 已连续记牢 {question.reps} 次")
         stored = question.image_path
-        image_abs = resolve_image_path(stored)
-        if image_abs and image_abs.exists():
-            st.image(str(image_abs), width="stretch")
+        image_src = display_image_source(stored)
+        if image_src:
+            st.image(image_src, width="stretch")
         elif stored:
             st.markdown(question.content_markdown[:220], unsafe_allow_html=True)
             st.caption("⚠️ 原图文件缺失（可能已迁移目录），请参考解析文字")

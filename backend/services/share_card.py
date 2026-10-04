@@ -151,10 +151,10 @@ def _pill_rows(
 
 
 def _load_question_image(question) -> Image.Image | None:
-    from backend.utils.paths import resolve_image_path
+    from backend.utils.paths import materialize_image
 
-    path = resolve_image_path(getattr(question, "image_path", None))
-    if not path or not path.exists():
+    path = materialize_image(getattr(question, "image_path", None))
+    if not path:
         return None
     try:
         with Image.open(path) as img:

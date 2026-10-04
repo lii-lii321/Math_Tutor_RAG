@@ -102,7 +102,14 @@ class DataHealthService:
         images_dir = self._images_dir(user_id)
         orphans: list[str] = []
         total_orphan_bytes = 0
-        if images_dir.exists():
+        from backend.config import get_settings
+
+        if get_settings().storage_backend == "s3":
+            # s3 模式图片在远端桶内，本地 images 目录不再是事实来源
+            report["note_images"] = (
+                "s3 对象存储模式下跳过本地孤儿图片体检（对象在远端桶内管理）"
+            )
+        elif images_dir.exists():
             for path in images_dir.iterdir():
                 if path.is_file() and str(path.resolve()) not in referenced_images:
                     orphans.append(str(path))

@@ -30,7 +30,7 @@ class Settings(BaseSettings):
 
     # ---------- 应用 ----------
     app_name: str = "MathMaster Edu"
-    app_version: str = "2.12.0"
+    app_version: str = "2.13.0"
     # 每日复习目标（题/天），看板进度环 + 达成提示
     daily_goal: int = Field(default=10, ge=1, le=200)
     debug: bool = False
@@ -112,6 +112,20 @@ class Settings(BaseSettings):
     # 配置如 redis://localhost:6379/0：任务走 RQ 队列，由独立 Worker 消费
     # （python -m backend.jobs.worker；需要 pip install -r requirements-queue.txt）。
     redis_url: str = ""
+
+    # ---------- 对象存储 ----------
+    # local: data_dir 本地磁盘（默认，开箱即用）
+    # s3:    S3 兼容对象存储（MinIO / 阿里云 OSS / 腾讯云 COS / AWS S3），
+    #        需 pip install boto3；MinIO 本地验证示例：
+    #        STORAGE_BACKEND=s3 + S3_ENDPOINT=http://localhost:9000
+    storage_backend: Literal["local", "s3"] = "local"
+    s3_endpoint: str = "http://localhost:9000"
+    s3_bucket: str = "mathtutor"
+    s3_access_key: str = ""
+    s3_secret_key: str = ""
+    s3_region: str = ""  # AWS S3 必填（如 us-east-1）；MinIO/OSS/COS 可留空
+    # 展示用预签名 URL 有效期（秒）
+    s3_presign_expires: int = Field(default=3600, ge=60, le=604800)
 
     # ---------- 复习算法 (SM-2) ----------
     review_default_ease: float = Field(default=2.5, ge=1.3)

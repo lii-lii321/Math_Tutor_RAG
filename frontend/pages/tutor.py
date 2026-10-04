@@ -232,15 +232,15 @@ def _process_uploads(service, user, uploads, tags: list[str], hint: str) -> None
 
 def _render_analysis(saved, analysis, service, user) -> None:
     """五段结构化结果卡：原图 / 考点与难度 / 详解 / 答案 / 易错 + 变式。"""
-    from backend.utils.paths import resolve_image_path
+    from backend.utils.paths import display_image_source
 
-    image_abs = resolve_image_path(saved.image_path)
+    image_src = display_image_source(saved.image_path)
 
     # ---- 原图 + 元信息 ----
     with st.container(border=True):
         st.markdown("##### 📷 题目原图")
-        if image_abs and image_abs.exists():
-            st.image(str(image_abs), width="stretch")
+        if image_src:
+            st.image(image_src, width="stretch")
         else:
             st.caption("(原图缺失，以下解析基于 AI 识别文本)")
         badges = " ".join(f'<span class="mm-badge">{t}</span>' for t in saved.tags)

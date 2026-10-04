@@ -25,3 +25,4 @@ venv/
 Thumbs.db
 .coverage 
 "docs/deck/.qaenv/"  
+"_app_*.log"  

@@ -16,7 +16,7 @@ from docx.shared import Inches, Pt
 from PIL import Image
 
 from backend.models.schemas import QuestionOut
-from backend.utils.paths import resolve_image_path
+from backend.utils.paths import materialize_image
 
 ExportMode = Literal["redo", "detailed"]
 
@@ -47,8 +47,8 @@ def generate_word_exam(
         )
         run.bold = True
 
-        image_abs = resolve_image_path(question.image_path)
-        if image_abs and image_abs.exists():
+        image_abs = materialize_image(question.image_path)
+        if image_abs:
             try:
                 doc.add_picture(str(image_abs), width=Inches(4.2))
             except Exception:  # noqa: BLE001 - 图片损坏不阻断导出
@@ -142,8 +142,8 @@ def generate_pdf_exam(
                 body_style,
             )
         )
-        image_abs = resolve_image_path(question.image_path)
-        if image_abs and image_abs.exists():
+        image_abs = materialize_image(question.image_path)
+        if image_abs:
             try:
                 with Image.open(image_abs) as _im:
                     ratio = _im.height / max(_im.width, 1)
