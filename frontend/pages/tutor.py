@@ -19,37 +19,60 @@ def render_tutor_page(user: dict) -> None:
     tab_photo, tab_word, tab_manual = st.tabs(["📸 拍照录题", "📄 Word 导入", "⌨️ 手动录入"])
 
     with tab_photo:
-        with st.container(border=True):
-            st.markdown("**📷 拍摄或上传错题图片**")
-            st.caption("支持 JPG / PNG / WebP，单张 ≤ 10MB，可多选。AI 自动识别考点并生成结构化解析。")
-            camera_photo = st.camera_input("📱 直接拍摄（手机端推荐）")
-            if camera_photo:
-                uploads = [camera_photo]
-            else:
-                uploads = st.file_uploader(
-                    "或从相册选择错题图片",
-                    type=["jpg", "jpeg", "png", "webp"],
-                    accept_multiple_files=True,
-                )
-            if uploads:
-                preview_cols = st.columns(min(len(uploads), 4))
-                for i, upload in enumerate(uploads[:4]):
-                    with preview_cols[i]:
-                        st.image(upload.getvalue(), width="stretch", caption=upload.name)
-                if len(uploads) > 4:
-                    st.caption(f"已选择 {len(uploads)} 张图片")
+        upload_col, result_col = st.columns([2, 3], gap="large")
 
-            meta_col1, meta_col2 = st.columns(2)
-            with meta_col1:
+        with upload_col:
+            with st.container(border=True):
+                st.markdown("**📷 拍摄或上传**")
+                st.caption("支持 JPG / PNG / WebP，单张 ≤ 10MB，可多选")
+                camera_photo = st.camera_input("📱 直接拍摄（手机端推荐）")
+                if camera_photo:
+                    uploads = [camera_photo]
+                else:
+                    uploads = st.file_uploader(
+                        "或从相册选择错题图片",
+                        type=["jpg", "jpeg", "png", "webp"],
+                        accept_multiple_files=True,
+                    )
+                if uploads:
+                    preview_cols = st.columns(min(len(uploads), 4))
+                    for i, upload in enumerate(uploads[:4]):
+                        with preview_cols[i]:
+                            st.image(upload.getvalue(), width="stretch", caption=upload.name)
+                    if len(uploads) > 4:
+                        st.caption(f"已选择 {len(uploads)} 张图片")
+            with st.container(border=True):
+                st.markdown("**📋 解析选项**")
                 tags_input = st.text_input("标签（逗号分隔）", placeholder="例如：期末复习, 几何", key="photo_tags")
-            with meta_col2:
                 hint = st.text_area(
                     "给老师的话",
                     placeholder="例如：第二问总是不知道从哪里下手",
                     height=68,
                 )
-            if uploads and st.button("🚀 开始 AI 解析", type="primary", width="stretch"):
-                _process_uploads(service, user, uploads, sanitize_tags(tags_input), hint)
+                st.caption("AI 将自动识别考点、生成详解并归档入错题本。")
+                if uploads and st.button("🚀 开始 AI 解析", type="primary", width="stretch"):
+                    _process_uploads(service, user, uploads, sanitize_tags(tags_input), hint)
+
+        with result_col:
+            tutor_results = st.session_state.get("tutor_results")
+            if tutor_results:
+                st.markdown("#### 📋 解析结果")
+                for i, item in enumerate(tutor_results):
+                    name = item["name"]
+                    result = item["result"]
+                    error = item["error"]
+                    with st.expander(
+                        f"{'✅ ' if result else '❌ '}{name}", expanded=(i == 0)
+                    ):
+                        if error:
+                            st.error(f"解析失败：{error}")
+                            continue
+                        saved, analysis = result
+                        if result.duplicated:
+                            st.warning("检测到重复上传：已为你复用既有错题记录。")
+                        _render_analysis(saved, analysis, service, user)
+            else:
+                st.info("👈 上传错题图片后点击「开始 AI 解析」，结构化解析结果将显示在这里。")
 
     with tab_word:
         _render_word_import(service, user)
@@ -187,6 +210,12 @@ def _process_uploads(service, user, uploads, tags: list[str], hint: str) -> None
         with nav_col:
             if st.button("📒 去错题本查看", type="primary"):
                 go_to("notebook")
+
+    # 结果存入 session_state 供右侧两栏渲染（刷新或切页不丢）
+    st.session_state["tutor_results"] = [
+        {"name": name, "result": result, "error": error}
+        for name, result, error in results
+    ]
 
     for i, (name, result, error) in enumerate(results):
         with st.expander(
