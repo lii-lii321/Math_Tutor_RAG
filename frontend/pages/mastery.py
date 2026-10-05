@@ -46,7 +46,7 @@ def _render_radar(profile) -> None:
         ),
         showlegend=False,
     )
-    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
+    st.plotly_chart(fig, width="stretch", key="chart_radar", config={"displayModeBar": False})
 
 
 def render_mastery_page(user: dict) -> None:

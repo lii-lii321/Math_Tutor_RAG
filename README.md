@@ -8,7 +8,7 @@
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.49%2B-ff4b4b)
 ![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-d71f00)
 ![ChromaDB](https://img.shields.io/badge/RAG-ChromaDB-4051b5)
-![Tests](https://img.shields.io/badge/tests-368%20collected-2ea44f)
+![Tests](https://img.shields.io/badge/tests-400%20collected-2ea44f)
 [![CI](https://github.com/lii-lii321/Math_Tutor_RAG/actions/workflows/ci.yml/badge.svg)](https://github.com/lii-lii321/Math_Tutor_RAG/actions/workflows/ci.yml)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -34,7 +34,7 @@
 | 📅 **学习日历** | 90 天热力图 + 复习正确率趋势 + 掌握度成长曲线 + 连续学习打卡 + 周报环比 |
 | ⌨️ **高效复习** | 键盘快捷键（空格/1-4）、评分间隔预览、跳过、掌握归档（🏆）、复习历史 |
 | 🌙 **体验细节** | 深色模式、PWA 可安装、OCR 原图搜索（可选）、MUJI 极简界面 |
-| 🧪 **工程化** | pytest 收集到 368 个用例 + Playwright E2E、ruff、覆盖率 80%（实测）、CI（lint + 3 版本矩阵 + 启动冒烟 + E2E + Docker）、Alembic 迁移（12 个版本）、Docker Compose 一键部署、RAG 检索离线评测（Recall@K / MRR / NDCG）与 AI Tutor 评测（LLM-as-judge）、AI 遥测 |
+| 🧪 **工程化** | pytest 收集到 400 个用例（四层：单测 / API / AppTest 进程内冒烟 / Playwright E2E）、ruff、import-linter 分层门禁、覆盖率 CI 门禁 75%、检索金标集持续回归、CI（lint + 3 版本矩阵 + 启动冒烟 + E2E + Docker）、Alembic 迁移（12 个版本）、Docker Compose 一键部署、RAG 检索离线评测（Recall@K / MRR / NDCG）与 AI Tutor 评测（LLM-as-judge）、AI 遥测 |
 
 ## 🏗️ 架构 (Architecture)
 
@@ -200,11 +200,12 @@ EMBEDDING_MODEL=BAAI/bge-m3
 
 ```bash
 pip install -r requirements-dev.txt
-pytest -v          # 收集到 287 个用例：认证 / 仓储 / SM-2 调度 / AI 解析 / RAG / 统计 / 导出 等
+pytest -v          # 认证 / 仓储 / SM-2 调度 / AI 解析 / RAG / 检索金标门禁 / 存储后端 / AppTest 冒烟 等
 ruff check .       # 静态检查
+lint-imports       # 分层契约门禁（frontend↛api、backend↛UI、services→repositories→models）
 ```
 
-GitHub Actions 在每次 push / PR 时执行 4 个 job：`ruff lint → pytest (3.10/3.11/3.12 矩阵 + 覆盖率) → 启动冒烟（Streamlit / API 健康检查 + Playwright E2E）→ Docker 构建`。
+GitHub Actions 在每次 push / PR 时执行 4 个 job：`ruff lint + import-linter 分层门禁 → pytest (3.10/3.11/3.12 矩阵 + 覆盖率门禁 75%) → 启动冒烟（Streamlit / API 健康检查 + Playwright E2E）→ Docker 构建`。
 
 部署到服务器 / 云端的完整步骤（含 MySQL 切换、备份策略、常见问题）见 **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**。
 

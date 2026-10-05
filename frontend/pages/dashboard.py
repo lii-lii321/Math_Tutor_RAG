@@ -58,7 +58,7 @@ def _render_difficulty(dist: dict) -> None:
         paper_bgcolor="rgba(0,0,0,0)",
         font=_plotly_font(),
     )
-    st.plotly_chart(pie, width="stretch", config={"displayModeBar": False})
+    st.plotly_chart(pie, width="stretch", key="chart_difficulty", config={"displayModeBar": False})
 
 
 def _picked_tag(event) -> str | None:
@@ -95,7 +95,8 @@ def _today_bounds() -> tuple[dt.datetime, dt.datetime]:
     return start, start + dt.timedelta(days=1)
 
 
-def _render_heatmap(calendar: dict) -> None:
+def _render_heatmap(calendar: dict, *, chart_key: str) -> None:
+    """学习热力图；chart_key 必传——主视图与折叠区各渲染一次，需唯一元素 ID。"""
     z = calendar["z"]
     if calendar["max"] == 0:
         st.caption("还没有学习记录，录入或复习错题后这里会点亮。")
@@ -121,7 +122,7 @@ def _render_heatmap(calendar: dict) -> None:
     )
     fig.update_xaxes(tickangle=0, tickfont=dict(size=9), gridcolor=_plotly_grid())
     fig.update_yaxes(tickfont=dict(size=9), gridcolor=_plotly_grid())
-    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
+    st.plotly_chart(fig, width="stretch", key=chart_key, config={"displayModeBar": False})
 
 
 def _render_mastery_donut(mastery_map: dict[int, float]) -> None:
@@ -170,7 +171,7 @@ def _render_mastery_donut(mastery_map: dict[int, float]) -> None:
         showlegend=True,
         legend=dict(orientation="v", y=0.5, x=1.02, font=dict(size=11)),
     )
-    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
+    st.plotly_chart(fig, width="stretch", key="chart_mastery_donut", config={"displayModeBar": False})
     for label, count in buckets.items():
         st.markdown(
             f"<div style='display:flex;justify-content:space-between;font-size:0.85rem'>"
@@ -214,7 +215,7 @@ def _render_accuracy_week(trend: list[dict]) -> None:
         xaxis=dict(showgrid=False),
         showlegend=False,
     )
-    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
+    st.plotly_chart(fig, width="stretch", key="chart_accuracy_week", config={"displayModeBar": False})
 
 
 def render_dashboard(user: dict) -> None:
@@ -324,7 +325,7 @@ def render_dashboard(user: dict) -> None:
                 unsafe_allow_html=True,
             )
         with side_col:
-            _render_heatmap(stats.get("calendar", {}))
+            _render_heatmap(stats.get("calendar", {}), chart_key="heatmap_main")
             st.caption("■ 少 → 多")
 
     # ---- KPI 卡行（紧凑保留，E2E 与信息锚点） ----
@@ -425,12 +426,12 @@ def render_dashboard(user: dict) -> None:
             xaxis=dict(type="category", showgrid=False),
             yaxis=dict(dtick=1, range=[0, max(3, max((a["count"] for a in activity), default=0) + 1)], gridcolor=_plotly_grid()),
         )
-        st.plotly_chart(bar, width="stretch", config={"displayModeBar": False})
+        st.plotly_chart(bar, width="stretch", key="chart_activity", config={"displayModeBar": False})
 
         cal_col, trend_col = st.columns(2)
         with cal_col:
             st.markdown("**学习日历**")
-            _render_heatmap(stats["calendar"])
+            _render_heatmap(stats["calendar"], chart_key="heatmap_extra")
         with trend_col:
             st.markdown("**掌握度趋势**")
             m_trend = stats.get("mastery_trend", [])
@@ -453,7 +454,7 @@ def render_dashboard(user: dict) -> None:
                     yaxis=dict(range=[0, 105], gridcolor=_plotly_grid()),
                     xaxis=dict(showgrid=False),
                 )
-                st.plotly_chart(line, width="stretch", config={"displayModeBar": False})
+                st.plotly_chart(line, width="stretch", key="chart_mastery_trend", config={"displayModeBar": False})
 
         st.markdown("**难度分布**")
         _render_difficulty(stats.get("difficulty", {}))

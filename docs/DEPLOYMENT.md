@@ -85,9 +85,33 @@ pytest                                             # 252 用例全绿（DATABASE
 
 - 迁移链（9 个版本）、ORM、服务层与 REST API 均已在 PostgreSQL 16 上验证；
   测试套件可通过 `DATABASE_URL` 环境变量直接指向 PG 运行（`tests/conftest.py` 已支持外部覆盖）
-- 对象存储（S3/OSS）仍为待接入项：图片目前继续使用本地磁盘存储
 
-## 4. 异步任务队列（Batch 08）
+## 4. 对象存储（v2.13，可选）
+
+图片的存储后端由 `STORAGE_BACKEND` 决定：
+
+- **local（默认）**：存 `data/images/` 本地磁盘，随数据卷备份，零配置
+- **s3**：S3 兼容对象存储（MinIO / 阿里云 OSS / 腾讯云 COS / AWS S3），
+  展示走预签名 URL，导出与 OCR 自动落地本地缓存（`data/objcache/`）
+
+```bash
+pip install boto3        # 可选依赖，仅 s3 模式需要
+```
+
+```env
+STORAGE_BACKEND=s3
+S3_ENDPOINT=http://localhost:9000        # MinIO 本地示例；OSS/COS 换对应外部端点
+S3_BUCKET=mathtutor
+S3_ACCESS_KEY=minioadmin
+S3_SECRET_KEY=minioadmin
+S3_REGION=                                # AWS S3 必填（如 us-east-1），其余可留空
+```
+
+- 库内 `image_path` 统一存 key（local=相对路径，s3=桶内对象名），两种后端之间
+  迁移只需搬运对象 + 改环境变量，无需改数据库
+- s3 模式下「数据体检」自动跳过本地孤儿图片扫描（对象在远端桶内管理）
+
+## 5. 异步任务队列（Batch 08）
 
 AI 录题等耗时任务的执行后端由 `REDIS_URL` 决定：
 
@@ -108,7 +132,7 @@ python -m backend.jobs.worker
 - Worker 取任务时二次校验状态，已取消的任务直接跳过；`POST /api/jobs/{id}/cancel` 仅可取消 pending 任务
 - CI 用 fakeredis 离线验证 RQ 链路（入队 → burst 消费 → 状态落库），无需真实 Redis
 
-## 4. AI 提供商配置
+## 6. AI 提供商配置
 
 任选一家 OpenAI 兼容服务（`.env`）：
 
@@ -129,13 +153,13 @@ EMBEDDING_MODEL=BAAI/bge-m3
 
 不配置任何 Key 时应用以演示模式运行（MockProvider），便于验收部署是否成功。
 
-## 5. 数据备份与迁移
+## 7. 数据备份与迁移
 
 - **界面**：设置 → 数据备份 → 导出备份 (JSON) / 导入备份
 - **API**：`GET /api/questions/export`、`POST /api/questions/import`
 - 题目原图存于 `data/images/`，向量库存于 `data/chroma/`；Docker 部署时两者均在数据卷内，直接备份卷即可
 
-## 6. 常见问题
+## 8. 常见问题
 
 | 现象 | 处理 |
 |---|---|

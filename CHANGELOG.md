@@ -2,6 +2,28 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/)。
 
+## [2.13.1] - 2026-10-05
+
+### 修复
+- **看板学习日历重复渲染导致崩溃**：主视图与折叠区各调用一次 `_render_heatmap`，
+  两次 `st.plotly_chart` 生成相同自动元素 ID 触发 StreamlitDuplicateElementId
+  （有学习记录的用户打开看板即报错）；全部 7 处图表补唯一 `key`，热力图改为
+  `chart_key` 传参。由新增的 AppTest 冒烟在编写当天即抓到
+
+### 新增
+- **AppTest 进程内冒烟**（`tests/test_app_smoke.py`）：启动 → 登录 → 看板渲染
+  零异常 / 错误口令拒绝，无需浏览器即可在 CI test job 回归 UI 层
+- **前端层最小单测**（`tests/test_frontend_units.py`）：导航注册表不变量、
+  i18n 回退、charts 主题 token 双模式、掌握度 HTML 构造器、safe_call 包装
+  ——补齐提升路线 #1 中「前端层最小单测」的遗留半截
+
+### 文档
+- README 对账（400 收集用例、分层门禁、检索金标集、AppTest 四层体系）；
+  DEPLOYMENT 新增「对象存储」一节（STORAGE_BACKEND=local/s3 切换指引）
+  并修正章节编号；`.gitignore` 引号模式修正（`docs/deck/.qaenv/` 为当初
+  虚拟环境误提交的根因）
+- 测试 376 → 395 passed（+19）
+
 ## [2.13.0] - 2026-10-04
 
 ### 新增
