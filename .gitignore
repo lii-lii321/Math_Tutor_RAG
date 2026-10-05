@@ -7,7 +7,6 @@
 data/
 *.sqlite3
 *.db
-
 # ===== Python =====
 __pycache__/
 *.pyc
@@ -16,13 +15,12 @@ __pycache__/
 .ruff_cache/
 .venv/
 venv/
-
 # ===== IDE / OS =====
 .vscode/
 .idea/
 *.swp
 .DS_Store
 Thumbs.db
-.coverage 
-"docs/deck/.qaenv/"  
-"_app_*.log"  
+.coverage
+docs/deck/.qaenv/
+_app_*.log
