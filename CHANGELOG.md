@@ -11,6 +11,10 @@
   `chart_key` 传参。由新增的 AppTest 冒烟在编写当天即抓到
 
 ### 新增
+- **S3 后端离线集成测试**（`tests/test_storage_s3_integration.py`）：moto 拦截 +
+  真实 boto3 client 构建/签名/请求路径的全链路验证（save/exists/load/预签名/
+  materialize + STORAGE_BACKEND=s3 环境选择），无需 Docker 即可回归 MinIO 兼容面；
+  requirements-dev 增 `moto[s3]`（未安装自动跳过）
 - **AppTest 进程内冒烟**（`tests/test_app_smoke.py`）：启动 → 登录 → 看板渲染
   零异常 / 错误口令拒绝，无需浏览器即可在 CI test job 回归 UI 层
 - **前端层最小单测**（`tests/test_frontend_units.py`）：导航注册表不变量、

@@ -11,3 +11,5 @@ psutil>=5.9
 rq>=2.5
 redis>=6.0
 fakeredis>=1.30
+# v2.13 对象存储：S3 后端离线集成测试（moto 拦截 + 真实 boto3 路径）
+moto[s3]>=5.0
