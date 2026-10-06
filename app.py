@@ -9,7 +9,7 @@ import streamlit_antd_components as sac
 
 from backend.config import get_settings
 from frontend.common import current_user, go_to, load_css, logout_user
-from frontend.nav import PAGES
+from frontend.nav import PAGES, resolve_label
 from frontend.pages.auth import render_auth_page
 from frontend.pages.dashboard import render_dashboard
 from frontend.pages.notebook import render_notebook_page
@@ -28,7 +28,6 @@ st.set_page_config(
 )
 load_css()
 
-from frontend.i18n import t  # noqa: E402
 from frontend.theme import apply_theme  # noqa: E402  需在基础样式之后注入
 
 apply_theme()
@@ -176,8 +175,8 @@ def _render_sidebar(user: dict) -> str:
     # 菜单返回值是徽标修饰后的标签（如「今日复习 · N」）：补一条映射才能
     # 解析回 review，否则有到期题时点「今日复习」会静默回落到看板
     if due_count > 0:
-        all_pages[_label_with_badge(t("nav.review"), "review")] = "review"
-    selected = menu or t("nav.dashboard")
+        all_pages[_label_with_badge(resolve_label("review"), "review")] = "review"
+    selected = menu or resolve_label("dashboard")
     # 组标题点击返回组名——忽略并回退到看板；子项点击返回页面标签本身
     return all_pages.get(selected, "dashboard")
 

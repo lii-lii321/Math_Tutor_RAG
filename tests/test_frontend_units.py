@@ -1,8 +1,9 @@
 """前端层最小单测（提升路线 #1 的遗留半截）：纯函数助手 + 注册表不变量。
 
 只测不依赖 Streamlit 运行时的纯逻辑（HTML 构造器、主题 token、导航注册表、
-i18n 回退、safe_call 包装、query_state URL 编解码）；页面级冒烟由
+safe_call 包装、query_state URL 编解码）；页面级冒烟由
 tests/test_app_smoke.py（AppTest）与 Playwright E2E 分层覆盖。
+F4 决策已落地：单语产品移除死文案框架，nav 标签即 zh 字面量。
 """
 from __future__ import annotations
 
@@ -12,7 +13,6 @@ import pytest
 
 from frontend import charts
 from frontend.components import mastery_bar_html, mastery_fill_html, safe_call
-from frontend.i18n import t
 from frontend.nav import GROUP_LABELS, PAGE_KEYS, PAGES, resolve_label
 from frontend.query_state import (
     PARAM_NAMES,
@@ -38,6 +38,13 @@ def test_nav_pages_have_nonempty_labels_and_valid_groups():
         assert page.group in GROUP_LABELS, f"{page.key} 组 {page.group} 未注册"
 
 
+def test_nav_labels_are_unique_zh_literals():
+    """F4 决策落地后：标签为非空且互不重复的 zh 字面量。"""
+    labels = [page.label for page in PAGES]
+    assert len(labels) == len(set(labels))
+    assert all(label.strip() for label in labels)
+
+
 def test_nav_page_keys_matches_registry():
     assert PAGE_KEYS == frozenset(page.key for page in PAGES)
 
@@ -51,20 +58,6 @@ def test_resolve_label_known_and_unknown():
     assert resolve_label("dashboard") == PAGES[0].label
     with pytest.raises(KeyError):
         resolve_label("no-such-page")
-
-
-# ---------- i18n 回退 ----------
-
-def test_i18n_returns_value_for_known_key():
-    assert t("nav.dashboard") == "学情看板"
-
-
-def test_i18n_falls_back_to_key_when_missing():
-    assert t("no.such.key") == "no.such.key"
-
-
-def test_i18n_unknown_lang_falls_back_to_zh():
-    assert t("nav.dashboard", lang="xx") == "学情看板"
 
 
 # ---------- charts 主题 token ----------

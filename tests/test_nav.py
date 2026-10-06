@@ -8,7 +8,6 @@ from __future__ import annotations
 import pytest
 
 from frontend import common, nav
-from frontend.i18n import t
 
 
 def test_every_registry_key_resolves():
@@ -19,9 +18,13 @@ def test_every_registry_key_resolves():
 
 
 def test_previously_missing_keys_reachable():
-    """mastery/assistant/students 可达（旧版 _LABEL_TO_KEY 对其抛 StopIteration）。"""
-    for key in ("mastery", "assistant", "students"):
-        assert nav.resolve_label(key) == t(f"nav.{key}")
+    """mastery/assistant/students 可达（旧版 _LABEL_TO_KEY 对其抛 StopIteration）。
+
+    F4 决策落地（死文案框架移除）后按 zh 字面量逐字比对，保留具体标签回归力度。
+    """
+    expected = {"mastery": "能力画像", "assistant": "AI 助手", "students": "学生总览"}
+    for key, label in expected.items():
+        assert nav.resolve_label(key) == label
 
 
 def test_label_to_key_matches_registry():

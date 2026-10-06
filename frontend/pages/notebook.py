@@ -12,6 +12,7 @@ from backend.services.question_service import sanitize_tags
 from backend.utils.paths import display_image_source
 from frontend.common import (
     edit_question_form,
+    empty_state,
     followup_chat,
     get_question_service,
     go_to,
@@ -487,15 +488,7 @@ def render_notebook_page(user: dict) -> None:
                 )
 
     if not questions:
-        st.markdown(
-            """
-            <div class="mm-empty">
-                <div class="mm-empty__icon">🗂️</div>
-                <div>没有匹配的错题。</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        empty_state("🗂️", "没有匹配的错题。")
         c1, c2 = st.columns(2)
         with c1:
             if st.button("📸 去 AI 录题", width="stretch"):

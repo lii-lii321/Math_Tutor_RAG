@@ -2,6 +2,35 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/)。
 
+## [2.17.0] - 2026-10-07
+
+### 新增
+- **移动端响应式**（提升方案 D1）：`frontend/assets/style.css` 末尾新增
+  `@media (max-width: 768px)` 块——`.block-container` 收紧内边距与最大宽、
+  `.mm-hero`/`.mm-stat`/`.mm-flashcard`/`.mm-card` 缩内边距、`.mm-kpi-row`
+  缩间距且 `.mm-kpi__value`/`.mm-stat__value` 降字号、`.mm-segbar__legend`
+  允许换行、`.mm-card-thumb` 降高度；纯 CSS，桌面端（>768px）零变化
+- **触控目标**（提升方案 D2）：同一媒体块内 `.stButton > button` 加
+  `min-height: 44px` 与字号微调，覆盖复习评分四键/批量操作条/全局搜索等
+  全部按钮
+
+### 变更
+- **空状态收敛**（提升方案 A4 收尾）：错题本「没有匹配的错题」与能力画像
+  「还没有知识点数据」两处手写 `.mm-empty` HTML 改调 `common.empty_state`
+  原语（保留各自下一步动作按钮），手写空状态 HTML 清零、视觉统一；
+  st.info/caption 场景化提示不在本项口径内
+- **i18n 死框架移除**（提升方案 F4 决策落地：单语产品）：删除
+  `frontend/i18n.py`；nav.py 九个标签改 zh 字面量（与原 t() zh 输出逐字
+  相同，零用户可见变化）；app.py 回退标签改 `resolve_label("review"/"dashboard")`；
+  test_nav 的标签断言改按 zh 字面量逐字比对（保留具体标签回归力度），
+  test_frontend_units 删 3 个 i18n 用例、补「nav 标签非空且唯一」替换用例
+
+### 文档
+- 深度体验提升方案勾专项 D1/D2/F4 与空状态收敛行；README 体验细节行补
+  「移动端适配」；CSS 视觉验收为人工窄窗检查（AppTest/E2E 不覆盖样式）
+- 全量 pytest 实测 427 passed + 5 skipped（较上版 −3 i18n 用例 +1 替换
+  用例，其余为并行批次增减）；ruff 全绿
+
 ## [2.16.0] - 2026-10-06
 
 ### 新增

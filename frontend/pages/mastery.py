@@ -4,7 +4,7 @@ from __future__ import annotations
 import streamlit as st
 
 from frontend.charts import plotly_font, plotly_grid
-from frontend.common import get_question_service, go_to, page_header
+from frontend.common import empty_state, get_question_service, go_to, page_header
 from frontend.components import mastery_fill_html, safe_call
 
 _STATUS_BADGE = {
@@ -70,12 +70,9 @@ def render_mastery_page(user: dict) -> None:
     with left:
         st.subheader("知识点掌握度")
         if not profile:
-            st.markdown(
-                """<div class="mm-empty">
-                <div class="mm-empty__icon">🎯</div>
-                还没有知识点数据。<br>录入错题并填写知识点后，这里会生成你的掌握度画像。
-                </div>""",
-                unsafe_allow_html=True,
+            empty_state(
+                "🎯",
+                "还没有知识点数据。录入错题并填写知识点后，这里会生成你的掌握度画像。",
             )
         else:
             weak_count = sum(1 for item in profile if item.status != "solid")

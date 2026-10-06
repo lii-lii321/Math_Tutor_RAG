@@ -283,3 +283,37 @@ div[data-testid="stExpander"] {
   white-space: nowrap;
 }
 div[data-testid='stVerticalBlockBorderWrapper'] { height: 100%; }
+
+/* ---------------- 移动端响应式（D1/D2，≤768px） ----------------
+   纯样式收紧：布局不横向溢出、触控目标 ≥44px；桌面端（>768px）零变化。 */
+@media (max-width: 768px) {
+  /* 页面容器：收紧内边距，释放窄屏横向空间 */
+  .block-container {
+    padding-top: 1.2rem;
+    padding-bottom: 2rem;
+    max-width: 100%;
+  }
+
+  /* 卡片类：缩内边距 */
+  .mm-hero { padding: 1.1rem 1.1rem; }
+  .mm-stat { padding: 0.9rem 1rem; }
+  .mm-flashcard { padding: 1.2rem 1rem; }
+  .mm-card { padding: 1rem 1.1rem; }
+
+  /* KPI 行：缩间距 + 降字号（flex-wrap 桌面端已有，窄屏自然换行） */
+  .mm-kpi-row { gap: 1.1rem; }
+  .mm-kpi__value { font-size: 1.35rem; }
+  .mm-stat__value { font-size: 1.6rem; }
+
+  /* 分段条图例：允许换行，避免窄屏截断 */
+  .mm-segbar__legend { flex-wrap: wrap; gap: 0.5rem 1rem; }
+
+  /* 错题卡片缩略：降高度，三列换行后不占半屏 */
+  .mm-card-thumb { height: 78px; font-size: 0.95rem; }
+
+  /* 触控目标（D2）：全部按钮 ≥44px 高，字号微调提升可读性 */
+  .stButton > button {
+    min-height: 44px;
+    font-size: 0.92rem;
+  }
+}

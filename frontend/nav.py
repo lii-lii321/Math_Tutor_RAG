@@ -1,13 +1,11 @@
 """导航注册表：页面 key 与侧边栏标签的唯一来源。
 
-只依赖 frontend.i18n，避免与 app.py / frontend.common 循环导入；
 app.py 的侧边栏表与 frontend.common.go_to 的解析均由此派生。
+单语产品（F4 决策）：标签即 zh 字面量，不设文案框架。
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
-
-from frontend.i18n import t
 
 
 @dataclass(frozen=True)
@@ -22,15 +20,15 @@ class NavPage:
 
 # 有序注册表，即侧边栏展示顺序；teacher_only 项由 app.py 插在「知识图谱」之前
 PAGES: tuple[NavPage, ...] = (
-    NavPage("dashboard", t("nav.dashboard"), group="today"),
-    NavPage("review", t("nav.review"), group="today"),
-    NavPage("tutor", t("nav.tutor"), group="learn"),
-    NavPage("notebook", t("nav.notebook"), group="learn"),
-    NavPage("mastery", t("nav.mastery"), group="learn"),
-    NavPage("students", t("nav.students"), teacher_only=True, group="learn"),
-    NavPage("graph", t("nav.graph"), group="explore"),
-    NavPage("assistant", t("nav.assistant"), group="explore"),
-    NavPage("settings", t("nav.settings"), group="explore"),
+    NavPage("dashboard", "学情看板", group="today"),
+    NavPage("review", "今日复习", group="today"),
+    NavPage("tutor", "AI 录题", group="learn"),
+    NavPage("notebook", "错题本", group="learn"),
+    NavPage("mastery", "能力画像", group="learn"),
+    NavPage("students", "学生总览", teacher_only=True, group="learn"),
+    NavPage("graph", "知识图谱", group="explore"),
+    NavPage("assistant", "AI 助手", group="explore"),
+    NavPage("settings", "设置", group="explore"),
 )
 
 PAGE_KEYS: frozenset[str] = frozenset(page.key for page in PAGES)
