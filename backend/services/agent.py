@@ -9,6 +9,7 @@ Batch 07：可选会话持久化——传入 conversation_id 时，历史从服�
 from __future__ import annotations
 
 import json
+import re
 
 from backend.config import get_settings
 from backend.services.agent_tools import build_tools
@@ -20,6 +21,9 @@ logger = get_logger("agent")
 MAX_TOOL_ROUNDS = 8
 TOOL_TRACE_MAX = 400  # 落库时截断工具结果，防止审计消息膨胀
 
+_CITED_ID_RE = re.compile(r"#(\d+)")
+_TOOL_ID_RE = re.compile(r'"id"\s*:\s*(\d+)')
+
 SYSTEM_PROMPT = (
     "你是 MathMaster Edu 错题本的 AI Tutor（学习助教）。"
     "用户会用自然语言提出需求（搜索错题、录入题目、安排复习、查看学情、分析薄弱点、生成练习等），"
@@ -28,7 +32,44 @@ SYSTEM_PROMPT = (
     "2. 分析学情时先取掌握度画像与近期错题，再给结论；"
     "3. 涉及写操作（录题/评分）时向用户确认关键参数；"
     "4. 回答用简体中文，引用错题时带上 ID 和标签；给建议时具体到知识点与题量。"
+    "5. 学情结论和统计数字必须来自工具返回的数据，工具没有返回的信息不要推断或编造，"
+    "查不到就直接说查不到；"
+    "6. 引用的错题 ID（#数字）只能是本轮工具结果中出现过的 ID，"
+    "不得编造 ID，也不要引用更早对话中提到但本轮未查询到的 ID。"
 )
+
+
+def extract_cited_ids(text: str) -> set[int]:
+    """抽取回复中引用的错题 ID（#123 形式）。"""
+    return {int(m) for m in _CITED_ID_RE.findall(text or "")}
+
+
+def extract_tool_ids(tool_results: list[str]) -> set[int]:
+    """从本轮工具返回的 JSON 字符串中收集出现过的题目 ID。"""
+    ids: set[int] = set()
+    for result in tool_results:
+        ids.update(int(m) for m in _TOOL_ID_RE.findall(result or ""))
+    return ids
+
+
+def citation_warning(content: str, available_ids: set[int]) -> str:
+    """引用校验：回复引用了本轮工具结果中不存在的 ID 时返回警告行，否则空串。
+
+    仅在本轮确实调用过工具时才有校验依据（available_ids 非空的前提由调用方保证）。
+    """
+    cited = extract_cited_ids(content)
+    unverified = sorted(cited - available_ids)
+    if not unverified:
+        return ""
+    listed = "、".join(f"#{i}" for i in unverified)
+    return f"\n\n> ⚠️ 引用校验：{listed} 未出现在本轮查询结果中，该引用可能不准确，请以实际检索为准。"
+
+
+def _annotate(content: str, tool_results: list[str]) -> str:
+    """工具轮回复的引用校验；未调用工具的轮次不校验（历史上下文引用合法）。"""
+    if not tool_results:
+        return content
+    return content + citation_warning(content, extract_tool_ids(tool_results))
 
 
 class AgentSession:
@@ -87,6 +128,7 @@ class AgentSession:
 
         settings = get_settings()
         client = self._client()
+        turn_tool_results: list[str] = []
 
         try:
             for _ in range(MAX_TOOL_ROUNDS):
@@ -103,6 +145,7 @@ class AgentSession:
                         result = self._execute_tool(
                             call.function.name, call.function.arguments
                         )
+                        turn_tool_results.append(result)
                         entries.append(
                             ("tool", f"{call.function.name}: {result[:TOOL_TRACE_MAX]}", call.function.name)
                         )
@@ -115,7 +158,7 @@ class AgentSession:
                         )
                     continue  # 工具结果回传后让 LLM 继续推理
 
-                content = message.content or ""
+                content = _annotate(message.content or "", turn_tool_results)
                 self.history.append({"role": "assistant", "content": content})
                 entries.append(("assistant", content, None))
                 return content
@@ -145,6 +188,7 @@ class AgentSession:
         self.history.append({"role": "user", "content": user_message})
         settings = get_settings()
         client = self._client()
+        turn_tool_results: list[str] = []
 
         try:
             for _ in range(MAX_TOOL_ROUNDS):
@@ -197,6 +241,7 @@ class AgentSession:
                     )
                     for acc in ordered:
                         result = self._execute_tool(acc["name"], acc["arguments"])
+                        turn_tool_results.append(result)
                         entries.append(
                             ("tool", f"{acc['name']}: {result[:TOOL_TRACE_MAX]}", acc["name"])
                         )
@@ -205,6 +250,10 @@ class AgentSession:
                         )
                     continue  # 工具结果回传后继续下一轮
 
+                content = _annotate(content, turn_tool_results)
+                if content_parts and content != "".join(content_parts):
+                    # 追加流式阶段未输出的引用校验警告行
+                    yield content[len("".join(content_parts)):]
                 self.history.append({"role": "assistant", "content": content})
                 entries.append(("assistant", content, None))
                 return

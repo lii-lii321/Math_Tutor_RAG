@@ -222,7 +222,9 @@ def _process_uploads(service, user, uploads, tags: list[str], hint: str) -> None
             f"{'✅ ' if result else '❌ '}{name}", expanded=(i == 0)
         ):
             if error:
-                st.error(f"解析失败：{error}")
+                from frontend.components import error_card
+
+                error_card("解析失败", error)
                 continue
             saved, analysis = result
             if result.duplicated:

@@ -177,8 +177,11 @@ def render_assistant_page(user: dict) -> None:
                     # 流式输出：Agent 的文本增量直接打进聊天气泡
                     reply = st.write_stream(st.session_state[agent_key].chat_stream(prompt))
                 except Exception as exc:  # noqa: BLE001 - 对话失败不崩溃页面
-                    reply = f"⚠️ Agent 暂时不可用：{exc}"
-                    st.markdown(reply)
+                    from backend.utils.error_messages import SSE_AI_UNAVAILABLE
+                    from frontend.components import error_card
+
+                    reply = SSE_AI_UNAVAILABLE
+                    error_card("Agent 暂时不可用", str(exc))
         st.session_state[history_key].append({"role": "assistant", "content": reply})
         st.rerun()
 

@@ -136,6 +136,12 @@ def _seed_question(service, user_id: int, content: str, answer: str, tag: str):
     )
 
 
+def _query_param(at: AppTest, key: str) -> list[str]:
+    """query_params.get 版本无关取值：单值参数在部分 Streamlit 版本返回 str。"""
+    value = at.query_params.get(key)
+    return value if isinstance(value, list) else [value]
+
+
 def test_notebook_url_params_through_login_and_leave_clear(smoke_user, service):
     """带 nb_* 参数的 URL 未登录打开 → 登录（首帧落看板不清理）→
     进错题本筛选生效渲染零异常；离开即清 URL 与控件会话键，再进为默认视图。"""
@@ -150,7 +156,7 @@ def test_notebook_url_params_through_login_and_leave_clear(smoke_user, service):
     assert not at.exception
     # 登录后首帧恒落看板，且首帧（无 _last_page 标记）不清理 URL 参数
     assert dict(at.session_state["user"])["username"] == smoke_user.username
-    assert at.query_params.get("nb_kw") == ["二次函数"]
+    assert _query_param(at, "nb_kw") == ["二次函数"]
     # 全局搜索框（st.form 包裹）已随侧边栏就位
     assert any(ti.label == "全局搜索" for ti in at.text_input)
 
@@ -179,7 +185,7 @@ def test_notebook_url_params_through_login_and_leave_clear(smoke_user, service):
     # on_change 回调写回：改搜索框 → URL 即时携带 nb_kw
     searches[0].set_value("顶点式").run()
     assert not at.exception
-    assert at.query_params.get("nb_kw") == ["顶点式"]
+    assert _query_param(at, "nb_kw") == ["顶点式"]
 
     # 清除全部筛选按钮：控件会话键与 URL 同步清除
     clear_btn = [b for b in at.button if b.label == "✕ 清除全部筛选"]

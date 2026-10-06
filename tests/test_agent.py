@@ -122,3 +122,40 @@ def test_agent_max_rounds_guard(monkeypatch, agent_session):
     monkeypatch.setattr("openai.OpenAI", lambda **kw: _FakeOpenAI(script))
     reply = agent_session.chat("无限循环测试")
     assert "复杂" in reply or "拆" in reply  # 兜底提示
+
+
+def test_extract_cited_ids_and_warning():
+    from backend.services.agent import citation_warning, extract_cited_ids
+
+    assert extract_cited_ids("见 #12 与 #7，共 2 题") == {12, 7}
+    assert extract_cited_ids("# 标题不是引用") == set()
+    assert citation_warning("见 #12", {12, 7}) == ""
+    warning = citation_warning("见 #12 与 #99", {12})
+    assert "#99" in warning and "#12" not in warning.split("：")[-1].split("，")[0]
+
+
+def test_agent_annotates_unverified_citations(monkeypatch, student_user):
+    from backend.database import SessionLocal
+
+    QuestionService(session_factory=SessionLocal).analyze_and_save(
+        student_user.id, b"\xff\xd8" + b"z" * 16, user_tags=["几何"]
+    )
+    bound = AgentSession(user_id=student_user.id)
+    monkeypatch.setattr(
+        "openai.OpenAI",
+        lambda **kw: _FakeOpenAI([
+            {"tool_calls": [{"name": "search_questions", "arguments": json.dumps({"keyword": "几何"})}]},
+            {"content": "你的几何错题见 #999"},
+        ]),
+    )
+    reply = bound.chat("我有哪些几何错题？")
+    assert "引用校验" in reply and "#999" in reply
+
+
+def test_agent_no_tool_turn_skips_citation_check(monkeypatch, agent_session):
+    monkeypatch.setattr(
+        "openai.OpenAI",
+        lambda **kw: _FakeOpenAI([{"content": "上一题是 #12，可以再看看。"}]),
+    )
+    reply = agent_session.chat("继续讲讲")
+    assert "引用校验" not in reply

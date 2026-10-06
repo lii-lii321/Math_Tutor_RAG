@@ -149,11 +149,21 @@ def followup_chat(service, question, user: dict) -> None:
             st.markdown(prompt)
         with st.chat_message("assistant", avatar="📘"):
             try:
+                # 历史不含刚 append 的这条提问：后端会把 user_question 再追加一次，
+                # 整包传入会导致同一问题在消息序列中出现两遍。
                 reply = service.answer_followup(
-                    question.id, user["id"], st.session_state[history_key], prompt
+                    question.id,
+                    user["id"],
+                    st.session_state[history_key][:-1],
+                    prompt,
                 )
             except Exception as exc:  # noqa: BLE001 - 对话失败不应崩溃页面
-                reply = f"⚠️ 讲师暂时不可用：{exc}"
+                from backend.utils.error_messages import SSE_AI_UNAVAILABLE
+
+                reply = SSE_AI_UNAVAILABLE
+                from frontend.components import error_card
+
+                error_card("讲师暂时不可用", str(exc))
             st.markdown(reply)
         st.session_state[history_key].append({"role": "assistant", "content": reply})
         st.rerun()
