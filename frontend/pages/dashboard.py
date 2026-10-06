@@ -11,8 +11,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from backend.config import get_settings
 from backend.services.mastery import SHAKY_THRESHOLD, WEAK_THRESHOLD
+from backend.services.milestone import MILESTONES, awarded, evaluate, get_daily_goal
 from frontend.charts import (
     heatmap_colorscale,
 )
@@ -240,9 +240,18 @@ def render_dashboard(user: dict) -> None:
     )
     today_graded = today_graded if ok else 0
 
-    daily_goal = get_settings().daily_goal
+    # ---- 每日目标（用户可设，None 回退全局默认）----
+    daily_goal = get_daily_goal(user["id"])
     goal_pct = min(today_graded / daily_goal * 100, 100)
     goal_met = today_graded >= daily_goal
+
+    # ---- 里程碑评估（C2）：看板渲染时补发新达成 toast——
+    # 复习页评分当下不弹、回看板补发为既定语义；evaluate 幂等，不重复触发
+    _, new_milestones = safe_call(
+        evaluate, user["id"], stats=stats, error_title="里程碑评估失败"
+    )
+    for spec in new_milestones or []:
+        st.toast(f"🏅 达成里程碑：{spec.label}", icon="🏅")
 
     # ---- 逾期/今天到期拆分（到期池内的三色构成）----
     today_start, tomorrow_start = _today_bounds()
@@ -338,6 +347,29 @@ def render_dashboard(user: dict) -> None:
         stat_card(stats["reviewed"], "已复习错题")
     with k4:
         stat_card(stats["mastered"], "已掌握 🏆")
+
+    # ---- 里程碑徽章墙（C2，MUJI 克制：已达成 pill + 未达成置灰计数） ----
+    ok_awarded, awarded_rows = safe_call(awarded, user["id"])
+    achieved_codes = {row["code"] for row in (awarded_rows or [])}
+    achieved_pills = "".join(
+        f"<span class='mm-badge mm-badge--ok'>{spec.label}</span>"
+        for spec in MILESTONES
+        if spec.code in achieved_codes
+    )
+    locked = len(MILESTONES) - len(achieved_codes)
+    wall_parts = [achieved_pills] if achieved_pills else []
+    if locked:
+        wall_parts.append(
+            f"<span class='mm-badge' style='opacity:0.4'>🔒 {locked} 枚待解锁</span>"
+        )
+    st.markdown(
+        "<div style='display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;"
+        "margin:0.3rem 0 0 0'>"
+        "<span class='mm-muted' style='font-size:0.85rem'>里程碑</span>"
+        + "".join(wall_parts)
+        + "</div>",
+        unsafe_allow_html=True,
+    )
 
     # ---- 待复习队列表格 + 薄弱知识点 ----
     queue_col, weak_col = st.columns([2.4, 1], gap="large")

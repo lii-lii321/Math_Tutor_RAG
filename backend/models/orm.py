@@ -18,6 +18,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -42,6 +43,8 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(16), default="student")
     # 令牌版本：改密 / 登出时 +1，令牌内 tv 与此不一致即吊销（旧令牌无 tv 视为 0）
     token_version: Mapped[int] = mapped_column(Integer, default=0)
+    # 每日复习目标（题/天）；NULL 回退全局默认 get_settings().daily_goal（保留 env 语义）
+    daily_goal: Mapped[int | None] = mapped_column(Integer)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     questions: Mapped[list[Question]] = relationship(
@@ -50,6 +53,29 @@ class User(Base):
 
     def display_name(self) -> str:
         return self.username
+
+
+class UserMilestone(Base):
+    """里程碑达成记录（批 D 激励）：每枚里程碑每用户至多一条。
+
+    (user_id, code) 唯一约束由迁移 uq_user_milestone 落库；评估写入走
+    backend/services/milestone.py（先查已达成集合仅插新增，保证幂等）。
+    """
+
+    __tablename__ = "user_milestones"
+    __table_args__ = (
+        UniqueConstraint("user_id", "code", name="uq_user_milestone"),
+        Index("ix_user_milestones_user_id", "user_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE")
+    )
+    code: Mapped[str] = mapped_column(String(64))
+    achieved_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class Question(Base):

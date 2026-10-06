@@ -2,6 +2,39 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/)。
 
+## [2.15.0] - 2026-10-06
+
+### 新增
+- **每日目标用户可设**（提升方案 C1 设置页部分）：users 表新增可空
+  `daily_goal` 列（迁移 `7d1e5c49ab02`，down_revision=2c8cbae11edf 保持
+  单 head）——NULL 回退 `get_settings().daily_goal` 全局默认，保留 env
+  语义；设置页外观区新增 st.form 门控的每日目标表单（1-200，与
+  config 的 ge/le 同源），防任意 rerun 写库；看板 Hero 的目标 KPI 与
+  进度条改读用户级目标（dashboard.py 原为 env 直读）
+- **里程碑引擎与看板徽章墙**（提升方案 C2 全集）：新表
+  `user_milestones`（user_id FK ondelete=CASCADE + index、code String(64)、
+  achieved_at、(user_id, code) 唯一）+ 新服务 `backend/services/milestone.py`
+  ——六枚里程碑 MASTERED_1/10/50、STREAK_7/30、TOTAL_100（补齐上一版
+  缺的 MASTERED_50），`evaluate` 复用 dashboard_stats 的
+  total/mastered/streak 免二次查询，先查已达成集合仅插新增保证幂等
+  （达成一次不重复）；看板渲染早期评估并对新达成逐条 st.toast（评分
+  当下复习页不弹、回看板补发为既定语义）；KPI 行下新增 MUJI 克制徽章墙
+  （已达成 pill + 未达成置灰计数，无动画无紫色）
+- **测试**：新增 `tests/test_milestones.py` 11 例——目标读写与 None 回退、
+  1-200 边界拒绝（参数化 5 例）、evaluate 幂等（二次调用返回空、同枚不
+  重复落库）、恰第 10/50 题与连续 7 天/累计 100 题阈值链、用户间隔离；
+  全程零 AI 调用不烧配额；test_app_smoke 看板用例补徽章墙渲染零异常
+  断言；新迁移由 test_migrations 空库 upgrade head 自动覆盖
+
+### 文档
+- 深度体验提升方案：C2 勾选交付（1/10/50 全集）；「每日目标达成路径」
+  勾选交付；C4 注明登录 overdue toast 已交付（frontend/pages/auth.py:63-77，
+  表单提交触发天然每会话一次）；C1 注明看板展示部分预交付（Hero 内
+  目标 KPI + 进度条而非环）、设置页目标本批交付；README 体验细节行补
+  「每日目标与里程碑徽章」，用例数与迁移版本数对账
+- 全量 pytest 实测 418 passed + 5 skipped（+11，skipped 为需运行中应用
+  的 E2E 用例）；Alembic 迁移 12 → 13 个版本
+
 ## [2.14.0] - 2026-10-06
 
 ### 新增

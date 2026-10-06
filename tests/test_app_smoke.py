@@ -107,6 +107,8 @@ def test_app_login_and_dashboard_render(demo_credentials):
     btn_labels = [b.label for b in at.button]
     assert any("开始今日复习" in label for label in btn_labels)
     assert "退出登录" in btn_labels
+    # 里程碑徽章墙（C2）随 KPI 行渲染，零异常（含未达成置灰计数）
+    assert any("里程碑" in str(m.value) for m in at.markdown)
 
 
 def test_app_login_rejects_wrong_password(demo_credentials):

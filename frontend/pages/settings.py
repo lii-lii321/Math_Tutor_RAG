@@ -10,6 +10,7 @@ from backend.config import get_settings
 from backend.database import get_session
 from backend.services.ai import get_provider_status
 from backend.services.auth import AuthService
+from backend.services.milestone import get_daily_goal, set_daily_goal
 from frontend.common import get_question_service, initials, page_header
 from frontend.components import safe_call
 
@@ -29,6 +30,22 @@ def render_settings_page(user: dict) -> None:
                 st.session_state["dark_mode"] = dark
                 st.rerun()
             st.caption("会话级设置，刷新后恢复默认浅色。")
+            st.markdown("#### 每日目标")
+            with st.form("daily_goal_form"):
+                goal_input = st.number_input(
+                    "每日复习目标（题/天）",
+                    min_value=1,
+                    max_value=200,
+                    value=get_daily_goal(user["id"]),
+                    help="看板 Hero 的今日目标进度按此计算；1-200 与全局默认值域同源",
+                )
+                if st.form_submit_button("保存目标"):
+                    try:
+                        set_daily_goal(user["id"], int(goal_input))
+                        st.toast(f"每日目标已设为 {int(goal_input)} 题", icon="🎯")
+                    except ValueError as exc:
+                        st.error(str(exc))
+            st.caption("未单独设置时回退全局默认。")
             st.markdown("#### 账号")
             st.markdown(
                 f"""
