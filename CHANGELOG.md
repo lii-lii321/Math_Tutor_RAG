@@ -2,6 +2,48 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/)。
 
+## [2.16.0] - 2026-10-06
+
+### 新增
+- **完整备份 v2**（批 G / 提升方案「备份 v2」）：新服务
+  `backend/services/full_backup.py`——`export_full_backup` 生成 zip
+  （manifest.json 为 v1 结构扩展：每题全字段含 SM-2 调度状态/星标/笔记/
+  验证信息与 image_ref，review_logs 逐次评分明细，images 成员映射；
+  经 `get_storage()` 读写图片，local/S3 双后端同路径，缺失图 manifest 标
+  missing 不阻断）；`import_full_backup` 恢复 difficulty/starred/
+  user_note/reps/ease/interval_days/due_at/last_reviewed_at 直写 ORM
+  （修复 v1 只收 4 字段静默丢进度的问题）
+- **导入图片按新属主 key 重建**（阻断修正）：原 key 内嵌原属主 id
+  （`images/u{user_id}/…`），直接复用会与原用户共享存储对象、被孤儿图
+  清理连坐 404——导入按 `_persist_image` 同型逻辑生成新属主 key 并回写
+  image_path，zip 成员名仅作 manifest 映射
+- **导入健壮性**：zip slip 防护（成员名拒绝绝对路径/盘符/`..`）；
+  manifest format/version 校验；值域逐条跳过并计数不阻断整批
+  （grade ∈ again/hard/good/easy、quality ∈ 0/3/4/5、difficulty 白名单、
+  ease 合理区间、ISO 时间戳解析失败跳过该条）；幂等=image_hash 优先 +
+  无图题 sha256(content|answer) 指纹比对既有题集，命中整题（含日志）跳过；
+  ReviewLog 恢复按 old→new 题目 id 映射、ease_after float→Decimal；
+  导入后逐题 _reindex_owned 同步向量库（失败降级不阻断）
+- **设置页备份区**：新增「生成完整备份（zip）」惰性生成 + 下载按钮；
+  导入 uploader 扩 .zip 按扩展名分流（JSON→v1、ZIP→v2），结果 toast
+  区分「题目 N / 日志 M / 图片 K（缺失 J）」；caption 说明两种备份差异
+- **测试**：新增 `tests/test_full_backup.py` 8 场景——大满贯往返（带图
+  +评分 3 次+星标+笔记+难度 hard→导出→新用户导入逐字段断言）、副本图
+  独立（删原用户存储对象后副本仍可读，证明 key 已重建非共享）、v1 JSON
+  仍可导入回归、重复导入幂等不翻倍、损坏 zip 与伪造 manifest 明确
+  ValueError、zip slip 路径穿越拒绝、非法值逐条跳过；全程零 AI 网络调用
+
+### 兼容与文档
+- **v1 零改动**：export_user_data/import_user_data 与 API
+  GET /questions/export、POST /questions/import 保持 JSON 契约，旧备份
+  仍可导入（回归用例钉住）；明确不做：API 不新增 zip 端点、不做 Anki
+  导出、无数据库迁移（heads 保持单链）
+- README 修正两处过时声明：已知限制行改为「完整备份 zip 已含图片与复习
+  进度」；路线图对象存储复选框标记已交付（2.13）；DEPLOYMENT 备份章节
+  补 v2 zip 说明与「API v1 端点不含图片」边界
+- 全量 pytest 实测 429 passed + 5 skipped（工作树，含并行在途批次的
+  用例；本提交自身新增 8 例完整备份场景）
+
 ## [2.15.0] - 2026-10-06
 
 ### 新增

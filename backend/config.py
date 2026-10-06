@@ -30,7 +30,7 @@ class Settings(BaseSettings):
 
     # ---------- 应用 ----------
     app_name: str = "MathMaster Edu"
-    app_version: str = "2.15.0"
+    app_version: str = "2.16.0"
     # 每日复习目标（题/天），看板进度环 + 达成提示
     daily_goal: int = Field(default=10, ge=1, le=200)
     debug: bool = False

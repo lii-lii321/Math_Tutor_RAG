@@ -251,7 +251,7 @@ Math_Tutor_RAG/
 - [x] ~~学习日历热力图 / 正确率趋势 / 连续学习打卡~~（v2.1）
 - [x] ~~教师端学生总览~~（v2.1）
 - [x] ~~PostgreSQL 支持~~（v2.10：`DATABASE_URL` 一键切换 + compose `--profile postgres`，迁移链与测试套件已在 PG 16 实机验证）
-- [ ] 对象存储（S3/OSS）托管题目图片
+- [x] ~~对象存储（S3/OSS）托管题目图片~~（v2.13：`STORAGE_BACKEND=s3` 切 MinIO / OSS / COS；v2.16 完整备份 zip 经同一后端导出/恢复图片）
 - [ ] OpenTelemetry 观测埋点
 - [x] ~~消息队列异步解析~~（v2.3 异步录题 + v2.6 JobQueue 抽象：默认进程内线程，`REDIS_URL` 切换 RQ + 独立 Worker）
 
@@ -261,7 +261,7 @@ Math_Tutor_RAG/
 - 异步解析队列默认为进程内线程实现；多实例部署需配置 `REDIS_URL` 切换 RQ 队列 + 独立 Worker
 - 语义搜索的向量检索范围：学生仅本人错题；教师默认为 自己 + 全部学生，建班后收紧为「自己班级的学生」
 - PostgreSQL 为兼容验证通过（迁移链 + 测试套件 + API 冒烟在 PG 16 实机验证），日常开发默认仍为 SQLite
-- 错题图片存储于本地磁盘（`data/images/`），云对象存储接入在路线图中
+- 完整备份 zip（v2.16）已含题目原图与复习进度；轻量 JSON 备份仍不含图片，API v1 端点（`GET /questions/export`、`POST /questions/import`）亦不含图片
 
 ## 📄 License
 

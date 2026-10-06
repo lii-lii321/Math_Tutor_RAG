@@ -10,6 +10,7 @@ from backend.config import get_settings
 from backend.database import get_session
 from backend.services.ai import get_provider_status
 from backend.services.auth import AuthService
+from backend.services.full_backup import export_full_backup, import_full_backup
 from backend.services.milestone import get_daily_goal, set_daily_goal
 from frontend.common import get_question_service, initials, page_header
 from frontend.components import safe_call
@@ -239,7 +240,10 @@ def render_settings_page(user: dict) -> None:
 
     with st.container(border=True):
         st.markdown("#### 数据备份")
-        st.caption("导出全部错题为 JSON 备份文件；导入时按手动错题恢复，已含解析、标签与考点。")
+        st.caption(
+            "JSON 备份仅含题面文字（解析、标签、考点），不含原图与复习进度；"
+            "完整备份 zip 另含原图与复习进度（SM-2 调度、星标、笔记、复习日志）。"
+        )
         # 惰性生成：点「生成备份」才做全量导出，不再每次渲染都全表扫描
         if st.button("📦 生成备份内容", width="stretch", key="backup_generate"):
             with st.spinner("生成备份中…"):
@@ -267,12 +271,45 @@ def render_settings_page(user: dict) -> None:
                 width="stretch",
                 disabled=not csv_data,
             )
+            # 完整备份 zip：惰性生成沿用上方模式
+            if st.button(
+                "🗜️ 生成完整备份（zip：题目+原图+复习进度）",
+                width="stretch",
+                key="full_backup_generate",
+            ):
+                with st.spinner("生成完整备份中…"):
+                    st.session_state["full_backup_bytes"] = export_full_backup(
+                        user["id"]
+                    ).getvalue()
+                st.toast("完整备份已生成", icon="🗜️")
+            full_backup_bytes = st.session_state.get("full_backup_bytes")
+            st.download_button(
+                "导出完整备份 (ZIP)",
+                data=full_backup_bytes or b"",
+                file_name=f"mathmaster_full_{datetime.date.today():%Y%m%d}.zip",
+                mime="application/zip",
+                width="stretch",
+                disabled=not full_backup_bytes,
+            )
         with col_up:
-            upload = st.file_uploader("导入备份", type=["json"], key="backup_import")
+            upload = st.file_uploader(
+                "导入备份（JSON 或完整备份 ZIP）", type=["json", "zip"], key="backup_import"
+            )
             if upload is not None and st.button("开始导入", width="stretch"):
                 try:
-                    payload = json.loads(upload.getvalue().decode("utf-8"))
-                    imported = service.import_user_data(user["id"], payload)
-                    st.success(f"成功导入 {imported} 道错题")
+                    if (upload.name or "").lower().endswith(".zip"):
+                        result = import_full_backup(user["id"], upload.getvalue())
+                        extra = (
+                            f" · 跳过无效 {result['skipped']}" if result["skipped"] else ""
+                        )
+                        st.success(
+                            f"完整备份导入完成：题目 {result['questions']} / "
+                            f"日志 {result['logs']} / 图片 {result['images']}"
+                            f"（缺失 {result['missing_images']}）{extra}"
+                        )
+                    else:
+                        payload = json.loads(upload.getvalue().decode("utf-8"))
+                        imported = service.import_user_data(user["id"], payload)
+                        st.success(f"成功导入 {imported} 道错题")
                 except Exception as exc:  # noqa: BLE001 - 导入失败给出明确原因
                     st.error(f"导入失败：{exc}")

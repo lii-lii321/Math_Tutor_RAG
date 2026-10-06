@@ -156,7 +156,12 @@ EMBEDDING_MODEL=BAAI/bge-m3
 ## 7. 数据备份与迁移
 
 - **界面**：设置 → 数据备份 → 导出备份 (JSON) / 导入备份
+- **完整备份 (ZIP，v2.16)**：设置 → 数据备份 → 生成完整备份——zip 内含
+  题目全字段（SM-2 调度状态、星标、笔记）、原图与逐次复习日志；导入按
+  扩展名自动分流（JSON→轻量恢复、ZIP→完整恢复），图片按新属主 key 重新
+  落存储，local / S3 双后端同路径
 - **API**：`GET /api/questions/export`、`POST /api/questions/import`
+  （v1 JSON 契约，**不含图片**；完整备份暂仅界面入口，API 不另开 zip 端点）
 - 题目原图存于 `data/images/`，向量库存于 `data/chroma/`；Docker 部署时两者均在数据卷内，直接备份卷即可
 
 ## 8. 常见问题
