@@ -13,6 +13,11 @@ import streamlit as st
 
 from backend.services.mastery import SHAKY_THRESHOLD, WEAK_THRESHOLD
 from backend.services.milestone import MILESTONES, awarded, evaluate, get_daily_goal
+from backend.services.weekly_report import (
+    build_for_user,
+    generate_word_report_self,
+    render_markdown_self,
+)
 from frontend.charts import (
     heatmap_colorscale,
 )
@@ -438,6 +443,42 @@ def render_dashboard(user: dict) -> None:
     with acc_col:
         st.subheader("近 7 日复习正确率")
         _render_accuracy_week(stats.get("accuracy_trend", []))
+
+    # ---- 我的学习周报（E3）：窗口 7/14/30 天，惰性生成 + 预览 + Word 下载 ----
+    st.subheader("📄 我的学习周报")
+    report_days = st.selectbox(
+        "统计窗口",
+        [7, 14, 30],
+        format_func=lambda d: f"近 {d} 天",
+        key="report_days",
+    )
+    if st.button("📊 生成本窗口周报", key="report_generate"):
+        with st.spinner("生成周报中…"):
+            ok_report, self_report = safe_call(
+                build_for_user, user["id"], days=report_days,
+                error_title="周报生成失败",
+            )
+        if ok_report:
+            st.session_state["self_report"] = self_report
+            st.session_state["self_report_bytes"] = generate_word_report_self(
+                self_report
+            ).getvalue()
+            st.session_state["self_report_days"] = report_days
+    cached_report = st.session_state.get("self_report")
+    if cached_report:
+        if st.session_state.get("self_report_days") != report_days:
+            st.caption("统计窗口已切换，点「生成本窗口周报」刷新。")
+        st.markdown(render_markdown_self(cached_report))
+        st.download_button(
+            "⬇️ 下载 Word 周报",
+            data=st.session_state.get("self_report_bytes") or b"",
+            file_name=(
+                f"学习周报_{user['username']}_{cached_report['period']['end']}.docx"
+            ),
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            key="report_download",
+            disabled=not st.session_state.get("self_report_bytes"),
+        )
 
     # ---- 次要图表收进折叠 ----
     with st.expander("更多图表（录入趋势 / 学习日历 / 难度分布 / 掌握度趋势）"):

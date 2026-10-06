@@ -35,6 +35,22 @@ class ClassAccessDenied(LookupError):
     """班级不存在或不属于该教师（对外一律按 404，不泄露存在性）。"""
 
 
+def _window_bounds(
+    days: int, today: dt.date | None
+) -> tuple[int, dt.date, dt.datetime, dt.datetime, dt.date]:
+    """窗口计算（build 与个人周报共用）：days 夹取 1-31，返回 (days, 起日, 起点, 终点, 今日)。"""
+    days = max(1, min(int(days), 31))
+    today = today or dt.date.today()
+    period_start = today - dt.timedelta(days=days - 1)
+    window_start = dt.datetime(
+        period_start.year, period_start.month, period_start.day, tzinfo=dt.timezone.utc
+    )
+    window_end = dt.datetime(
+        today.year, today.month, today.day, tzinfo=dt.timezone.utc
+    ) + dt.timedelta(days=1)
+    return days, period_start, window_start, window_end, today
+
+
 def _mastered(question: Question) -> bool:
     return question.reps >= 3 and question.interval_days >= 21
 
@@ -68,15 +84,7 @@ class WeeklyReportService:
         today: dt.date | None = None,
     ) -> dict:
         """生成班级学情报告（JSON 可序列化，供 API 与前端共用）。"""
-        days = max(1, min(int(days), 31))
-        today = today or dt.date.today()
-        period_start = today - dt.timedelta(days=days - 1)
-        window_start = dt.datetime(
-            period_start.year, period_start.month, period_start.day, tzinfo=dt.timezone.utc
-        )
-        window_end = dt.datetime(
-            today.year, today.month, today.day, tzinfo=dt.timezone.utc
-        ) + dt.timedelta(days=1)
+        days, period_start, window_start, window_end, today = _window_bounds(days, today)
         now = dt.datetime.now(dt.timezone.utc)
 
         with self._session() as session:
@@ -191,6 +199,115 @@ class WeeklyReportService:
             {"tag": s.tag, "mastery": s.mastery, "count": s.count}
             for s in weak[:_WEAK_TAG_LIMIT]
         ]
+
+
+# ---------- 个人周报（E3）：复用班级周报窗口与聚合口径，学生自查 ----------
+
+
+def build_for_user(
+    user_id: int, *, days: int = 7, today: dt.date | None = None
+) -> dict:
+    """生成个人学习周报（JSON 可序列化）：窗口/单行聚合与班级版同口径。
+
+    返回 ``{"title": "{username} · 学习周报", "period", "generated_at", "row"}``；
+    row 与班级版 _student_row 同构（含累计错题 total）。用户不存在抛 ValueError。
+    """
+    service = WeeklyReportService()
+    days, period_start, window_start, window_end, today = _window_bounds(days, today)
+    now = dt.datetime.now(dt.timezone.utc)
+
+    with service._session() as session:
+        user = session.get(User, user_id)
+        if user is None:
+            raise ValueError(f"用户不存在: {user_id}")
+        username = user.username
+        questions = session.query(Question).filter_by(user_id=user_id).all()
+        logs = session.query(ReviewLog).filter_by(user_id=user_id).all()
+
+    row = service._student_row(
+        user_id, username, questions, logs, window_start, window_end, now
+    )
+    return {
+        "title": f"{username} · 学习周报",
+        "period": {
+            "start": period_start.isoformat(),
+            "end": today.isoformat(),
+            "days": days,
+        },
+        "generated_at": now.isoformat(),
+        "row": row,
+    }
+
+
+def _weak_text(row: dict) -> str:
+    return (
+        "、".join(f"{w['tag']}({int(w['mastery'] * 100)}%)" for w in row["weak_tags"])
+        or "—"
+    )
+
+
+def render_markdown_self(report: dict) -> str:
+    """个人周报 → Markdown（看板预览）。空数据安全：正确率 None 显示「—」。"""
+    period = report["period"]
+    row = report["row"]
+    accuracy = f"{row['accuracy']}%" if row["accuracy"] is not None else "—"
+    return "\n".join(
+        [
+            f"## 📘 {report['title']}",
+            f"**统计窗口**：{period['start']} ~ {period['end']}（{period['days']} 天）　"
+            f"**累计错题**：{row['total']}　**新增**：{row['created']}　"
+            f"**复习**：{row['reviews']} 次",
+            "",
+            "| 新增错题 | 复习次数 | 正确率 | 待复习 | 薄弱知识点 |",
+            "| ---: | ---: | ---: | ---: | --- |",
+            f"| {row['created']} | {row['reviews']} | {accuracy} "
+            f"| {row['overdue']} | {_weak_text(row)} |",
+        ]
+    )
+
+
+def generate_word_report_self(report: dict) -> io.BytesIO:
+    """个人周报 → Word（学生自查导出），无「学生」列。"""
+    doc = Document()
+    heading = doc.add_heading(f"📘 {report['title']}", level=0)
+    heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    period = report["period"]
+    row = report["row"]
+    subtitle = doc.add_paragraph(
+        f"统计窗口 {period['start']} ~ {period['end']}（{period['days']} 天） · "
+        f"MathMaster Edu 生成 · {dt.date.today():%Y-%m-%d}"
+    )
+    subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    subtitle.runs[0].font.size = Pt(10)
+
+    accuracy = f"{row['accuracy']}%" if row["accuracy"] is not None else "—"
+    table = doc.add_table(rows=1, cols=5)
+    table.style = "Light Grid Accent 1"
+    header = table.rows[0].cells
+    for i, text in enumerate(["新增错题", "复习次数", "正确率", "待复习", "薄弱知识点"]):
+        header[i].text = text
+        for paragraph in header[i].paragraphs:
+            for run in paragraph.runs:
+                run.bold = True
+    cells = table.add_row().cells
+    for i, text in enumerate(
+        [str(row["created"]), str(row["reviews"]), accuracy, str(row["overdue"]), _weak_text(row)]
+    ):
+        cells[i].text = text
+
+    doc.add_paragraph()
+    note = doc.add_paragraph(
+        f"累计错题 {row['total']} 道。"
+        "说明：待复习为当前已到期未归档的错题数；薄弱知识点为掌握度低于 50% 的标签。"
+        "数据来自你的真实录入与复习记录。"
+    )
+    note.runs[0].font.size = Pt(9)
+
+    stream = io.BytesIO()
+    doc.save(stream)
+    stream.seek(0)
+    return stream
 
 
 def render_markdown(report: dict) -> str:

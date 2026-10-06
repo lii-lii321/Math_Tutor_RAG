@@ -2,6 +2,38 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/)。
 
+## [2.18.0] - 2026-10-07
+
+### 新增
+- **学生自查学习周报**（提升方案 E3，六大专项收官）：
+  `backend/services/weekly_report.py` 新增 `build_for_user(user_id, *,
+  days=7, today=None)`——复用班级周报窗口计算（新抽 `_window_bounds`
+  共用，days 夹取 1-31）与 `_student_row` 单行聚合（created/reviews/
+  accuracy=good+easy 占比/overdue 排除已归档）与 `_weak_tags`（看板
+  build_tag_stats 同口径），返回 ``{title: "{username} · 学习周报",
+  period, generated_at, row}``；班级版 build() 契约与既有用例零改动
+- **个人版渲染**：`render_markdown_self`（看板预览）与
+  `generate_word_report_self`（Word 导出）——标题「📘 {title}」，
+  表格无「学生」列（新增错题/复习次数/正确率/待复习/薄弱知识点，
+  说明段含累计错题），accuracy None →「—」空数据安全
+- **看板「📄 我的学习周报」**（复盘区、更多图表折叠之前）：统计窗口
+  7/14/30 天选择（key=report_days）→ 生成按钮惰性出报告（session_state
+  缓存报告与 Word 字节，沿用设置页备份区模式）→ Markdown 预览 +
+  Word 下载（文件名含 username 与窗口末日）；safe_call 包裹失败转错误卡
+- **测试**：`tests/test_weekly_report.py` 新增 7 例——窗口过滤（窗口外
+  题目/日志不计）、正确率 good+easy 口径、overdue 排除 reps≥3 且
+  interval≥21 归档题、用户隔离、days 夹取（999→31/0→1）、Markdown 含
+  username 与数字、Word 可被 Document() 重开（5 列无学生列）；空数据
+  accuracy None 不零除
+- 明确不做：不加个人周报 API 端点（班级版 API 模式可平移，列下批候选）；
+  不做邮件/家长推送；不做 Anki 导出；零迁移零 AI 调用
+
+### 文档
+- 深度体验提升方案勾专项 E3 与验收表「个人周报导出」全链路——至此
+  UX 方案六大专项（A 可靠性 / B 顺滑 / C 激励 / D 移动端 / E 可视化 /
+  F 工程保障）全部交付；README 学情看板亮点句补「学习周报自查导出」
+- 全量 pytest 实测 434 passed + 5 skipped（+7）；ruff 全绿
+
 ## [2.17.0] - 2026-10-07
 
 ### 新增
