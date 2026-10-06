@@ -8,7 +8,7 @@ import streamlit as st
 import streamlit_antd_components as sac
 
 from backend.config import get_settings
-from frontend.common import current_user, load_css, logout_user
+from frontend.common import current_user, go_to, load_css, logout_user
 from frontend.nav import PAGES
 from frontend.pages.auth import render_auth_page
 from frontend.pages.dashboard import render_dashboard
@@ -16,6 +16,7 @@ from frontend.pages.notebook import render_notebook_page
 from frontend.pages.review import render_review_page
 from frontend.pages.settings import render_settings_page
 from frontend.pages.tutor import render_tutor_page
+from frontend.query_state import PARAM_NAMES, WIDGET_KEYS
 
 settings = get_settings()
 
@@ -91,14 +92,32 @@ def _render_sidebar(user: dict) -> str:
             """,
             unsafe_allow_html=True,
         )
-        pending = st.session_state.pop("_pending_nav", None)  # 必须在菜单实例化前写入其 key
-        if pending:
-            st.session_state["nav"] = pending
-
         def _label_with_badge(label: str, key: str) -> str:
             if key == "review" and due_count > 0:
                 return f"{label} · {due_count}"
             return label
+
+        # 徽标会改写菜单项标签（如「今日复习 · N」，N 随复习进度实时变化）：
+        # go_to 写入的是未修饰标签，会话中还可能残留上一帧的旧徽标标签——
+        # sac.menu 按标签匹配会话值，任何漂移都直接抛 ValueError 整页报错，
+        # 故菜单实例化前统一归一到当前徽标状态
+        pending = st.session_state.pop("_pending_nav", None)  # 必须在菜单实例化前写入其 key
+        if pending:
+            pending_key = next((p.key for p in PAGES if p.label == pending), None)
+            st.session_state["nav"] = (
+                _label_with_badge(pending, pending_key) if pending_key else pending
+            )
+        nav_value = st.session_state.get("nav")
+        if isinstance(nav_value, str):
+            for nav_label, nav_key in visible.items():
+                current = _label_with_badge(nav_label, nav_key)
+                if nav_value in (nav_label, current):
+                    st.session_state["nav"] = current
+                    break
+                # 徽标数字过期的旧值（如刚清空待复习队列）：剥掉旧尾巴再归一
+                if nav_value.startswith(f"{nav_label} · "):
+                    st.session_state["nav"] = current
+                    break
 
         # 按 nav.py 的 group 分三组渲染：今天 / 学习 / 探索
         items: list[sac.MenuItem] = []
@@ -122,6 +141,18 @@ def _render_sidebar(user: dict) -> str:
             open_all=True,
             key="nav",
         )
+        # 全局搜索（st.form 包裹：输入不触发整页重跑，提交直达错题本并预填关键词）
+        with st.form("mm_global_search_form", border=False):
+            search_kw = st.text_input(
+                "全局搜索",
+                key="mm_global_search_input",
+                placeholder="🔍 搜索错题，回车直达错题本",
+                label_visibility="collapsed",
+            )
+            if st.form_submit_button("搜索错题本", width="stretch"):
+                if search_kw and search_kw.strip():
+                    st.session_state.pop("mm_global_search_input", None)
+                    go_to("notebook", keyword=search_kw.strip())
         st.markdown("<hr>", unsafe_allow_html=True)
         st.markdown(
             f"""
@@ -142,9 +173,34 @@ def _render_sidebar(user: dict) -> str:
             logout_user()
             st.rerun()
     all_pages = {**visible}
+    # 菜单返回值是徽标修饰后的标签（如「今日复习 · N」）：补一条映射才能
+    # 解析回 review，否则有到期题时点「今日复习」会静默回落到看板
+    if due_count > 0:
+        all_pages[_label_with_badge(t("nav.review"), "review")] = "review"
     selected = menu or t("nav.dashboard")
     # 组标题点击返回组名——忽略并回退到看板；子项点击返回页面标签本身
     return all_pages.get(selected, "dashboard")
+
+
+def _cleanup_notebook_url_on_leave(current: str) -> None:
+    """错题本筛选的迁移门控清理：仅「离开错题本」的那一帧生效。
+
+    - 离开（prev=="notebook" 且 current!="notebook"）：清 URL nb_* 参数与
+      控件会话键——分享出去的链接是默认视图，再进错题本也是默认视图；
+    - 首帧（无 _last_page 标记）不清理：带参 URL 未登录新窗口打开 →
+      登录（首帧恒落看板）→ 进错题本筛选仍生效；
+    - 同页重跑不清理：错题本上的筛选交互与 URL 写回不受影响。
+    """
+    prev = st.session_state.pop("_last_page", None)
+    try:
+        if prev == "notebook" and current != "notebook":
+            for name in PARAM_NAMES:
+                if name in st.query_params:
+                    del st.query_params[name]
+            for widget_key in WIDGET_KEYS:
+                st.session_state.pop(widget_key, None)
+    finally:
+        st.session_state["_last_page"] = current
 
 
 def main() -> None:
@@ -154,6 +210,7 @@ def main() -> None:
         return
 
     page = _render_sidebar(user)
+    _cleanup_notebook_url_on_leave(page)
     if page == "dashboard":
         render_dashboard(user)
     elif page == "tutor":

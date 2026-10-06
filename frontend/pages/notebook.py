@@ -25,9 +25,73 @@ from frontend.components import (
     safe_call,
     save_followup_button,
 )
+from frontend.query_state import (
+    PARAM_NAMES,
+    SORT_OPTIONS,
+    STUDENT_DEFAULT,
+    TAG_DEFAULT,
+    VIEW_OPTIONS,
+    WIDGET_KEYS,
+    decode_filters,
+    encode_filters,
+)
 
 _PAGE_SIZE = 8
 _DIFF_LABELS = {"easy": "简单", "medium": "中等", "hard": "困难"}
+
+
+def _current_filters() -> dict:
+    """从会话态收集当前生效筛选（控件键缺省时回退默认，供 URL 写回）。"""
+    return {
+        "keyword": st.session_state.get("notebook_search", ""),
+        "tag": st.session_state.get("notebook_tag", TAG_DEFAULT),
+        "sort": st.session_state.get("notebook_sort", SORT_OPTIONS[0]),
+        "view": st.session_state.get("notebook_view", VIEW_OPTIONS[0]),
+        "semantic": st.session_state.get("notebook_sem", True),
+        "only_due": st.session_state.get("notebook_due", False),
+        "only_mastered": st.session_state.get("notebook_mastered", False),
+        "only_weak": st.session_state.get("notebook_weak", False),
+        "only_starred": st.session_state.get("notebook_starred", False),
+        "student": st.session_state.get("notebook_student", STUDENT_DEFAULT),
+        "page": st.session_state.get("notebook_page", 0),
+    }
+
+
+def _write_url_filters() -> None:
+    """把当前筛选写回 URL（默认值不写；值未变时零消息，桥接/回调/翻页共用）。"""
+    encoded = encode_filters(_current_filters())
+    if {
+        k: v
+        for k, v in st.query_params.to_dict().items()
+        if k in PARAM_NAMES
+    } == encoded:
+        return
+    for name in PARAM_NAMES:
+        if name in st.query_params:
+            del st.query_params[name]
+    if encoded:
+        st.query_params.update(encoded)
+
+
+def _clear_url_filters() -> None:
+    """清除全部 nb_* URL 参数（清除筛选按钮 / 离开错题本共用）。"""
+    for name in PARAM_NAMES:
+        if name in st.query_params:
+            del st.query_params[name]
+
+
+def _force_seed(widget_key: str, value) -> None:
+    """go_to 桥接参数：实例化前强制覆盖控件会话值（修复二次进入被 key 屏蔽）。"""
+    if value is None:
+        return
+    st.session_state[widget_key] = value
+
+
+def _seed_if_new(widget_key: str, value, default) -> None:
+    """URL 值非默认且控件键尚未入会话时，实例化前种入（刷新/分享/穿登录可达）。"""
+    if value is None or value == default or widget_key in st.session_state:
+        return
+    st.session_state[widget_key] = value
 
 
 def _due_mark(q, now: dt.datetime) -> str:
@@ -173,9 +237,20 @@ def render_notebook_page(user: dict) -> None:
     page_header("错题本", "支持关键词与语义搜索；教师可查看全部学生错题")
 
     incoming = pop_params("tag", "keyword", "student")
-    preset_tag = incoming.get("tag")
-    preset_keyword = incoming.get("keyword")
-    preset_student = incoming.get("student")
+    url_filters = decode_filters(st.query_params.to_dict())
+
+    # go_to 桥接参数无条件强制覆盖（带选项校验的 tag/student 在各自控件前处理）；
+    # URL 参数仅在控件键尚未入会话时种入——刷新 / 分享 / 穿登录可达。
+    _force_seed("notebook_search", incoming.get("keyword"))
+    _seed_if_new("notebook_search", url_filters["keyword"], "")
+    _seed_if_new("notebook_view", url_filters["view"], VIEW_OPTIONS[0])
+    _seed_if_new("notebook_sem", url_filters["semantic"], True)
+    _seed_if_new("notebook_due", url_filters["only_due"], False)
+    _seed_if_new("notebook_mastered", url_filters["only_mastered"], False)
+    _seed_if_new("notebook_weak", url_filters["only_weak"], False)
+    _seed_if_new("notebook_starred", url_filters["only_starred"], False)
+    _seed_if_new("notebook_sort", url_filters["sort"], SORT_OPTIONS[0])
+    _seed_if_new("notebook_page", url_filters["page"] or None, None)
 
     with st.container(border=True):
         is_teacher = user["role"] == "teacher"
@@ -185,45 +260,80 @@ def render_notebook_page(user: dict) -> None:
         with tool_col1:
             keyword = st.text_input(
                 "搜索",
-                value=preset_keyword or "",
                 placeholder="搜索错题（自然语言即可）",
                 key="notebook_search",
                 label_visibility="collapsed",
+                on_change=_write_url_filters,
             )
         with tool_col2:
             view_mode = st.segmented_control(
                 "视图",
-                ["📋", "🔲"],
+                VIEW_OPTIONS,
                 selection_mode="single",
-                default="📋",
+                default=VIEW_OPTIONS[0],
                 key="notebook_view",
                 label_visibility="collapsed",
+                on_change=_write_url_filters,
             )
-        card_view = view_mode == "🔲"
+        card_view = view_mode == VIEW_OPTIONS[1]
 
         popover_label = "⚙️ 筛选与排序"
         with st.popover(popover_label, use_container_width=False):
-            semantic = st.toggle("语义搜索", value=True, help="用向量检索理解语义，而非仅字面匹配")
-            only_due = st.toggle("仅看待复习", value=False, help="隐藏已掌握和尚未到期的错题")
-            only_mastered = st.toggle("仅看已掌握 🏆", value=False, help="只显示已归档的熟题")
-            only_weak = st.toggle(
-                "仅看薄弱", value=False, help="只显示复习过且掌握度低于 50% 的题"
+            semantic = st.toggle(
+                "语义搜索",
+                value=True,
+                help="用向量检索理解语义，而非仅字面匹配",
+                key="notebook_sem",
+                on_change=_write_url_filters,
             )
-            only_starred = st.toggle("⭐ 仅看星标", value=False, help="只显示你收藏的重要错题")
+            only_due = st.toggle(
+                "仅看待复习",
+                value=False,
+                help="隐藏已掌握和尚未到期的错题",
+                key="notebook_due",
+                on_change=_write_url_filters,
+            )
+            only_mastered = st.toggle(
+                "仅看已掌握 🏆",
+                value=False,
+                help="只显示已归档的熟题",
+                key="notebook_mastered",
+                on_change=_write_url_filters,
+            )
+            only_weak = st.toggle(
+                "仅看薄弱",
+                value=False,
+                help="只显示复习过且掌握度低于 50% 的题",
+                key="notebook_weak",
+                on_change=_write_url_filters,
+            )
+            only_starred = st.toggle(
+                "⭐ 仅看星标",
+                value=False,
+                help="只显示你收藏的重要错题",
+                key="notebook_starred",
+                on_change=_write_url_filters,
+            )
             sort_mode = st.selectbox(
                 "排序",
-                ["最新录入", "最早录入", "复习次数最少", "最近复习", "掌握度最低"],
+                list(SORT_OPTIONS),
                 key="notebook_sort",
+                on_change=_write_url_filters,
             )
 
         if is_teacher:
             overview = service.students_overview(user["id"])
             student_names = ["全部学生"] + [r["username"] for r in overview]
-            default_student = preset_student if preset_student in student_names else "全部学生"
+            # 种入值先校验在当前 students_overview 选项内，再于实例化前种入
+            bridge_student = incoming.get("student")
+            if bridge_student is not None and bridge_student in student_names:
+                _force_seed("notebook_student", bridge_student)
+            _seed_if_new("notebook_student", url_filters["student"], STUDENT_DEFAULT)
             student_name = st.selectbox(
-                "查看学生", student_names,
-                index=student_names.index(default_student),
+                "查看学生",
+                student_names,
                 key="notebook_student",
+                on_change=_write_url_filters,
             )
             if student_name == "全部学生":
                 view_user_id = user["id"]
@@ -248,22 +358,30 @@ def render_notebook_page(user: dict) -> None:
         if not ok:
             st.stop()
         all_tags = sorted({t for q in all_questions for t in q.tags})
-        default_index = (
-            (["全部"] + all_tags).index(preset_tag) if preset_tag in all_tags else 0
-        )
+        bridge_tag = incoming.get("tag")
+        if bridge_tag is not None and bridge_tag in all_tags:
+            _force_seed("notebook_tag", bridge_tag)
+        _seed_if_new("notebook_tag", url_filters["tag"], TAG_DEFAULT)
         tag_filter = st.selectbox(
-            "按标签筛选", ["全部"] + all_tags, index=default_index, key="notebook_tag"
+            "按标签筛选",
+            ["全部"] + all_tags,
+            key="notebook_tag",
+            on_change=_write_url_filters,
         )
+        # 筛选控件全部就位：桥接参数落到 URL、页码钳制自愈（值未变时零消息）
+        _write_url_filters()
 
-        # chip 回显：当前生效的筛选条件（实时值而非仅 preset，点击 ✕ 清除对应输入）
-        def _chip(label: str, clear_target: str | None = None) -> str:
+        # chip 回显：当前生效的筛选条件（实时控件值而非仅 preset，点击 ✕ 走下方清除）
+        def _chip(label: str) -> str:
             return f"<span class='mm-badge mm-badge--blue'>{label} ✕</span>"
 
         chips_html = ""
-        if preset_tag:
-            chips_html += _chip(preset_tag)
-        if preset_keyword:
-            chips_html += _chip(f"搜索:{preset_keyword}")
+        if keyword:
+            chips_html += _chip(f"搜索:{keyword}")
+        if tag_filter != "全部":
+            chips_html += _chip(tag_filter)
+        if is_teacher and student_name != STUDENT_DEFAULT:
+            chips_html += _chip(f"学生:{student_name}")
         if only_starred:
             chips_html += "<span class='mm-badge mm-badge--warn'>⭐ 星标</span>"
         if only_weak:
@@ -272,13 +390,11 @@ def render_notebook_page(user: dict) -> None:
             chips_html += "<span class='mm-badge mm-badge--blue'>待复习</span>"
         if only_mastered:
             chips_html += "<span class='mm-badge mm-badge--ok'>已掌握</span>"
-        if tag_filter != "全部":
-            chips_html += _chip(tag_filter)
         if chips_html:
             if st.button("✕ 清除全部筛选", key="clear_chips"):
-                for key in ("notebook_search", "notebook_tag", "notebook_page"):
-                    st.session_state.pop(key, None)
-                st.session_state["notebook_sort"] = "最新录入"
+                for widget_key in WIDGET_KEYS:
+                    st.session_state.pop(widget_key, None)
+                _clear_url_filters()
                 st.rerun()
             st.markdown(
                 f"<div style='margin:0.3rem 0'>{chips_html}</div>",
@@ -386,9 +502,9 @@ def render_notebook_page(user: dict) -> None:
                 go_to("tutor")
         with c2:
             if st.button("清除筛选条件", width="stretch"):
-                st.session_state.pop("notebook_search", None)
-                st.session_state.pop("notebook_tag", None)
-                st.session_state.pop("notebook_page", None)
+                for widget_key in WIDGET_KEYS:
+                    st.session_state.pop(widget_key, None)
+                _clear_url_filters()
                 st.rerun()
         return
 
@@ -410,6 +526,7 @@ def render_notebook_page(user: dict) -> None:
     with nav_l:
         if st.button("← 上一页", disabled=page_index == 0, width="stretch"):
             st.session_state[page_key] -= 1
+            _write_url_filters()
             st.rerun()
     with nav_c:
         st.markdown(
@@ -422,6 +539,7 @@ def render_notebook_page(user: dict) -> None:
             "下一页 →", disabled=page_index >= page_count - 1, width="stretch"
         ):
             st.session_state[page_key] += 1
+            _write_url_filters()
             st.rerun()
 
     if card_view:

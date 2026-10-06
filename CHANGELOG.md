@@ -2,6 +2,52 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/)。
 
+## [2.14.0] - 2026-10-06
+
+### 新增
+- **复习卡片区 st.fragment 化**（提升方案 B2，0→1）：进度头部/进度条/题卡/
+  解析/评分/跳过/改题表单收入 `_review_card` 片段——「显示解析」「跳过」
+  只重跑片段（侧边栏不闪），队列/游标/理由/统计体内从 session_state 现取；
+  「跳过」改 on_click 回调改写游标；评分保留整页 `st.rerun()` 保侧边栏
+  「今日复习」徽标即时准确；全文件零 `st.rerun(scope="fragment")`
+  （整页上下文调用必抛 StreamlitInvalidLayoutContextError），单测 grep
+  防回潮。队列行/批量操作条的 fragment 化延后批次
+- **错题本 11 控件筛选进 URL**（提升方案 B3）：新增 `frontend/query_state.py`
+  纯函数编解码层（不依赖 streamlit），声明 11 个 `nb_*` URL 参数 schema
+  （nb_kw/nb_tag/nb_sort/nb_view/nb_sem/nb_due/nb_mastered/nb_weak/
+  nb_starred/nb_student/nb_page），默认值不写 URL、非法值回退默认；
+  五个筛选 toggle 补显式 key；keyword/学生/标签三处被 key 屏蔽的预置改
+  「URL → 实例化前种 session_state → 控件 → on_change 回调写回 URL」
+  （种入值先校验在当前选项内）；go_to 桥接参数改强制覆盖会话+URL，修复
+  看板/图谱/画像/学生总览二次跳转错题本被控件 key 静默吞掉的问题；
+  两处清除筛选路径同步清 URL；chip 回显改实时控件值并新增学生筛选 chip
+- **URL 生命周期迁移门控**：app.py 记录 `_last_page`，仅「离开错题本」
+  那一帧清 `nb_*` 参数与错题本控件会话键——首帧（无标记）不清理，
+  带参 URL 未登录新窗口打开 → 登录（首帧恒落看板）→ 进错题本筛选仍生效；
+  同页重跑不清理；离开即清、再进为默认视图
+- **st.form 全局搜索**（提升方案 B5）：侧边栏搜索框输入不触发整页重跑，
+  提交直达错题本并预填关键词
+
+### 修复
+- **侧边栏「今日复习」徽标引发的导航故障**（既有 bug，本批测试首次暴露）：
+  菜单项标签被徽标改写为「今日复习 · N」后，go_to 写入的未修饰标签与
+  评分后残留的过期徽标标签都会让 sac.menu 标签匹配失败（前者整页抛
+  ValueError，后者点击菜单静默回落看板）；app.py 现于菜单实例化前把
+  会话导航值归一到当前徽标状态，并在分发映射中补充徽标标签 → review
+
+### 测试与文档
+- test_frontend_units 补 query_state 纯函数用例（含非法值回退）与
+  「review.py 无 scope=fragment」防回潮断言；test_app_smoke 补「带 URL
+  参数登录 → 错题本渲染零异常 + 离开即清 + 回调写回 + 清除按钮」
+  「复习页三路径（plan/due 桥接 + 菜单直达）」「评分链路（显示解析同轮
+  渲染 → 评分整页 rerun → 队列清空完成态）」——用例先经
+  service.create_manual_question 建题，避免空队列断言空转
+- 深度体验提升方案验收表 B2 行改「0→1（评分卡片区），队列行/批量操作条
+  延后批次」；B3 行注明分享边界与「离开即清/穿登录可达」双重语义
+- 新增 10 例（query_state 纯函数 7 例 + AppTest 冒烟 3 例）；全量
+  pytest 实测 407 passed + 5 skipped（skipped 为需运行中应用的 E2E 用例，
+  由 CI boot-smoke job 兜底）
+
 ## [2.13.1] - 2026-10-05
 
 ### 修复

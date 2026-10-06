@@ -1,10 +1,12 @@
 """前端层最小单测（提升路线 #1 的遗留半截）：纯函数助手 + 注册表不变量。
 
 只测不依赖 Streamlit 运行时的纯逻辑（HTML 构造器、主题 token、导航注册表、
-i18n 回退、safe_call 包装）；页面级冒烟由 tests/test_app_smoke.py（AppTest）
-与 Playwright E2E 分层覆盖。
+i18n 回退、safe_call 包装、query_state URL 编解码）；页面级冒烟由
+tests/test_app_smoke.py（AppTest）与 Playwright E2E 分层覆盖。
 """
 from __future__ import annotations
+
+from pathlib import Path
 
 import pytest
 
@@ -12,6 +14,16 @@ from frontend import charts
 from frontend.components import mastery_bar_html, mastery_fill_html, safe_call
 from frontend.i18n import t
 from frontend.nav import GROUP_LABELS, PAGE_KEYS, PAGES, resolve_label
+from frontend.query_state import (
+    PARAM_NAMES,
+    SORT_OPTIONS,
+    VIEW_OPTIONS,
+    WIDGET_KEYS,
+    decode_filters,
+    encode_filters,
+)
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent
 
 # ---------- 导航注册表不变量 ----------
 
@@ -138,3 +150,115 @@ def test_safe_call_degrades_on_exception():
     ok, result = safe_call(_boom, error_title="加载失败")
     assert ok is False
     assert result is None
+
+
+# ---------- query_state：URL 参数 schema 与编解码 ----------
+
+def test_query_state_declares_eleven_nb_params():
+    assert PARAM_NAMES == (
+        "nb_kw",
+        "nb_tag",
+        "nb_sort",
+        "nb_view",
+        "nb_sem",
+        "nb_due",
+        "nb_mastered",
+        "nb_weak",
+        "nb_starred",
+        "nb_student",
+        "nb_page",
+    )
+    assert len(set(WIDGET_KEYS)) == len(PARAM_NAMES) == 11
+
+
+def test_query_state_defaults_encode_to_empty_url():
+    """默认值不写 URL：默认筛选的编码结果为空 dict。"""
+    filters = decode_filters({})
+    assert filters["keyword"] == ""
+    assert filters["tag"] == "全部"
+    assert filters["sort"] == SORT_OPTIONS[0]
+    assert filters["view"] == VIEW_OPTIONS[0]
+    assert filters["semantic"] is True
+    assert filters["only_due"] is False
+    assert filters["page"] == 0
+    assert filters["student"] == "全部学生"
+    assert encode_filters(filters) == {}
+
+
+def test_query_state_encode_only_non_defaults():
+    encoded = encode_filters(
+        {
+            "keyword": "二次函数",
+            "semantic": False,
+            "only_starred": True,
+            "page": 2,
+        }
+    )
+    assert encoded == {
+        "nb_kw": "二次函数",
+        "nb_sem": "0",
+        "nb_starred": "1",
+        "nb_page": "2",
+    }
+
+
+def test_query_state_decode_roundtrip_keeps_meaningful_params():
+    params = {
+        "nb_kw": "函数",
+        "nb_sort": "掌握度最低",
+        "nb_view": "🔲",
+        "nb_due": "1",
+        "nb_page": "3",
+        "nb_student": "demo",
+        "nb_sem": "0",
+    }
+    filters = decode_filters(params)
+    assert filters["keyword"] == "函数"
+    assert filters["sort"] == "掌握度最低"
+    assert filters["view"] == "🔲"
+    assert filters["only_due"] is True
+    assert filters["semantic"] is False
+    assert filters["page"] == 3
+    assert filters["student"] == "demo"
+    assert encode_filters(filters) == params
+
+
+def test_query_state_decode_invalid_values_fall_back_to_defaults():
+    """非法值回退：枚举外取默认、非法布尔回退、负页码归零。"""
+    filters = decode_filters(
+        {
+            "nb_sort": "javascript:alert(1)",
+            "nb_view": "card",
+            "nb_sem": "yes",
+            "nb_due": "2",
+            "nb_page": "-3",
+        }
+    )
+    assert filters["sort"] == SORT_OPTIONS[0]
+    assert filters["view"] == VIEW_OPTIONS[0]
+    assert filters["semantic"] is True
+    assert filters["only_due"] is False
+    assert filters["page"] == 0
+
+
+def test_query_state_decode_handles_non_string_and_lists():
+    """parse_qs 风格列表取最后一个；非字符串值强转 str；空列表回退。"""
+    filters = decode_filters({"nb_kw": ["a", "b"], "nb_page": ["2"], "nb_tag": []})
+    assert filters["keyword"] == "b"
+    assert filters["page"] == 2
+    assert filters["tag"] == "全部"
+    assert decode_filters({"nb_kw": 42})["keyword"] == "42"
+    assert decode_filters(None)["keyword"] == ""
+
+
+# ---------- review.py fragment 化防回潮 ----------
+
+def test_review_page_has_no_fragment_scoped_rerun():
+    """整页上下文调用 st.rerun(scope="fragment") 必抛
+    StreamlitInvalidLayoutContextError——review.py 必须保持零 scope=fragment。"""
+    source = (_REPO_ROOT / "frontend" / "pages" / "review.py").read_text(
+        encoding="utf-8"
+    )
+    assert 'scope="fragment"' not in source
+    assert "scope='fragment'" not in source
+    assert "@st.fragment" in source, "评分卡片区 fragment 化不应被移除"
