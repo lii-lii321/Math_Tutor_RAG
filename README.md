@@ -8,7 +8,7 @@
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.49%2B-ff4b4b)
 ![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-d71f00)
 ![ChromaDB](https://img.shields.io/badge/RAG-ChromaDB-4051b5)
-![Tests](https://img.shields.io/badge/tests-402%20collected-2ea44f)
+![Tests](https://img.shields.io/badge/tests-439%20collected-2ea44f)
 [![CI](https://github.com/lii-lii321/Math_Tutor_RAG/actions/workflows/ci.yml/badge.svg)](https://github.com/lii-lii321/Math_Tutor_RAG/actions/workflows/ci.yml)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -34,7 +34,9 @@
 | 📅 **学习日历** | 90 天热力图 + 复习正确率趋势 + 掌握度成长曲线 + 连续学习打卡 + 周报环比 |
 | ⌨️ **高效复习** | 键盘快捷键（空格/1-4）、评分间隔预览、跳过、掌握归档（🏆）、复习历史 |
 | 🌙 **体验细节** | 深色模式、每日目标与里程碑徽章、移动端适配（≤768px 响应式 + 44px 触控目标）、PWA 可安装、OCR 原图搜索（可选）、MUJI 极简界面 |
-| 🧪 **工程化** | pytest 收集到 423 个用例（四层：单测 / API / AppTest 进程内冒烟 / Playwright E2E）、ruff、import-linter 分层门禁、覆盖率 CI 门禁 75%、检索金标集持续回归、CI（lint + 3 版本矩阵 + 启动冒烟 + E2E + Docker）、Alembic 迁移（13 个版本）、Docker Compose 一键部署、RAG 检索离线评测（Recall@K / MRR / NDCG）与 AI Tutor 评测（LLM-as-judge）、AI 遥测 |
+| 🧪 **工程化** | pytest 收集到 439 个用例（四层：单测 / API / AppTest 进程内冒烟 / Playwright E2E）、ruff、import-linter 分层门禁、覆盖率 CI 门禁 75%、检索金标集持续回归、CI（lint + 3 版本矩阵 + 启动冒烟 + E2E + Docker）、Alembic 迁移（13 个版本）、Docker Compose 一键部署、RAG 检索离线评测（Recall@K / MRR / NDCG）与 AI Tutor 评测（LLM-as-judge）、AI 遥测 |
+| 🔗 **筛选进 URL + 全局搜索** | 错题本筛选/视图/页码随 URL 可分享（穿登录可达、离开即清）；侧边栏全局搜索一次直达错题本结果（v2.14） |
+| 💾 **完整备份** | 一键 zip 备份题目 + 原图 + SM-2 进度 + 复习日志，导入图片按新属主 key 重建、逐字段恢复不丢进度（v2.16） |
 
 ## 🏗️ 架构 (Architecture)
 
@@ -232,11 +234,14 @@ Math_Tutor_RAG/
 │   │   ├── stats.py           # 标签统计 / 掌握度 / 活跃度
 │   │   ├── auth.py            # 认证服务
 │   │   ├── export.py          # Word 组卷导出
+│   │   ├── milestone.py       # 每日目标 + 里程碑引擎（激励）
+│   │   ├── full_backup.py     # 完整备份 zip（题目+原图+进度+日志）
 │   │   └── question_service.py# 错题编排服务（界面层唯一入口）
 │   └── utils/                 # 日志 / 密码哈希
 ├── frontend/
 │   ├── pages/                 # auth / dashboard / tutor / notebook / review / settings
 │   ├── common.py              # 样式、缓存、公共组件
+│   ├── query_state.py         # 错题本筛选的 URL 参数编解码（纯函数）
 │   └── assets/style.css       # MUJI 极简主题
 ├── tests/                     # pytest 测试套件
 ├── docs/ARCHITECTURE.md       # 架构决策说明

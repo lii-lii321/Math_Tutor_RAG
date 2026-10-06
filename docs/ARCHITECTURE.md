@@ -116,3 +116,19 @@ SQLite / MySQL / PostgreSQL  +  ChromaDB  +  文件存储
 - **班级多租户**（v2.7，简化形态：单组织、班级即可见性单元）：`classes` / `class_members` 两表（迁移 `55c91901b5d9`）+ `ClassService` 与 5 个管理端点（仅教师可操作，403 兜底）；教师建班后，语义检索范围与学生总览收紧为「自己班级的学生」，未建班教师保持旧的「全部学生」行为，向后兼容。
 - **掌握度引擎**（v2.4）：`knowledge_points` 表 + 多对多关联（迁移 `b09bda59c235`）落地规范化知识点模型；`MasteryEngine`（`backend/services/mastery.py`）按复习日志时间加权计算单题 / 知识点掌握度（见 §4），并生成「SM-2 到期优先 + 薄弱知识点加固」的今日计划（条目带推荐理由与优先级）；老数据首次访问自动补建关联，后续版本在其上叠加错题本薄弱筛选与掌握度角标（`mastery_by_question` 复用同一加权公式）与计划模式；学情看板与知识图谱着色的标签级掌握度则走 stats.py 的轻量启发式（见 §4 口径说明）。
 - **数据体检**（v2.9，`backend/services/data_health.py`）：一键核对三类真实使用中最常见的数据漂移——向量索引缺失（语义搜索召回不到）、向量索引残留（题目已删索引还在）、孤儿图片文件；支持一键修复（重建缺失索引 + 清理残留 + 可选清理孤儿图片，仅作用于本人数据），配套 `QuestionVectorStore.indexed_ids_for_user()`。
+
+## 12. v2.14 → v2.18 演进要点
+
+- **错题本筛选进 URL 与迁移门控**（v2.14，`frontend/query_state.py`）：11 个 `nb_*` 参数（关键词/标签/排序/视图/语义/四个筛选 toggle/学生/页码）由纯函数编解码（不依赖 streamlit，单测直测），口径为「URL → 实例化前种 session_state → 控件 → on_change 回调写回」，默认值不写 URL、非法值回退默认；生命周期走迁移门控——app.py 记 `_last_page`，仅「离开错题本」那一帧清 URL 参数与控件会话键，首帧不清理（带参 URL 未登录打开 → 登录 → 进错题本筛选仍生效），同页重跑不清理。复习卡片区（进度/题卡/解析/评分/跳过）包 `@st.fragment`，「显示解析」「跳过」只重跑片段，评分保留整页 rerun 保侧边栏徽标准确；全库禁用 `st.rerun(scope="fragment")`（整页上下文调用必抛 StreamlitInvalidLayoutContextError，单测 grep 防回潮）。
+- **激励系统与用户级配置**（v2.15，迁移 `7d1e5c49ab02`）：`users.daily_goal` 可空列（NULL 回退 `get_settings().daily_goal`，保留 env 语义）+ `user_milestones` 表（`(user_id, code)` 唯一，每枚里程碑每用户至多一条）；`backend/services/milestone.py` 的 `evaluate` 复用 dashboard_stats 统计（total/mastered/streak）免二次查询，先查已达成集合仅插新增保证幂等；看板渲染时补发新达成 toast（评分当下复习页不弹为既定语义）+ MUJI 徽章墙。
+- **完整备份双格式**（v2.16，`backend/services/full_backup.py`）：v1 JSON（题面文字，`export_user_data`/`import_user_data` 与 API 端点契约零改动）与 v2 zip（manifest 全字段 + 原图 + 复习日志）并存；v2 导入直写 ORM 恢复 SM-2 调度状态/星标/笔记/难度（修复 v1 只收 4 字段静默丢进度），图片**按新属主 key 重建**（原 key 内嵌原属主 id `images/u{user_id}/…`，直接复用会与原用户共享存储对象、被孤儿图清理连坐 404），zip slip 防护（拒绝绝对路径/盘符/`..`）、值域逐条跳过计数、image_hash + 内容指纹双重幂等。
+- **单语决策与死框架移除**（v2.17）：`frontend/i18n.py` 删除，nav 标签改 zh 字面量（与原 t() zh 输出逐字相同，零用户可见变化）；空状态手写 `.mm-empty` HTML 清零、收敛到 `common.empty_state` 原语；移动端为纯 CSS `@media (max-width: 768px)`（容器/卡片收紧、44px 触控目标），零 Python 布局改动。
+- **个人周报复用聚合**（v2.18，`weekly_report.build_for_user`）：窗口计算抽 `_window_bounds` 与班级版 build() 共用（days 夹取 1-31），单行聚合直接复用 `_student_row`/`_weak_tags`（正确率=good+easy 占比、overdue 排除已归档、薄弱标签看板同口径）；`render_markdown_self`/`generate_word_report_self` 无「学生」列、accuracy None →「—」空数据安全；看板惰性生成 + session_state 缓存。
+
+**明确不做**（逐项附理由）：
+
+- **复习评分的 fragment 余量**（队列行/批量操作条）：dashboard 四个跳转按钮（:328 hero / :414 队列行 / :416 全部 / :432 薄弱标签）全为页面跳转、notebook 批量操作后本需全量刷新，无可省重算，包 fragment 无收益（评分卡片区已于 v2.14 完成 0→1）。
+- **Anki 导出**：需引入 genanki 新依赖（装包与维护风险），留末轮单独评估；当前 CSV/Word/JSON/zip 四种导出已覆盖主要场景。
+- **个人周报 API 端点**：班级版 `/api/classes/{id}/weekly-report` 模式可平移，但当前仅前端自查场景有需求，避免无消费方的接口面（列下批候选）。
+- **API zip 备份端点**：完整备份暂仅界面入口，二进制上传/下载涉及流式与鉴权细节，需求出现再加。
+- **OpenTelemetry 观测埋点**：现有 AI 遥测 + 结构化日志已覆盖当前排查需求，OTel SDK 侵入面大，保留在路线图。
