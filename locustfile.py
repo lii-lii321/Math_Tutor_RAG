@@ -1,9 +1,11 @@
-"""Locust 压测脚本：对 API 做读多写少的真实负载模拟。
+"""Locust 压测脚本：对 API 做读路径负载模拟（只读基准，不做写路径压测）。
 
 运行（需先启动 API + 已有 demo 账号）：
     locust -f locustfile.py --host http://localhost:8000 --headless -u 20 -r 5 -t 30s
 
-写操作刻意限频（每虚拟用户 ~1次/10s），读操作为主，避免测试数据爆炸。
+负载权重（读路径）：列表 6 : 看板 3 : 到期 2 : 掌握度 1 : 语义搜索 1 :
+完整备份 1 : 健康检查 1。写路径不入压测（20 VU 并发写会互相覆盖数据集，
+污染基准与开发库），登录端点也不压（bcrypt 刻意慢是记录在案的安全开销）。
 """
 from __future__ import annotations
 
@@ -56,6 +58,15 @@ class MathMasterUser(HttpUser):
             headers=self.headers,
             params={"keyword": keyword, "limit": 10},
             name="/api/questions?keyword [semantic]",
+        )
+
+    @task(1)
+    def export_full(self):
+        # 完整备份 zip：服务端实时生成（manifest+图片打包），属重低频读操作
+        self.client.get(
+            "/api/questions/export/full",
+            headers=self.headers,
+            name="/api/questions/export/full [zip]",
         )
 
     @task(1)
