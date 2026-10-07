@@ -2,6 +2,33 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/)。
 
+## [2.22.0] - 2026-10-07
+
+### 变更
+- **教师邀请码安全加固**（能力报告 §2.5 短板收口）：
+  - 新增 `backend/utils/invite.py` 纯函数 `verify_invite_code(candidate,
+    configured)`——比较前两侧 encode("utf-8") 后 secrets.compare_digest
+    （常量时间；str 形态对非 ASCII 字符抛 TypeError，bytes 化后中文明文码
+    如「教研组2024」可安全校验，修复否则注册 500 的隐患）；双语义：配置为
+    64 位 hex 视为 sha256 摘要比对 hexdigest，其他非空值明文比对；空配置
+    一律 False（fail-closed 保持）
+  - auth.py 教师注册明文 != 改调此函数（fail-closed 分支与拒绝文案不变）；
+    config 注释更新双语义与 64-hex 明文歧义记档；启动告警：明文模式（非空
+    非 64-hex）建议改存摘要（沿用 AUTH_SECRET 告警先例，空值不告警）
+- **配置与文档**：.env.example 补 TEACHER_INVITE_CODE= 键与双语义/轮换注释
+  （实测此前零此键）；DEPLOYMENT 新增 §8 教师邀请码小节（推荐存 sha256
+  摘要、轮换即改 env 重启、64-hex 明文歧义提醒），常见问题顺延为 §9
+- **测试**：tests/test_sprint_a.py 新增 8 例——纯函数 4 例（空配置
+  fail-closed、明文比对、64-hex 摘要语义含「摘要本身作候选不通过」的歧义
+  记档、非 ASCII 中文码无 TypeError）；服务层 4 例（sha256 配置正确明文
+  成功/错误拒绝、中文明文码成功/错误拒绝无 500）；既有明文 4 分支与 API
+  两分支回归全绿（conftest 明文码不破）
+- 明确不做维持：过期/轮换机制（env 重启即轮换）、refresh rotation
+  reuse-detection（需新表迁移）、邀请码暴力锁定（fail-closed+登录限流已
+  覆盖）、comment_service viewer_id=None 旧路径（另议）；零 URL 外呼、
+  零迁移；tests 仅用假码/自算摘要，无可用凭据字面量
+- 全量 pytest 实测 474 passed + 8 skipped（+8）；Alembic heads 保持单链
+
 ## [2.21.0] - 2026-10-07
 
 ### 变更

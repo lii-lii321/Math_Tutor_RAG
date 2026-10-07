@@ -165,7 +165,16 @@ EMBEDDING_MODEL=BAAI/bge-m3
   `GET/POST /api/questions/export/full`、`/import/full`，含图片与复习进度）
 - 题目原图存于 `data/images/`，向量库存于 `data/chroma/`；Docker 部署时两者均在数据卷内，直接备份卷即可
 
-## 8. 常见问题
+## 8. 教师邀请码（TEACHER_INVITE_CODE）
+
+教师自助注册默认关闭（配置为空 = fail-closed）。配置后注册教师必须携带匹配的 invite_code，比较为常量时间 bytes 比对（非 ASCII 中文码安全）。
+
+- **推荐存 sha256 摘要**（配置值为 64 位 hex 时自动按摘要语义比对）：
+  `python -c "import hashlib;print(hashlib.sha256('你的邀请码'.encode()).hexdigest())"`，把输出粘到 `TEACHER_INVITE_CODE=`——泄露配置文件不会泄露码本身。
+- **轮换**：改 `TEACHER_INVITE_CODE` 并重启进程即生效（无状态，无数据库迁移）。
+- **64-hex 明文歧义提醒**：若把 64 位 hex 字符串当明文码配置，会被按摘要语义比对（候选码需 sha256 后等于该值才通过）——明文模式请避免 64-hex 字符串。
+
+## 9. 常见问题
 
 | 现象 | 处理 |
 |---|---|

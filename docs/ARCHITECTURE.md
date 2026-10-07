@@ -127,6 +127,7 @@ SQLite / MySQL / PostgreSQL  +  ChromaDB  +  文件存储
 - **完整备份 API 双端点**（v2.19，commit `7642db9`）：`GET /api/questions/export/full`（application/zip + Content-Disposition）与 `POST /api/questions/import/full`（UploadFile，超 100MB 413、非法包 422，返回五计数）——路由注册在 `/{question_id}` 之前防路径参数捕获；此前「暂仅界面入口」的边界就此收口。
 - **Anki 牌组导出**（v2.20，`backend/services/anki_export.py` + 硬依赖 genanki>=0.13）：deck_id/model_id 固定随机 int（Anki 端按 id 合并），note guid 取 sha256(content|answer) 指纹（与完整备份 `_fingerprint` 同源，重导出更新原卡不堆积）；正面原图优先经 storage materialize 双后端取路径（缺失回退题面文字），背面解析+答案+标签；错题本导出区第四列惰性生成。
 - **AI 链路韧性**（v2.21）：AI 调用重试统一指数退避 + 抖动（`_retry_with_backoff`：0.5s 起翻倍封顶 4s + uniform 抖动，解析/拆题两处零退避循环收口，遥测与次数语义不变）；Agent 会话历史上界（`agent_history_max_messages` 默认 60，`_trim_history` 保留首条 system + 最近 N 条、切点对齐 user 边界防 tool 配对拆散）。
+- **教师邀请码安全加固**（v2.22，`backend/utils/invite.py`）：`verify_invite_code` 常量时间 bytes 比较（secrets.compare_digest，两侧 utf-8 编码——中文明文码安全），双语义存储（64-hex 配置按 sha256 摘要比对，其他非空值明文），空配置 fail-closed；启动时明文模式告警建议改存摘要（轮换 = 改 env 重启）。
 
 **明确不做**（逐项附理由）：
 

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from backend.config import get_settings
 from backend.models.schemas import LoginResult, RegisterInput
 from backend.repositories.users import UserRepository
+from backend.utils.invite import verify_invite_code
 from backend.utils.logging import get_logger
 from backend.utils.rate_limit import InMemoryRateLimiter, RateLimiter
 from backend.utils.security import verify_password
@@ -52,7 +53,8 @@ class AuthService:
             if not invite:
                 logger.warning("教师注册被拒绝（未配置邀请码）: %s", data.username)
                 return LoginResult(ok=False, message="教师注册已关闭：请配置 TEACHER_INVITE_CODE 或联系管理员")
-            if data.invite_code.strip() != invite:
+            # 双语义校验（明文 / sha256 摘要）：常量时间 bytes 比较，非 ASCII 码安全
+            if not verify_invite_code(data.invite_code.strip(), invite):
                 logger.warning("教师注册邀请码不匹配: %s", data.username)
                 return LoginResult(ok=False, message="教师邀请码不正确")
         try:

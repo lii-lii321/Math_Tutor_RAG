@@ -12,6 +12,7 @@ from typing import Literal
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from backend.utils.invite import _is_sha256_hex
 from backend.utils.logging import get_logger
 
 logger = get_logger("config")
@@ -30,7 +31,7 @@ class Settings(BaseSettings):
 
     # ---------- 应用 ----------
     app_name: str = "MathMaster Edu"
-    app_version: str = "2.21.0"
+    app_version: str = "2.22.0"
     # 每日复习目标（题/天），看板进度环 + 达成提示
     daily_goal: int = Field(default=10, ge=1, le=200)
     debug: bool = False
@@ -52,8 +53,10 @@ class Settings(BaseSettings):
     seed_admin_password: str = "admin123"
     seed_demo_username: str = "demo"
     seed_demo_password: str = "demo123"
-    # 教师自助注册邀请码：留空 = 关闭教师自助注册（防止越权读取全体学生数据）；
-    # 配置后注册时必须携带匹配的 invite_code
+    # 教师自助注册邀请码：留空 = 关闭教师自助注册（防止越权读取全体学生数据）。
+    # 双语义：64 位 hex 视为 sha256 摘要（推荐，泄露配置不泄露码本身）；
+    # 其他非空值为明文比对（明文请避免 64-hex 字符串，会被按摘要语义比对）。
+    # 配置后注册时必须携带匹配的 invite_code（非 ASCII 中文码安全）。
     teacher_invite_code: str = ""
 
     # ---------- API 网关 (JWT) ----------
@@ -154,5 +157,12 @@ def get_settings() -> Settings:
         logger.warning(
             "检测到默认 AUTH_SECRET——JWT 可被任意伪造，仅限本地开发；"
             "生产部署请通过 AUTH_SECRET 环境变量设置强随机密钥（>= 32 字节）！"
+        )
+    if settings.teacher_invite_code and not _is_sha256_hex(settings.teacher_invite_code):
+        # 沿用 AUTH_SECRET 告警先例：只告警不拒启；空值（关闭教师注册）不告警
+        logger.warning(
+            "TEACHER_INVITE_CODE 为明文模式——建议改存 sha256 摘要"
+            "（python -c \"import hashlib;print(hashlib.sha256('你的邀请码'.encode()).hexdigest())\"），"
+            "泄露配置文件时不泄露码本身；明文请避免 64 位 hex 字符串（会被按摘要语义比对）"
         )
     return settings

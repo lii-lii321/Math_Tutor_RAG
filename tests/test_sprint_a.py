@@ -1,6 +1,7 @@
 """Sprint A P0 回归测试：教师邀请码、验证器 uncertain 聚合、备份导入幂等。"""
 from __future__ import annotations
 
+import hashlib
 import uuid
 from types import SimpleNamespace
 
@@ -9,6 +10,7 @@ import pytest
 from backend.database import SessionLocal, init_db
 from backend.models.orm import User
 from backend.services.auth import AuthService
+from backend.utils.invite import verify_invite_code
 
 
 @pytest.fixture
@@ -162,3 +164,67 @@ class TestImportIdempotency:
         again = service.import_user_data(u2.id, backup)
         assert again == 0, "第二次导入必须幂等跳过"
         assert len(service.list_questions(u2.id, semantic=False)) == 1
+
+
+class TestInviteCodePureFunction:
+    """verify_invite_code 纯函数：双语义、fail-closed、非 ASCII 安全。"""
+
+    def test_empty_configured_fail_closed(self):
+        assert verify_invite_code("anything", "") is False
+        assert verify_invite_code("", "") is False
+
+    def test_plaintext_mode_compare(self):
+        assert verify_invite_code("right", "right") is True
+        assert verify_invite_code("wrong", "right") is False
+
+    def test_64hex_configured_treated_as_sha256_digest(self):
+        configured = hashlib.sha256(b"invite-secret").hexdigest()
+        assert len(configured) == 64
+        assert verify_invite_code("invite-secret", configured) is True
+        assert verify_invite_code("wrong", configured) is False
+        # 摘要语义：把 64-hex 摘要本身当候选码并不通过（明文歧义已记档）
+        assert verify_invite_code(configured, configured) is False
+
+    def test_non_ascii_chinese_code_no_type_error(self):
+        """中文明文码 bytes 化常量时间比较：无 TypeError（阻断修正回归）。"""
+        configured = "教研组2024"
+        assert verify_invite_code("教研组2024", configured) is True
+        assert verify_invite_code("教研组2025", configured) is False
+
+
+class TestTeacherInviteHashAndChineseMode:
+    def _register(self, db, monkeypatch, invite_code: str, invite_env: str):
+        from backend.models.schemas import RegisterInput
+        from backend.services import auth as auth_module
+
+        stub = SimpleNamespace(teacher_invite_code=invite_env, bcrypt_rounds=4)
+        monkeypatch.setattr(auth_module, "get_settings", lambda: stub)
+        payload = RegisterInput(
+            username=f"ti_{uuid.uuid4().hex[:8]}",
+            password="secret1",
+            role="teacher",
+            invite_code=invite_code,
+        )
+        return AuthService(db).register(payload)
+
+    def test_hash_mode_correct_digest_accepted(self, db, monkeypatch):
+        digest = hashlib.sha256(b"invite-secret").hexdigest()
+        result = self._register(db, monkeypatch, "invite-secret", digest)
+        assert result.ok is True
+        assert result.role == "teacher"
+
+    def test_hash_mode_wrong_code_rejected(self, db, monkeypatch):
+        digest = hashlib.sha256(b"invite-secret").hexdigest()
+        result = self._register(db, monkeypatch, "wrong", digest)
+        assert result.ok is False
+        assert "邀请码不正确" in result.message
+
+    def test_chinese_plaintext_code_accepted(self, db, monkeypatch):
+        result = self._register(db, monkeypatch, "教研组2024", "教研组2024")
+        assert result.ok is True
+        assert result.role == "teacher"
+
+    def test_chinese_plaintext_wrong_code_rejected_without_500(self, db, monkeypatch):
+        result = self._register(db, monkeypatch, "错误码", "教研组2024")
+        assert result.ok is False
+        assert "邀请码不正确" in result.message
