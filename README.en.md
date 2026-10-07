@@ -13,10 +13,13 @@ Take a photo of a wrong answer, and let AI do the rest: the problem is recognize
 | ✅ **Math verification** | AI answers are checked deterministically with SymPy (solution substitution, derivative inverse) before being stored |
 | 🧠 **RAG retrieval** | ChromaDB vector store: similar-question recall ("learn by analogy") and semantic search over your notebook, with automatic fallback to keyword search |
 | 🤖 **Agent + MCP** | A tool-use chat agent (function-calling loop) plus an MCP server so Claude Desktop / Cursor can query the notebook directly (13 tools) |
-| 🎯 **Mastery & spaced repetition** | Time-weighted mastery per topic from review logs, an adaptive daily plan (SM-2 due first + weak-topic reinforcement), and SM-2 flashcard review |
+| 📊 **Dashboard & weekly report** | Mastery distribution, weak-topic Top N, 14-day entry trend, learning calendar heatmap — plus a self-service weekly report (7/14/30-day windows) with Markdown preview and Word export (v2.18) |
+| 🎯 **Mastery & spaced repetition** | Time-weighted mastery per topic from review logs, an adaptive daily plan (SM-2 due first + weak-topic reinforcement), SM-2 flashcard review, plus a user-set daily goal and milestone badges (v2.15) |
 | 👨‍🏫 **Teacher side** | Class management and per-student overviews (question volume, due reviews, mastery, recent activity) |
 | 🔌 **FastAPI gateway** | REST API sharing the same backend services as the Streamlit UI: JWT with access + refresh tokens, OpenAPI docs, async parsing jobs (in-process threads by default, Redis/RQ optional) |
-| 🧪 **Engineering** | pytest (287 collected tests) + Playwright E2E, ruff, CI (lint + Python 3.10–3.12 matrix + smoke + E2E + Docker), 11 Alembic migrations, Docker Compose deployment, SQLite default (PostgreSQL 16 compatibility validated via `DATABASE_URL`) |
+| 💾 **Full backup** | One-click zip backup: questions + original images + SM-2 progress + stars/notes + review logs; import restores every field and rebuilds images under a new owner key; legacy JSON import still supported (without images) (v2.16) |
+| 🌙 **UX details** | Dark mode, mobile-responsive layout (≤768px) with 44px touch targets (v2.17), shareable notebook filters via URL + sidebar global search (v2.14), PWA installable |
+| 🧪 **Engineering** | pytest (439 collected tests) + Playwright E2E, ruff, import-linter layering gate, CI (lint + Python 3.10–3.12 matrix + coverage gate 75% + smoke + E2E + Docker), 13 Alembic migrations, Docker Compose deployment, SQLite default (PostgreSQL 16 compatibility validated via `DATABASE_URL`) |
 
 ## Quick Start
 

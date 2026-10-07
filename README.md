@@ -3,6 +3,8 @@
 > **让错题管理像呼吸一样简单。** 拍照录入 → AI 结构化解析 → 数学验证 → 向量归档 → 掌握度画像 → 自适应复习。
 >
 > A production-grade Smart Wrong-Question Notebook powered by a Vision LLM, RAG retrieval, math verification, mastery tracking, and spaced-repetition scheduling.
+>
+> 🌐 英文版（English, condensed）：[README.en.md](README.en.md)
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776ab)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.49%2B-ff4b4b)
