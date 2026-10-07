@@ -124,11 +124,11 @@ SQLite / MySQL / PostgreSQL  +  ChromaDB  +  文件存储
 - **完整备份双格式**（v2.16，`backend/services/full_backup.py`）：v1 JSON（题面文字，`export_user_data`/`import_user_data` 与 API 端点契约零改动）与 v2 zip（manifest 全字段 + 原图 + 复习日志）并存；v2 导入直写 ORM 恢复 SM-2 调度状态/星标/笔记/难度（修复 v1 只收 4 字段静默丢进度），图片**按新属主 key 重建**（原 key 内嵌原属主 id `images/u{user_id}/…`，直接复用会与原用户共享存储对象、被孤儿图清理连坐 404），zip slip 防护（拒绝绝对路径/盘符/`..`）、值域逐条跳过计数、image_hash + 内容指纹双重幂等。
 - **单语决策与死框架移除**（v2.17）：`frontend/i18n.py` 删除，nav 标签改 zh 字面量（与原 t() zh 输出逐字相同，零用户可见变化）；空状态手写 `.mm-empty` HTML 清零、收敛到 `common.empty_state` 原语；移动端为纯 CSS `@media (max-width: 768px)`（容器/卡片收紧、44px 触控目标），零 Python 布局改动。
 - **个人周报复用聚合**（v2.18，`weekly_report.build_for_user`）：窗口计算抽 `_window_bounds` 与班级版 build() 共用（days 夹取 1-31），单行聚合直接复用 `_student_row`/`_weak_tags`（正确率=good+easy 占比、overdue 排除已归档、薄弱标签看板同口径）；`render_markdown_self`/`generate_word_report_self` 无「学生」列、accuracy None →「—」空数据安全；看板惰性生成 + session_state 缓存。
+- **完整备份 API 双端点**（v2.19，commit `7642db9`）：`GET /api/questions/export/full`（application/zip + Content-Disposition）与 `POST /api/questions/import/full`（UploadFile，超 100MB 413、非法包 422，返回五计数）——路由注册在 `/{question_id}` 之前防路径参数捕获；此前「暂仅界面入口」的边界就此收口。
+- **Anki 牌组导出**（v2.20，`backend/services/anki_export.py` + 硬依赖 genanki>=0.13）：deck_id/model_id 固定随机 int（Anki 端按 id 合并），note guid 取 sha256(content|answer) 指纹（与完整备份 `_fingerprint` 同源，重导出更新原卡不堆积）；正面原图优先经 storage materialize 双后端取路径（缺失回退题面文字），背面解析+答案+标签；错题本导出区第四列惰性生成。
 
 **明确不做**（逐项附理由）：
 
 - **复习评分的 fragment 余量**（队列行/批量操作条）：dashboard 四个跳转按钮（:328 hero / :414 队列行 / :416 全部 / :432 薄弱标签）全为页面跳转、notebook 批量操作后本需全量刷新，无可省重算，包 fragment 无收益（评分卡片区已于 v2.14 完成 0→1）。
-- **Anki 导出**：需引入 genanki 新依赖（装包与维护风险），留末轮单独评估；当前 CSV/Word/JSON/zip 四种导出已覆盖主要场景。
 - **个人周报 API 端点**：班级版 `/api/classes/{id}/weekly-report` 模式可平移，但当前仅前端自查场景有需求，避免无消费方的接口面（列下批候选）。
-- **API zip 备份端点**：完整备份暂仅界面入口，二进制上传/下载涉及流式与鉴权细节，需求出现再加。
 - **OpenTelemetry 观测埋点**：现有 AI 遥测 + 结构化日志已覆盖当前排查需求，OTel SDK 侵入面大，保留在路线图。

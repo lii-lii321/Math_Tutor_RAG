@@ -2,6 +2,36 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/)。
 
+## [2.20.0] - 2026-10-07
+
+### 新增
+- **Anki 牌组导出 (.apkg)**（批 G 收官，backlog 最后一个功能项）：
+  `backend/services/anki_export.py` 的 `generate_anki_deck(questions, *,
+  deck_name="MathMaster 错题本")`——deck_id/model_id 固定随机 int（Anki 端
+  按 id 合并，重导出更新而非堆积）；note guid 取 sha256(content|answer)
+  指纹（与完整备份 `_fingerprint` 同源，内容不变重导出更新原卡）；正面
+  原图优先（storage materialize 双后端同路径，缺失回退剥除 Markdown 的
+  题面前 220 字），背面 = 解析 + 答案 + 标签；空列表 ValueError
+- **requirements.txt 增硬依赖 genanki>=0.13**（不注释——测试与 CI 全量
+  要求必装；服务内惰性 import 仅作旧环境防御，缺失报错含 pip 安装提示）
+- **错题本导出区第四列**：「🃏 导出 Anki 牌组 (.apkg)」download_button
+  （help 注明 LaTeX 需 Anki 端 MathJax）；批量选中区不加
+- `_strip_markdown`（原 share_card.py 私有）提升为
+  `backend/utils/text.py` 公共 `strip_markdown`，share_card 改引用，
+  Anki 导出复用同一剥离口径
+- **测试**：新增 `tests/test_anki_export.py` 6 场景——.apkg 可 zipfile
+  打开含 collection.anki2 与 media 映射；guid 稳定（同内容重导出一致、
+  不同内容不同）；无图题零媒体且正面含题面文字；正面无 Markdown 残留；
+  空列表 ValueError；monkeypatch genanki 缺失报错含 pip 安装提示
+
+### 文档
+- 深度体验提升方案批 G 行 Anki 注记翻转为交付；ARCHITECTURE §12 Anki
+  从「明确不做」移入演进要点交付清单，API zip 备份端点条目更新为已交付
+  记录（v2.19）；README 中英文亮点行各补 Anki 导出
+- 全量 pytest 实测 448 passed + 5 skipped（+6）；Alembic heads 保持单链；
+  明确不做清单收窄为：fragment 余量（分析后不做）、个人周报 API 端点、
+  OpenTelemetry
+
 ## [2.19.0] - 2026-10-07
 
 ### 新增

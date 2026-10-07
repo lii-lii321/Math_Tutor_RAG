@@ -13,6 +13,7 @@ import os
 from PIL import Image, ImageDraw
 
 from backend.utils.logging import get_logger
+from backend.utils.text import strip_markdown as _strip_markdown
 
 logger = get_logger("share_card")
 
@@ -95,12 +96,6 @@ def _wrap(draw: ImageDraw.ImageDraw, text: str, font, max_width: int) -> list[st
         if current:
             lines.append(current)
     return lines or [""]
-
-
-def _strip_markdown(text: str) -> str:
-    for token in ("###", "**", "$$", "$", "`", "#"):
-        text = text.replace(token, "")
-    return text
 
 
 def _pill(

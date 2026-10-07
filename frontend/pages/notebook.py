@@ -1,10 +1,11 @@
-"""错题本：关键词 + 语义双路检索、编辑、批量管理、Word 导出。"""
+"""错题本：关键词 + 语义双路检索、编辑、批量管理、Word/PDF/Anki 导出。"""
 from __future__ import annotations
 
 import datetime as dt
 
 import streamlit as st
 
+from backend.services.anki_export import generate_anki_deck
 from backend.services.comment_service import CommentService
 from backend.services.export import generate_pdf_exam, generate_word_exam
 from backend.services.mastery import SHAKY_THRESHOLD, WEAK_THRESHOLD
@@ -454,7 +455,7 @@ def render_notebook_page(user: dict) -> None:
 
         st.markdown("<br>", unsafe_allow_html=True)
         if questions:
-            exp_col1, exp_col2, exp_col3 = st.columns(3)
+            exp_col1, exp_col2, exp_col3, exp_col4 = st.columns(4)
             with exp_col1:
                 redo_io = generate_word_exam(questions, "错题复习卷", mode="redo", answer_key=True)
                 st.download_button(
@@ -485,6 +486,16 @@ def render_notebook_page(user: dict) -> None:
                     mime="application/pdf",
                     width="stretch",
                     help="题目在前、卷末参考答案，任何设备可打开",
+                )
+            with exp_col4:
+                anki_io = generate_anki_deck(questions)
+                st.download_button(
+                    "🃏 导出 Anki 牌组 (.apkg)",
+                    data=anki_io,
+                    file_name=f"错题本_Anki_{dt.date.today():%Y%m%d}.apkg",
+                    mime="application/octet-stream",
+                    width="stretch",
+                    help="正面原图/题面、背面解析+答案+标签；重导出更新原卡不堆积；LaTeX 公式需 Anki 端安装 MathJax 渲染",
                 )
 
     if not questions:

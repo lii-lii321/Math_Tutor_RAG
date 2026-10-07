@@ -14,7 +14,7 @@ Take a photo of a wrong answer, and let AI do the rest: the problem is recognize
 | 🧠 **RAG retrieval** | ChromaDB vector store: similar-question recall ("learn by analogy") and semantic search over your notebook, with automatic fallback to keyword search |
 | 🤖 **Agent + MCP** | A tool-use chat agent (function-calling loop) plus an MCP server so Claude Desktop / Cursor can query the notebook directly (13 tools) |
 | 📊 **Dashboard & weekly report** | Mastery distribution, weak-topic Top N, 14-day entry trend, learning calendar heatmap — plus a self-service weekly report (7/14/30-day windows) with Markdown preview and Word export (v2.18) |
-| 🎯 **Mastery & spaced repetition** | Time-weighted mastery per topic from review logs, an adaptive daily plan (SM-2 due first + weak-topic reinforcement), SM-2 flashcard review, plus a user-set daily goal and milestone badges (v2.15) |
+| 🎯 **Mastery & spaced repetition** | Time-weighted mastery per topic from review logs, an adaptive daily plan (SM-2 due first + weak-topic reinforcement), SM-2 flashcard review, a user-set daily goal and milestone badges (v2.15), plus Anki deck export (.apkg, re-export updates existing cards) (v2.20) |
 | 👨‍🏫 **Teacher side** | Class management and per-student overviews (question volume, due reviews, mastery, recent activity) |
 | 🔌 **FastAPI gateway** | REST API sharing the same backend services as the Streamlit UI: JWT with access + refresh tokens, OpenAPI docs, async parsing jobs (in-process threads by default, Redis/RQ optional) |
 | 💾 **Full backup** | One-click zip backup: questions + original images + SM-2 progress + stars/notes + review logs; import restores every field and rebuilds images under a new owner key; legacy JSON import still supported (without images) (v2.16) |
