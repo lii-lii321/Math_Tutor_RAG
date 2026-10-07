@@ -19,7 +19,7 @@ Take a photo of a wrong answer, and let AI do the rest: the problem is recognize
 | 🔌 **FastAPI gateway** | REST API sharing the same backend services as the Streamlit UI: JWT with access + refresh tokens, OpenAPI docs, async parsing jobs (in-process threads by default, Redis/RQ optional) |
 | 💾 **Full backup** | One-click zip backup: questions + original images + SM-2 progress + stars/notes + review logs; import restores every field and rebuilds images under a new owner key; legacy JSON import still supported (without images) (v2.16) |
 | 🌙 **UX details** | Dark mode, mobile-responsive layout (≤768px) with 44px touch targets (v2.17), shareable notebook filters via URL + sidebar global search (v2.14), PWA installable |
-| 🧪 **Engineering** | pytest (439 collected tests) + Playwright E2E, ruff, import-linter layering gate, CI (lint + Python 3.10–3.12 matrix + coverage gate 75% + smoke + E2E + Docker), 13 Alembic migrations, Docker Compose deployment, SQLite default (PostgreSQL 16 compatibility validated via `DATABASE_URL`) |
+| 🧪 **Engineering** | pytest (464 collected tests) + Playwright E2E, ruff, import-linter layering gate, CI (lint + Python 3.10–3.12 matrix + coverage gate 78% + smoke + E2E + Docker), 13 Alembic migrations, Docker Compose deployment, SQLite default (PostgreSQL 16 compatibility validated via `DATABASE_URL`) |
 
 ## Quick Start
 

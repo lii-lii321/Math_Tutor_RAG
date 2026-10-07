@@ -77,3 +77,53 @@ def test_navigate_all_pages(page):
 def test_teacher_sees_students_overview(page):
     _login(page, "admin", "admin123")
     _goto(page, "学生总览", "学生总数")
+
+
+def test_notebook_url_filter_survives_reload(page):
+    """错题本关键词筛选写入 URL；浏览器刷新即新会话（登录态在 session），
+    重新登录后首帧不清理 URL，再进错题本从 URL 回种筛选——穿登录可达的
+    完整浏览器语义（AppTest 测不了，批 B 发布条件手动项自动化）。"""
+    _login(page, "demo", "demo123")
+    _goto(page, "错题本", "语义搜索")
+    keyword = "zz_reload_probe_zz"
+    search = page.get_by_placeholder("搜索错题（自然语言即可）")
+    search.fill(keyword)
+    search.press("Enter")
+    _wait_any_text(page, [f"搜索:{keyword}"], 20000)  # chip 回显 = 本轮已按关键词过滤
+    assert "nb_kw=" in page.url, "筛选后 URL 应携带 nb_kw"
+
+    page.reload()  # 刷新即新会话：回到登录页，但浏览器 URL 参数仍在
+    page.wait_for_selector("input", timeout=30000)
+    assert "nb_kw=" in page.url, "刷新后 URL 参数不应丢失"
+    inputs = page.locator('input[type="text"], input[type="password"]')
+    inputs.nth(0).fill("demo")
+    inputs.nth(1).fill("demo123")
+    page.get_by_role("button", name="登录", exact=True).first.click(force=True)
+    page.wait_for_selector("text=累计错题", timeout=30000)
+    assert "nb_kw=" in page.url, "登录后首帧（落看板）不应清理 URL 参数"
+
+    _goto(page, "错题本", f"搜索:{keyword}", 30000)  # 进错题本：从 URL 回种筛选
+    search_after = page.get_by_placeholder("搜索错题（自然语言即可）")
+    search_after.wait_for(state="visible", timeout=30000)
+    assert search_after.input_value() == keyword, "重进后搜索框应从 URL 回种关键词"
+
+
+def test_dashboard_milestone_badge_wall_visible(page):
+    """登录后看板渲染里程碑徽章墙区块（已达成 pill + 待解锁计数）。"""
+    _login(page, "demo", "demo123")
+    _wait_any_text(page, ["里程碑"], 30000)
+
+
+def test_settings_full_backup_button_visible_and_triggers(page):
+    """设置页「生成完整备份」按钮可见可触发：点击后 ZIP 下载按钮就绪。"""
+    _login(page, "demo", "demo123")
+    _goto(page, "设置", "账号")
+    generate_btn = page.get_by_role("button", name="生成完整备份")
+    generate_btn.wait_for(state="visible", timeout=30000)
+    generate_btn.click()
+    download_btn = page.get_by_role("button", name="导出完整备份 (ZIP)")
+    download_btn.wait_for(state="visible", timeout=30000)
+    deadline = time.monotonic() + 20  # 等下一次 rerun 把下载按钮置为可用
+    while time.monotonic() < deadline and not download_btn.is_enabled():
+        page.wait_for_timeout(500)
+    assert download_btn.is_enabled()

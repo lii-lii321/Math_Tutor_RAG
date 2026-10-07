@@ -37,7 +37,7 @@ jobs:
         env:
           AI_PROVIDER: mock
           RAG_ENABLED: "false"
-        run: pytest -q --cov=backend --cov=api --cov-report=term-missing --cov-fail-under=75
+        run: pytest -q --cov=backend --cov=api --cov-report=term-missing --cov-fail-under=78
 
   boot-smoke:
     runs-on: ubuntu-latest

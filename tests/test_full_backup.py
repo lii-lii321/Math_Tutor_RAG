@@ -253,3 +253,137 @@ def test_invalid_values_skipped_without_blocking(service, owner, receiver):
     restored = _orm_question(receiver.id)
     assert restored["content_markdown"] == "合法题：$1+1=?$"
     assert _orm_log_count(receiver.id) == 1  # 仅合法日志挂接
+
+
+def _zip_with_manifest(manifest: dict) -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False))
+    return buffer.getvalue()
+
+
+def _base_manifest() -> dict:
+    return {"format": "mathmaster-full-backup", "version": 2, "questions": [], "review_logs": []}
+
+
+def test_corrupt_manifest_json_raises(owner):
+    """manifest.json 不是有效 JSON → 明确 ValueError（覆盖率缺口分支）。"""
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("manifest.json", "{not valid json!!")
+    with pytest.raises(ValueError):
+        import_full_backup(owner.id, buffer.getvalue())
+
+
+def test_manifest_missing_questions_list_raises(owner):
+    manifest = _base_manifest()
+    manifest.pop("questions")
+    with pytest.raises(ValueError):
+        import_full_backup(owner.id, _zip_with_manifest(manifest))
+
+
+def test_missing_media_member_counts_and_restores_without_image(owner, receiver):
+    """image_ref 指向的成员不在包内 → missing_images 计数，题目照常无图恢复。"""
+    manifest = _base_manifest()
+    manifest["questions"] = [
+        {
+            "id": 7,
+            "content_markdown": "媒体成员缺失题",
+            "answer": "a",
+            "difficulty": "medium",
+            "image_ref": "images/q7.jpg",  # 包内没有该成员
+        }
+    ]
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("manifest.json", json.dumps(manifest))
+
+    result = import_full_backup(receiver.id, buffer.getvalue())
+    assert result["questions"] == 1
+    assert result["missing_images"] == 1
+    assert result["images"] == 0
+    restored = _orm_question(receiver.id)
+    assert restored["content_markdown"] == "媒体成员缺失题"
+    assert restored["image_path"] is None
+
+
+def test_suffixless_image_ref_falls_back_to_jpg(service, owner, receiver):
+    """image_ref 无后缀 → 新 key 回退 .jpg 后缀（后缀白名单兜底分支）。"""
+    from PIL import Image
+
+    image = Image.new("RGB", (6, 6), (1, 2, 3))
+    stream = io.BytesIO()
+    image.save(stream, format="JPEG")
+    manifest = _base_manifest()
+    manifest["questions"] = [
+        {
+            "id": 9,
+            "content_markdown": "无后缀图题",
+            "answer": "a",
+            "image_ref": "images/q9",  # 无后缀成员
+        }
+    ]
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("manifest.json", json.dumps(manifest))
+        archive.writestr("images/q9", stream.getvalue())
+
+    result = import_full_backup(receiver.id, buffer.getvalue())
+    assert result["images"] == 1
+    restored = _orm_question(receiver.id)
+    assert restored["image_path"].endswith(".jpg")
+
+
+def test_quality_invalid_log_skipped(owner, receiver):
+    """quality 不在 SM-2 集合 → 该日志跳过（覆盖率缺口分支）。"""
+    manifest = _base_manifest()
+    manifest["questions"] = [
+        {"id": 1, "content_markdown": "quality 非法题", "answer": "a"}
+    ]
+    manifest["review_logs"] = [
+        {"question_id": 1, "grade": "good", "quality": 2},  # 非法 quality
+        {"question_id": 1, "grade": "easy", "quality": 5},
+    ]
+    result = import_full_backup(receiver.id, _zip_with_manifest(manifest))
+    assert result["logs"] == 1
+    assert result["skipped"] == 1
+
+
+def test_empty_content_item_skipped(owner, receiver):
+    manifest = _base_manifest()
+    manifest["questions"] = [
+        {"id": 1, "content_markdown": "   ", "answer": "a"},  # 空内容
+    ]
+    result = import_full_backup(receiver.id, _zip_with_manifest(manifest))
+    assert result["questions"] == 0
+    assert result["skipped"] == 1
+
+
+def test_bad_id_item_falls_to_generic_skip(owner, receiver):
+    """id 非 int 的条目走通用异常兜底：跳过计数、不阻断整批。"""
+    manifest = _base_manifest()
+    manifest["questions"] = [
+        {"id": "not-an-int", "content_markdown": "坏 id 题", "answer": "a"},
+        {"id": 2, "content_markdown": "好题", "answer": "b"},
+    ]
+    result = import_full_backup(receiver.id, _zip_with_manifest(manifest))
+    assert result["questions"] == 1
+    assert result["skipped"] == 1
+
+
+def test_reindex_failure_degrades_without_blocking(owner, receiver, monkeypatch):
+    """向量索引重建失败 → 降级不阻断，导入计数不受影响。"""
+    from backend.services.question_service import QuestionService
+
+    def _boom(self, question):  # noqa: ANN001
+        raise RuntimeError("vector store down")
+
+    monkeypatch.setattr(QuestionService, "_reindex_owned", _boom)
+    manifest = _base_manifest()
+    manifest["questions"] = [
+        {"id": 1, "content_markdown": "索引降级题", "answer": "a"}
+    ]
+    result = import_full_backup(receiver.id, _zip_with_manifest(manifest))
+    assert result["questions"] == 1
+    restored = _orm_question(receiver.id)
+    assert restored["content_markdown"] == "索引降级题"

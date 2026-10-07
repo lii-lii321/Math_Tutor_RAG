@@ -343,6 +343,12 @@ def import_full_backup(user_id: int, payload: bytes) -> dict:
                         and _fingerprint(content, answer) in existing_fingerprints
                     ):
                         continue
+                    old_id = None
+                    if item.get("id") is not None:
+                        try:
+                            old_id = int(item["id"])  # 原 id 仅作日志挂接映射
+                        except (TypeError, ValueError) as exc:
+                            raise _SkipItem(f"id 非法: {item['id']!r}") from exc
                     image_path = None
                     image_ref = item.get("image_ref")
                     if image_ref:
@@ -360,8 +366,8 @@ def import_full_backup(user_id: int, payload: bytes) -> dict:
                         session.add(question)
                         session.flush()
                         new_id = question.id
-                    if item.get("id") is not None:
-                        id_map[int(item["id"])] = new_id
+                    if old_id is not None:
+                        id_map[old_id] = new_id
                     if image_hash:
                         existing_hashes.add(image_hash)
                     existing_fingerprints.add(_fingerprint(content, answer))
