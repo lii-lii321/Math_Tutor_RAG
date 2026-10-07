@@ -161,7 +161,8 @@ EMBEDDING_MODEL=BAAI/bge-m3
   扩展名自动分流（JSON→轻量恢复、ZIP→完整恢复），图片按新属主 key 重新
   落存储，local / S3 双后端同路径
 - **API**：`GET /api/questions/export`、`POST /api/questions/import`
-  （v1 JSON 契约，**不含图片**；完整备份暂仅界面入口，API 不另开 zip 端点）
+  （v1 JSON 契约，**不含图片**；完整备份自 v2.19 起开放 API 双端点
+  `GET/POST /api/questions/export/full`、`/import/full`，含图片与复习进度）
 - 题目原图存于 `data/images/`，向量库存于 `data/chroma/`；Docker 部署时两者均在数据卷内，直接备份卷即可
 
 ## 8. 常见问题

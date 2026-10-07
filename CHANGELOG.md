@@ -2,6 +2,35 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/)。
 
+## [2.19.0] - 2026-10-07
+
+### 新增
+- **完整备份 API 双端点**（薄封装 v2.16 FullBackup 服务，多端复用承诺闭环）：
+  - `GET /api/questions/export/full`：返回 application/zip（题目全字段 +
+    原图 + 复习日志），Content-Disposition
+    `mathmaster_full_backup_YYYYMMDD.zip`（仿 /export/csv 模式）；路由注册
+    于 `/{question_id}` 之前防 "export" 被当 int 路径参数捕获（测试钉住）
+  - `POST /api/questions/import/full`：async + UploadFile，超 100MB
+    （`_MAX_FULL_BACKUP_BYTES`）413，manifest/zip 非法 ValueError→422；
+    返回 `{questions, logs, images, missing_images, skipped}` 五计数
+- **测试**：新增 `tests/test_full_backup_api.py` 8 例——未认证 401×2、
+  导出 200 + Content-Disposition + zipfile 可开含 manifest.json、
+  A 建题带图+评分→导出→B 导入五计数（含新属主 key 与日志落库断言）、
+  重复导入幂等、损坏 bytes 与伪造 manifest 422、超限 413（monkeypatch
+  上限）、路由序防吞噬断言
+- 安全核对：两端点无服务端 URL 外呼（上传/下载均为用户主动行为，无
+  SSRF 面）；zip 解压安全由服务层 `_safe_member_name` 与 manifest
+  format/version 校验承接；SQL 全 ORM 参数绑定、数据严格本人作用域
+
+### 文档
+- README 已知限制行改写：完整备份已开 API 双端点（含图片与复习进度），
+  轻量 JSON 端点维持原状；亮点表 FastAPI 网关行补备份双端点一句；
+  DEPLOYMENT「API 不另开 zip 端点」句改写
+- 明确不做维持：Anki（genanki 装包风险）、OpenTelemetry（需基础设施）、
+  流式/分页导出（个人量级 BytesIO 足够）；纯新增端点 UI 零改动、
+  零迁移（heads 保持单链）
+- 全量 pytest 实测 442 passed + 5 skipped（+8）；Alembic heads 单链
+
 ## [2.18.0] - 2026-10-07
 
 ### 新增

@@ -1,5 +1,7 @@
-"""错题路由：列表 / AI 录题 / 文本录题 / 详情 / 编辑 / 删除 / 相似题。"""
+"""错题路由：列表 / AI 录题 / 文本录题 / 详情 / 编辑 / 删除 / 相似题 / 备份。"""
 from __future__ import annotations
+
+import datetime
 
 from fastapi import (
     APIRouter,
@@ -18,6 +20,7 @@ from api.deps import get_current_user, get_question_service, rate_limit
 from backend.models.orm import User
 from backend.models.schemas import QuestionAnalysis, QuestionOut
 from backend.services.export import generate_word_exam
+from backend.services.full_backup import export_full_backup, import_full_backup
 from backend.services.question_service import sanitize_tags
 from backend.utils.logging import get_logger
 
@@ -29,6 +32,8 @@ _AI_ANALYZE_ERROR_MESSAGE = "AI 解析失败，请稍后重试或改用文本录
 
 _ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp"}
 _MAX_IMAGE_BYTES = 10 * 1024 * 1024
+# 完整备份 zip 上限（个人量级：题目+原图+日志，100MB 足够并防滥用）
+_MAX_FULL_BACKUP_BYTES = 100 * 1024 * 1024
 
 
 class QuestionUpdate(BaseModel):
@@ -52,6 +57,14 @@ class AnalyzeResult(BaseModel):
 
 class ImportResult(BaseModel):
     imported: int
+
+
+class FullImportResult(BaseModel):
+    questions: int
+    logs: int
+    images: int
+    missing_images: int
+    skipped: int
 
 
 
@@ -228,6 +241,49 @@ def export_word_exam(
         content=stream.getvalue(),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={"Content-Disposition": 'attachment; filename="mathmaster_exam.docx"'},
+    )
+
+
+@router.get("/export/full")
+def export_full_backup_endpoint(user: User = Depends(get_current_user)) -> Response:
+    """导出当前用户完整备份 zip（题目全字段 + 原图 + 复习日志）。
+
+    注意：本路由必须注册在 ``/{question_id}`` 之前，否则 "export" 会被
+    当作 int 路径参数吞掉。
+    """
+    stream = export_full_backup(user.id)
+    filename = f"mathmaster_full_backup_{datetime.date.today():%Y%m%d}.zip"
+    return Response(
+        content=stream.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/import/full", response_model=FullImportResult)
+async def import_full_backup_endpoint(
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+) -> FullImportResult:
+    """从完整备份 zip 恢复（题目 + 原图按新属主 key 重建 + 复习日志）。"""
+    data = await file.read()
+    if not data:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "备份文件为空")
+    if len(data) > _MAX_FULL_BACKUP_BYTES:
+        raise HTTPException(
+            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            "完整备份不能超过 100MB",
+        )
+    try:
+        result = import_full_backup(user.id, data)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return FullImportResult(
+        questions=result["questions"],
+        logs=result["logs"],
+        images=result["images"],
+        missing_images=result["missing_images"],
+        skipped=result["skipped"],
     )
 
 
