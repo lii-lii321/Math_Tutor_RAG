@@ -3,7 +3,11 @@ from __future__ import annotations
 
 import abc
 import json
+import random
 import re
+import time
+from collections.abc import Callable
+from typing import TypeVar
 
 from backend.config import Settings, get_settings
 from backend.models.schemas import AIProviderInfo, QuestionAnalysis
@@ -11,6 +15,13 @@ from backend.services.ai.telemetry import track_ai_call
 from backend.utils.logging import get_logger
 
 logger = get_logger("ai")
+
+# 重试退避参数：0.5s 起逐次翻倍，封顶 4s，叠加均匀抖动避免惊群
+_BACKOFF_BASE_SECONDS = 0.5
+_BACKOFF_CAP_SECONDS = 4.0
+_BACKOFF_JITTER_SECONDS = 0.25
+
+T = TypeVar("T")
 
 SYSTEM_PROMPT = (
     "你是一位经验丰富、讲解亲切的数学老师。学生会上传一张写有数学错题的图片，"
@@ -64,6 +75,28 @@ def build_user_prompt(hint: str) -> str:
 
 class AIMessageError(RuntimeError):
     """模型未返回可解析的结构化结果。"""
+
+
+def _retry_with_backoff(op: str, fn: Callable[[], T], *, max_attempts: int) -> T:
+    """重试收口助手：逐次执行 fn，失败按指数退避 + 抖动 sleep 后重试。
+
+    延迟 = min(0.5 × 2^(attempt-1), 4s) + uniform(0, 0.25s)。失败次数、
+    遥测（fn 内 track_ai_call）与成功路径语义由调用方保持；耗尽次数后
+    抛出含尝试次数的 AIMessageError。
+    """
+    last_error: Exception | None = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return fn()
+        except Exception as exc:  # noqa: BLE001 - 超时/解析失败统一重试
+            last_error = exc
+            logger.warning("%s 第 %s 次失败: %s", op, attempt, exc)
+            if attempt < max_attempts:
+                delay = min(
+                    _BACKOFF_BASE_SECONDS * 2 ** (attempt - 1), _BACKOFF_CAP_SECONDS
+                ) + random.uniform(0, _BACKOFF_JITTER_SECONDS)
+                time.sleep(delay)
+    raise AIMessageError(f"{op}失败（已重试 {max_attempts} 次）: {last_error}")
 
 
 class BaseAIProvider(abc.ABC):
@@ -121,53 +154,48 @@ class BaseAIProvider(abc.ABC):
     def split_questions(self, text: str) -> list[dict]:
         """把结构化文档文本切分为独立错题（Word 导入场景，带重试）。
 
-        长文本生成 JSON 耗时较长，超时/解析失败最多重试 2 次。
+        长文本生成 JSON 耗时较长，超时/解析失败最多重试 2 次（指数退避+抖动）。
         """
-        last_error: Exception | None = None
-        for attempt in range(1, 3 + 1):
-            try:
-                with track_ai_call("split_questions") as ctx:
-                    raw = self.chat(
-                        [
-                            {"role": "system", "content": SPLIT_SYSTEM_PROMPT},
-                            {"role": "user", "content": build_split_prompt(text)},
-                        ]
-                    )
-                    candidate = extract_json_block(raw)
-                    ctx["ok"] = candidate is not None
-                if candidate is None or not isinstance(candidate.get("questions"), list):
-                    raise AIMessageError("模型未返回可解析的拆题结果")
-                questions = [
-                    q
-                    for q in candidate["questions"]
-                    if isinstance(q, dict) and q.get("content")
-                ]
-                if not questions:
-                    raise AIMessageError("拆题结果为空")
-                return questions
-            except Exception as exc:  # noqa: BLE001 - 超时/解析失败统一重试
-                last_error = exc
-                logger.warning("拆题第 %s 次失败: %s", attempt, exc)
-        raise AIMessageError(f"拆题失败（已重试）: {last_error}")
+
+        def _attempt() -> list[dict]:
+            with track_ai_call("split_questions") as ctx:
+                raw = self.chat(
+                    [
+                        {"role": "system", "content": SPLIT_SYSTEM_PROMPT},
+                        {"role": "user", "content": build_split_prompt(text)},
+                    ]
+                )
+                candidate = extract_json_block(raw)
+                ctx["ok"] = candidate is not None
+            if candidate is None or not isinstance(candidate.get("questions"), list):
+                raise AIMessageError("模型未返回可解析的拆题结果")
+            questions = [
+                q
+                for q in candidate["questions"]
+                if isinstance(q, dict) and q.get("content")
+            ]
+            if not questions:
+                raise AIMessageError("拆题结果为空")
+            return questions
+
+        return _retry_with_backoff("拆题", _attempt, max_attempts=3)
 
     def analyze_question(
         self, image_bytes: bytes, mime_type: str = "image/jpeg", hint: str = ""
     ) -> QuestionAnalysis:
-        """带重试的结构化错题解析。"""
+        """带重试（指数退避+抖动）的结构化错题解析。"""
         prompt = build_user_prompt(hint)
-        last_error: Exception | None = None
 
-        for attempt in range(1, self.settings.ai_max_retries + 1):
+        def _attempt() -> QuestionAnalysis:
             with track_ai_call("analyze_image") as ctx:
-                try:
-                    raw = self._complete(image_bytes, mime_type, prompt)
-                    analysis = parse_analysis(raw)
-                    ctx["ok"] = True
-                    return analysis
-                except Exception as exc:  # noqa: BLE001 - 统一进入重试
-                    last_error = exc
-                    logger.warning("AI 调用第 %s 次失败: %s", attempt, exc)
-        raise AIMessageError(f"AI 解析失败（已重试 {self.settings.ai_max_retries} 次）: {last_error}")
+                raw = self._complete(image_bytes, mime_type, prompt)
+                analysis = parse_analysis(raw)
+                ctx["ok"] = True
+                return analysis
+
+        return _retry_with_backoff(
+            "AI 解析", _attempt, max_attempts=self.settings.ai_max_retries
+        )
 
 
 def parse_analysis(raw: str) -> QuestionAnalysis:

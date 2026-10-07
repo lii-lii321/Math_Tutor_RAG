@@ -126,6 +126,7 @@ SQLite / MySQL / PostgreSQL  +  ChromaDB  +  文件存储
 - **个人周报复用聚合**（v2.18，`weekly_report.build_for_user`）：窗口计算抽 `_window_bounds` 与班级版 build() 共用（days 夹取 1-31），单行聚合直接复用 `_student_row`/`_weak_tags`（正确率=good+easy 占比、overdue 排除已归档、薄弱标签看板同口径）；`render_markdown_self`/`generate_word_report_self` 无「学生」列、accuracy None →「—」空数据安全；看板惰性生成 + session_state 缓存。
 - **完整备份 API 双端点**（v2.19，commit `7642db9`）：`GET /api/questions/export/full`（application/zip + Content-Disposition）与 `POST /api/questions/import/full`（UploadFile，超 100MB 413、非法包 422，返回五计数）——路由注册在 `/{question_id}` 之前防路径参数捕获；此前「暂仅界面入口」的边界就此收口。
 - **Anki 牌组导出**（v2.20，`backend/services/anki_export.py` + 硬依赖 genanki>=0.13）：deck_id/model_id 固定随机 int（Anki 端按 id 合并），note guid 取 sha256(content|answer) 指纹（与完整备份 `_fingerprint` 同源，重导出更新原卡不堆积）；正面原图优先经 storage materialize 双后端取路径（缺失回退题面文字），背面解析+答案+标签；错题本导出区第四列惰性生成。
+- **AI 链路韧性**（v2.21）：AI 调用重试统一指数退避 + 抖动（`_retry_with_backoff`：0.5s 起翻倍封顶 4s + uniform 抖动，解析/拆题两处零退避循环收口，遥测与次数语义不变）；Agent 会话历史上界（`agent_history_max_messages` 默认 60，`_trim_history` 保留首条 system + 最近 N 条、切点对齐 user 边界防 tool 配对拆散）。
 
 **明确不做**（逐项附理由）：
 

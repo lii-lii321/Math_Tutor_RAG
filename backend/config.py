@@ -30,7 +30,7 @@ class Settings(BaseSettings):
 
     # ---------- 应用 ----------
     app_name: str = "MathMaster Edu"
-    app_version: str = "2.20.1"
+    app_version: str = "2.21.0"
     # 每日复习目标（题/天），看板进度环 + 达成提示
     daily_goal: int = Field(default=10, ge=1, le=200)
     debug: bool = False
@@ -84,6 +84,9 @@ class Settings(BaseSettings):
     ai_temperature: float = Field(default=0.3, ge=0.0, le=2.0)
     ai_max_retries: int = Field(default=3, ge=1, le=10)
     ai_timeout_seconds: float = Field(default=90.0, gt=0)
+    # Agent 会话历史上界（条）：超出时裁剪为「首条 system + 最近 N 条」，
+    # 防长会话 token 无上界；服务端重建历史另有默认 20 条截断
+    agent_history_max_messages: int = Field(default=60, ge=10, le=200)
 
     # ---------- RAG / 向量库 ----------
     chroma_dir: Path = PROJECT_ROOT / "data" / "chroma"

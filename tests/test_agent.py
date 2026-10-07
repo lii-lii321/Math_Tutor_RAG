@@ -5,7 +5,7 @@ import json
 
 import pytest
 
-from backend.services.agent import AgentSession
+from backend.services.agent import AgentSession, _trim_history
 from backend.services.question_service import QuestionService
 
 
@@ -159,3 +159,89 @@ def test_agent_no_tool_turn_skips_citation_check(monkeypatch, agent_session):
     )
     reply = agent_session.chat("继续讲讲")
     assert "引用校验" not in reply
+
+
+# ---------- 会话历史窗口裁剪（v2.21） ----------
+
+def _msg(role: str, content: str = "x", **extra) -> dict:
+    message = {"role": role, "content": content}
+    message.update(extra)
+    return message
+
+
+def _system() -> dict:
+    return {"role": "system", "content": "sys"}
+
+
+def test_trim_history_short_history_unchanged():
+    """未超上界的历史原样返回（返回拷贝，不共享可变对象）。"""
+    history = [_system(), _msg("user", "你好"), _msg("assistant", "好的")]
+    trimmed = _trim_history(history, 60)
+    assert trimmed == history
+    assert trimmed is not history
+
+
+def test_trim_history_caps_long_history_with_system_head():
+    """100 条历史裁剪为 ≤ 60+1 条：首条保留 system、末条不丢、非 system ≤60。"""
+    history = [_system()]
+    for i in range(50):
+        history.append(_msg("user", f"u{i}"))
+        history.append(_msg("assistant", f"a{i}"))
+    trimmed = _trim_history(history, 60)
+    assert len(trimmed) <= 61
+    assert trimmed[0] == _system()
+    assert trimmed[-1] == history[-1]
+    assert sum(1 for m in trimmed if m["role"] != "system") <= 60
+
+
+def test_trim_history_cut_lands_on_user_boundary_no_orphan_pairs():
+    """切点对齐 user 边界：assistant(tool_calls) 与其 tool 结果不被拆散成孤儿对。"""
+    history = [_system()]
+    for i in range(40):
+        history.append(_msg("user", f"u{i}"))
+        history.append(
+            _msg(
+                "assistant",
+                None,
+                tool_calls=[
+                    {"id": f"c{i}", "type": "function",
+                     "function": {"name": "search_questions", "arguments": "{}"}}
+                ],
+            )
+        )
+        history.append(_msg("tool", "结果", tool_call_id=f"c{i}"))
+
+    trimmed = _trim_history(history, 60)
+    assert trimmed[0] == _system()
+    assert trimmed[1]["role"] == "user", "窗口首条非 system 消息必须是 user"
+    for i, message in enumerate(trimmed):
+        if message.get("tool_calls"):
+            assert i + 1 < len(trimmed) and trimmed[i + 1]["role"] == "tool"
+        if message["role"] == "tool":
+            assert i > 0 and trimmed[i - 1].get("tool_calls")
+
+
+def test_trim_history_is_pure_function():
+    """纯函数：不修改传入的 history（脱 Streamlit 可单测）。"""
+    history = [_system()] + [_msg("user", f"u{i}") for i in range(80)]
+    snapshot = [dict(m) for m in history]
+    _trim_history(history, 60)
+    assert [dict(m) for m in history] == snapshot
+
+
+def test_trim_history_without_system_head():
+    """无 system 头的退化输入：仍按窗口裁剪，孤儿对不出现。"""
+    history = [
+        _msg(
+            "assistant",
+            None,
+            tool_calls=[{"id": "c0", "type": "function",
+                         "function": {"name": "t", "arguments": "{}"}}],
+        ),
+        _msg("tool", "r", tool_call_id="c0"),
+        _msg("user", "u1"),
+        _msg("assistant", "a1"),
+    ]
+    trimmed = _trim_history(history, 2)
+    assert trimmed[-1] == history[-1]
+    assert trimmed[0]["role"] == "user"

@@ -65,6 +65,23 @@ def citation_warning(content: str, available_ids: set[int]) -> str:
     return f"\n\n> ⚠️ 引用校验：{listed} 未出现在本轮查询结果中，该引用可能不准确，请以实际检索为准。"
 
 
+def _trim_history(history: list[dict], max_messages: int) -> list[dict]:
+    """会话历史窗口裁剪（纯函数，不依赖 Streamlit，可脱机单测）。
+
+    保留首条 system + 最近 N 条非 system 消息；若窗口起点落在 assistant
+    （含 tool_calls）或 tool 消息上，向前推进到最近的 user 消息边界——
+    避免 assistant.tool_calls 与其 tool 结果被拆散成孤儿对。
+    """
+    if len(history) <= max_messages:
+        return list(history)
+    head = history[:1] if history and history[0].get("role") == "system" else []
+    window = history[len(head):][-max_messages:]
+    start = 0
+    while start < len(window) and window[start].get("role") != "user":
+        start += 1
+    return [*head, *window[start:]]
+
+
 def _annotate(content: str, tool_results: list[str]) -> str:
     """工具轮回复的引用校验；未调用工具的轮次不校验（历史上下文引用合法）。"""
     if not tool_results:
@@ -125,6 +142,9 @@ class AgentSession:
         """处理一条用户消息，返回 Agent 的最终文字回复（非流式）。"""
         entries: list[tuple[str, str, str | None]] = [("user", user_message, None)]
         self.history.append({"role": "user", "content": user_message})
+        self.history = _trim_history(
+            self.history, get_settings().agent_history_max_messages
+        )
 
         settings = get_settings()
         client = self._client()
@@ -186,6 +206,9 @@ class AgentSession:
         """
         entries: list[tuple[str, str, str | None]] = [("user", user_message, None)]
         self.history.append({"role": "user", "content": user_message})
+        self.history = _trim_history(
+            self.history, get_settings().agent_history_max_messages
+        )
         settings = get_settings()
         client = self._client()
         turn_tool_results: list[str] = []

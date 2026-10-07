@@ -2,6 +2,33 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/)。
 
+## [2.21.0] - 2026-10-07
+
+### 变更
+- **AI 链路韧性两件套**（能力报告 §2.4 两条诚实短板转已修复）：
+  - **重试指数退避+抖动**：base.py 新增私有 `_retry_with_backoff(op, fn,
+    max_attempts)` 助手——延迟 min(0.5×2^(attempt-1), 4s) + uniform(0, 0.25s)
+    抖动（模块常量）；`analyze_question` 与 `split_questions` 两处内联零退避
+    循环收口（失败次数、track_ai_call 遥测、最终 AIMessageError 含尝试次数
+    语义不变，只加 sleep）；`answer_followup` 单次调用（history[-12:] 上界）
+    保持不动
+  - **Agent 会话历史上界**：config 新增 `agent_history_max_messages`（默认
+    60，10-200）；agent.py 新增模块级纯函数 `_trim_history`——保留首条
+    system + 最近 N 条、切点对齐 user 消息边界（assistant.tool_calls 与其
+    tool 结果不被拆散成孤儿对），chat 与 chat_stream 发送前套用；服务端
+    重建路径 history_for_agent 已有界（默认 20）不受影响
+- **测试**：新增 tests/test_ai_backoff.py 5 例（fake _complete 失败 2 次第
+  3 次成功、time.sleep 打桩捕获延迟序列断言次数/翻倍区间/封顶上界、耗尽
+  与 max_retries=1 零 sleep、遥测逐尝试记录含失败置 ok、拆题同型收口）；
+  test_agent.py 补 _trim_history 5 例（短历史不变、100 条裁剪 ≤60+1 且保
+  system、切点 user 边界无孤儿 tool 对、纯函数不可变、无 system 头退化输入）
+
+### 文档
+- 能力说明与提升报告 §2.4 两条诚实短板行内标注「v2.21 已收口」；ARCHITECTURE
+  §12 补 v2.21 AI 链路韧性 bullet；明确不做维持：provider 运行时故障自动
+  切换、邀请码哈希化/过期、流式中途取消、中文关键词分词、性能写路径压测
+- 全量 pytest 实测 462 passed + 8 skipped（+6）；无 URL 外呼、零迁移
+
 ## [2.20.1] - 2026-10-07
 
 ### 性能
