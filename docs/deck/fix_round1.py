@@ -12,7 +12,7 @@ Should-fix items: muted contrast, badge overlaps, P14 threshold contradiction,
 """
 import pathlib
 
-DECK = pathlib.Path(r"D:\Math_Tutor_RAG\docs\deck\slides")
+DECK = pathlib.Path(__file__).resolve().parent / "slides"
 
 
 def patch(name, pairs, required=True):

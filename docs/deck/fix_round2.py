@@ -1,7 +1,7 @@
 """QA fix round 2: remaining overlaps and one number inconsistency."""
 import pathlib
 
-DECK = pathlib.Path(r"D:\Math_Tutor_RAG\docs\deck\slides")
+DECK = pathlib.Path(__file__).resolve().parent / "slides"
 
 
 def patch(name, pairs):

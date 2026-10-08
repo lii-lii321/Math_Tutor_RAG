@@ -4,7 +4,7 @@ import sys
 
 from playwright.sync_api import sync_playwright
 
-ROOT = pathlib.Path(r"D:\Math_Tutor_RAG\docs")
+ROOT = pathlib.Path(__file__).resolve().parent.parent
 SRC = ROOT / "ui-design-2026-10-01.html"
 OUT = ROOT / "deck" / "assets"
 OUT.mkdir(parents=True, exist_ok=True)

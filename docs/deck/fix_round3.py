@@ -6,7 +6,7 @@ through it. Both live in the shared template, so one fix repairs slides 17-20.
 """
 import pathlib
 
-DECK = pathlib.Path(r"D:\Math_Tutor_RAG\docs\deck\slides")
+DECK = pathlib.Path(__file__).resolve().parent / "slides"
 
 
 def patch(name, pairs):

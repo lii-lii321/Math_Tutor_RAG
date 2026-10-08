@@ -3,7 +3,7 @@ import pathlib
 import subprocess
 import sys
 
-DECK = pathlib.Path(r"D:\Math_Tutor_RAG\docs\deck")
+DECK = pathlib.Path(__file__).resolve().parent
 PPTX = DECK / "slides" / "output" / "mathmaster-ui-redesign-v1.pptx"
 QA = DECK / "qa"
 SOFFICE = r"C:\Program Files\LibreOffice\program\soffice.exe"
