@@ -4,7 +4,7 @@ import sys
 
 from playwright.sync_api import sync_playwright
 
-DOCS = pathlib.Path(r"D:\Math_Tutor_RAG\docs")
+DOCS = pathlib.Path(__file__).resolve().parent
 SRC = DOCS / "ui-upgrade-spec-2026-10-02.html"
 OUT = DOCS / "ui-upgrade-spec-2026-10-02.pdf"
 
