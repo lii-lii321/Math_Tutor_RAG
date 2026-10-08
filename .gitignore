@@ -23,5 +23,7 @@ venv/
 Thumbs.db
 .coverage
 docs/deck/.qaenv/
+docs/deck/node_modules/
+docs/deck/qa/loprofile/
 _app_*.log
 benchmark*.csv 
