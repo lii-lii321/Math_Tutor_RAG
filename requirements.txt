@@ -37,7 +37,7 @@ reportlab>=5.0.1
 alembic>=1.13
 
 # Anki 牌组导出（.apkg；测试与 CI 全量要求必装）
-genanki>=0.13
+genanki>=0.13.1
 
 # 可选：OCR 原图文字识别（.env 设 OCR_ENABLED=true 并安装后启用）
 # rapidocr-onnxruntime>=1.3
