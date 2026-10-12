@@ -113,6 +113,52 @@ class TestScopeTightening:
         assert students[0].username in usernames
         assert students[1].username not in usernames
 
+    def test_keyword_search_scoped_after_class_created(self, teacher, students):
+        """教师建班后，关键词检索（SQL 路）与语义路同口径：不再覆盖班外学生。
+
+        审计 D1 回归：修复前 SQL 路对 include_others 教师无任何 user 过滤，
+        建班教师关键词搜索仍能看到班外学生题目。
+        """
+        service = QuestionService(session_factory=SessionLocal)
+        class_service = ClassService()
+        klass = class_service.create_class(teacher.id, " 检索 scope 班")
+        class_service.add_student(teacher.id, klass["id"], students[0].id)
+
+        service.create_manual_question(
+            students[0].id, content_markdown="班内勾股定理题 a²+b²=c²"
+        )
+        service.create_manual_question(
+            students[1].id, content_markdown="班外勾股定理题直角三角形"
+        )
+
+        hits = service.list_questions(
+            teacher.id, include_others=True, keyword="勾股定理", semantic=False
+        )
+        assert {q.user_id for q in hits} <= {students[0].id, teacher.id}
+        assert students[1].id not in {q.user_id for q in hits}
+
+        # X-Total-Count 与列表同口径
+        total = service.count_for_user(teacher.id, include_others=True, keyword="勾股定理")
+        assert total == len(hits)
+
+        # 语义开启的混合路同样不得回流班外题
+        hybrid = service.list_questions(
+            teacher.id, include_others=True, keyword="勾股定理", semantic=True
+        )
+        assert students[1].id not in {q.user_id for q in hybrid}
+
+    def test_no_class_teacher_keyword_search_unchanged(self, teacher, students):
+        """未建班教师保持旧行为：关键词检索可见全部学生（向后兼容）。"""
+        service = QuestionService(session_factory=SessionLocal)
+        marker = "无班检索兼容题"
+        service.create_manual_question(students[0].id, content_markdown=marker)
+        service.create_manual_question(students[1].id, content_markdown=marker)
+
+        hits = service.list_questions(
+            teacher.id, include_others=True, keyword="无班检索兼容", semantic=False
+        )
+        assert {q.user_id for q in hits} == {students[0].id, students[1].id}
+
     def test_no_class_teacher_sees_all_students(self, teacher, students):
         """未建班教师保持旧行为：可见全部学生（向后兼容）。"""
         service = QuestionService(session_factory=SessionLocal)

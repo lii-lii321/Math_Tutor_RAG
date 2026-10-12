@@ -135,6 +135,22 @@ class CoreMixin:
         class_students = ClassService().student_ids_for_teacher(user_id)
         return [user_id, *(class_students or all_students)]
 
+    def _keyword_scope_ids(self, user_id: int, include_others: bool) -> list[int] | None:
+        """关键词检索（SQL 路）的显式可见范围，与语义路 `_search_scope` 同口径。
+
+        教师已建班 → [自己] + 班级学生（SQL user_id IN 过滤）；
+        未建班或非 include_others → None（保持旧口径：仅自己 / 教师全量）。
+        返回 None 表示不加额外过滤，调用方必须透传而非丢弃。
+        """
+        if not include_others:
+            return None
+        from backend.services.class_service import ClassService
+
+        class_students = ClassService().student_ids_for_teacher(user_id)
+        if not class_students:
+            return None
+        return [user_id, *class_students]
+
     def _persist_image(self, user_id: int, image_bytes: bytes) -> str:
         """图片入库：压缩到最长边 1600px 的 JPEG，经存储后端写入，返回库存 key。"""
         from backend.services.storage import get_storage
@@ -444,6 +460,7 @@ class QueryMixin:
         started = time.perf_counter()
         settings = self.settings
         candidate_k = settings.rag_candidate_k
+        keyword_scope_ids = self._keyword_scope_ids(user_id, include_others)
 
         with self._session() as repo:
             # Keyword 通道：SQL 下推过滤，取深候选池
@@ -455,6 +472,7 @@ class QueryMixin:
                 difficulty=difficulty,
                 starred=starred,
                 limit=candidate_k if (keyword and semantic) else None,
+                user_ids=keyword_scope_ids,
             )
             results = {q.id: QuestionOut.from_orm_model(q) for q in primary}
             keyword_ids = [q.id for q in primary]
@@ -580,7 +598,7 @@ class QueryMixin:
         difficulty: str | None = None,
         starred: bool = False,
     ) -> int:
-        """过滤口径下的错题总数（API 分页用）。"""
+        """过滤口径下的错题总数（API 分页用）；教师班级口径与 list_questions 一致。"""
         with self._session() as repo:
             return repo.count_for_user(
                 user_id,
@@ -589,6 +607,7 @@ class QueryMixin:
                 keyword=keyword,
                 difficulty=difficulty,
                 starred=starred,
+                user_ids=self._keyword_scope_ids(user_id, include_others),
             )
 
     def get_question(self, question_id: int, user_id: int) -> QuestionOut | None:

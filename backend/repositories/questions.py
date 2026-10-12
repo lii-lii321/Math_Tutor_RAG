@@ -174,15 +174,21 @@ class QuestionRepository:
         keyword: str | None = None,
         difficulty: str | None = None,
         starred: bool = False,
+        user_ids: list[int] | None = None,
     ):
         """构造带归属/标签/关键词/难度过滤的查询（过滤全部下推到 SQL）。
 
         tags / knowledge_points 为 JSON 列，SQLite 与 MySQL 均以文本存储，
         用 LIKE 匹配带引号的标签即可精确命中。
+
+        user_ids：include_others 场景下的显式可见范围（教师 + 班级学生）；
+        None 保持旧口径（仅自己或教师全量）。
         """
         stmt = select(Question).order_by(Question.created_at.desc())
         if not include_others:
             stmt = stmt.where(Question.user_id == user_id)
+        elif user_ids is not None:
+            stmt = stmt.where(Question.user_id.in_(user_ids))
         if tag:
             stmt = stmt.where(Question.tags.cast(String).contains(f'"{tag}"'))
         if difficulty:
@@ -213,6 +219,7 @@ class QuestionRepository:
         starred: bool = False,
         offset: int = 0,
         limit: int | None = None,
+        user_ids: list[int] | None = None,
     ) -> list[Question]:
         stmt = self._filtered_stmt(
             user_id,
@@ -221,6 +228,7 @@ class QuestionRepository:
             keyword=keyword,
             difficulty=difficulty,
             starred=starred,
+            user_ids=user_ids,
         )
         if offset:
             stmt = stmt.offset(offset)
@@ -237,6 +245,7 @@ class QuestionRepository:
         keyword: str | None = None,
         difficulty: str | None = None,
         starred: bool = False,
+        user_ids: list[int] | None = None,
     ) -> int:
         """与 list_for_user 相同口径的总数（供分页使用，SQL 计数）。"""
         stmt = self._filtered_stmt(
@@ -246,6 +255,7 @@ class QuestionRepository:
             keyword=keyword,
             difficulty=difficulty,
             starred=starred,
+            user_ids=user_ids,
         )
         count_stmt = select(func.count()).select_from(stmt.subquery())
         return int(self.session.execute(count_stmt).scalar_one())
