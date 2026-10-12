@@ -196,14 +196,18 @@ class QuestionRepository:
         if starred:
             stmt = stmt.where(Question.starred.is_(True))
         if keyword:
-            like = f"%{keyword}%"
+            # 通配符字面化：用户搜「100%」应匹配字面 %，而非任意串（审计 D3）
+            escaped = (
+                keyword.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            )
+            like = f"%{escaped}%"
             stmt = stmt.where(
                 or_(
-                    Question.content_markdown.ilike(like),
-                    Question.answer.ilike(like),
-                    Question.ocr_text.ilike(like),
-                    Question.tags.cast(String).ilike(like),
-                    Question.knowledge_points.cast(String).ilike(like),
+                    Question.content_markdown.ilike(like, escape="\\"),
+                    Question.answer.ilike(like, escape="\\"),
+                    Question.ocr_text.ilike(like, escape="\\"),
+                    Question.tags.cast(String).ilike(like, escape="\\"),
+                    Question.knowledge_points.cast(String).ilike(like, escape="\\"),
                 )
             )
         return stmt

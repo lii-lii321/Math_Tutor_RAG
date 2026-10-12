@@ -44,6 +44,35 @@ def test_list_and_keyword_search(question_service, student_user):
     )
 
 
+def test_keyword_search_escapes_like_wildcards(question_service, student_user):
+    """关键词含 LIKE 通配符时按字面匹配（审计 D3 回归）。
+
+    修复前 f"%{keyword}%" 未转义：搜「0%」等价于「0」+任意串，命中膨胀。
+    """
+    service = question_service
+    service.create_manual_question(
+        student_user.id, content_markdown="甲商场打 100% 全场折扣题", answer="字面百分号"
+    )
+    service.create_manual_question(
+        student_user.id, content_markdown="乙题蛇形变量名 snake_case_case 题", answer=""
+    )
+    # 干扰项：未转义时会被「e_ca」（_ 通配任意字符）误命中
+    service.create_manual_question(
+        student_user.id, content_markdown="丙题 eXca 通配干扰项", answer=""
+    )
+
+    # 字面「100%」能命中
+    literal = service.list_questions(student_user.id, keyword="100%", semantic=False)
+    assert any("100%" in q.content_markdown for q in literal)
+    # 「10%」是字面三字符，甲题文本「100%」不含它，不得被通配符放行
+    narrowed = service.list_questions(student_user.id, keyword="10%", semantic=False)
+    assert not any("甲商场" in q.content_markdown for q in narrowed)
+    # 下划线通配符字面化：「e_ca」只匹配字面 e_ca（乙题），不匹配 eXca（丙题）
+    underscore = service.list_questions(student_user.id, keyword="e_ca", semantic=False)
+    assert any("snake_case_case" in q.content_markdown for q in underscore)
+    assert not any("eXca" in q.content_markdown for q in underscore)
+
+
 def test_isolation_between_users(question_service, db_session, student_user):
     from backend.models.orm import User
 
