@@ -14,6 +14,7 @@ from fastapi import (
     UploadFile,
     status,
 )
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from api.deps import get_current_user, get_question_service, rate_limit
@@ -124,7 +125,8 @@ async def analyze_question(
         raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "图片不能超过 10MB")
 
     try:
-        saved, analysis = get_question_service().analyze_and_save(
+        saved, analysis = await run_in_threadpool(
+            get_question_service().analyze_and_save,
             user.id,
             data,
             mime_type=image.content_type,
@@ -196,7 +198,8 @@ async def analyze_question_async(
 
     from backend.services.job_service import JobService
 
-    job_id = JobService().submit_analyze(
+    job_id = await run_in_threadpool(
+        JobService().submit_analyze,
         user.id,
         data,
         filename=image.filename or "upload.jpg",
@@ -275,7 +278,7 @@ async def import_full_backup_endpoint(
             "完整备份不能超过 100MB",
         )
     try:
-        result = import_full_backup(user.id, data)
+        result = await run_in_threadpool(import_full_backup, user.id, data)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
     return FullImportResult(
