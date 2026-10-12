@@ -209,7 +209,7 @@ ruff check .       # 静态检查
 lint-imports       # 分层契约门禁（frontend↛api、backend↛UI、services→repositories→models）
 ```
 
-GitHub Actions 在每次 push / PR 时执行 4 个 job：`ruff lint + import-linter 分层门禁 → pytest (3.10/3.11/3.12 矩阵 + 覆盖率门禁 75%) → 启动冒烟（Streamlit / API 健康检查 + Playwright E2E）→ Docker 构建`。
+GitHub Actions 在每次 push / PR 时执行 4 个 job：`ruff lint + import-linter 分层门禁 → pytest (3.10/3.11/3.12 矩阵 + 覆盖率门禁 78%) → 启动冒烟（Streamlit / API 健康检查 + Playwright E2E）→ Docker 构建`。
 
 部署到服务器 / 云端的完整步骤（含 MySQL 切换、备份策略、常见问题）见 **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**。
 
