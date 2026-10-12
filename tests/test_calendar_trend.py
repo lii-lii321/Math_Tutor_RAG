@@ -51,7 +51,8 @@ def test_accuracy_trend_groups_and_ratio():
         FakeLog(day + dt.timedelta(hours=2), "again"),
         FakeLog(day - dt.timedelta(days=40), "good"),  # 窗口外应被忽略
     ]
-    trend = build_accuracy_trend(logs, days=30)
+    # today 固定为夹具日期：不传则窗口随真实日期滚动，30 天后本用例必然过期
+    trend = build_accuracy_trend(logs, days=30, today=dt.date(2026, 9, 12))
     assert len(trend) == 1
     assert trend[0]["total"] == 3
     assert trend[0]["accuracy"] == 67  # 2/3
