@@ -226,6 +226,9 @@ class Job(Base):
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+    # Worker 领取时间：超时回收按 COALESCE(started_at, created_at) 判定，
+    # 长排队任务不再因 created_at 过老被误标 failed
+    started_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
 
 

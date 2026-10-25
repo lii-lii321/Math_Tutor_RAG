@@ -30,6 +30,7 @@ def _load_payload(job_id: str) -> tuple[dict, int] | None:
             return None
         payload = dict(job.payload or {})
         job.status = "running"
+        job.started_at = dt.datetime.now(dt.timezone.utc)
         session.commit()
         user_id = job.user_id
     return payload, user_id

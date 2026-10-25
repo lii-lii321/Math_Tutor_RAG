@@ -13,7 +13,7 @@ import uuid
 from contextlib import suppress
 from pathlib import Path
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from backend.config import get_settings
 from backend.database import session_scope
@@ -110,15 +110,18 @@ class JobService:
     def reap_stuck_jobs(timeout_minutes: int = 30) -> int:
         """把超时仍卡在 running 的任务标记为 failed（进程崩溃后的状态回收）。
 
+        判定时刻 = COALESCE(started_at, created_at)：按领取时刻算超时，
+        长排队任务不会因 created_at 过老被误杀；历史行无 started_at 回退旧行为。
         在 API 启动时调用一次；返回重置数量。
         """
         cutoff = dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=timeout_minutes)
+        effective_at = func.coalesce(Job.started_at, Job.created_at)
         with session_scope() as session:
             stuck = (
                 session.execute(
                     select(Job).where(
                         Job.status == "running",
-                        Job.created_at < cutoff,
+                        effective_at < cutoff,
                     )
                 )
                 .scalars()
