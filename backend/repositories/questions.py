@@ -175,6 +175,7 @@ class QuestionRepository:
         difficulty: str | None = None,
         starred: bool = False,
         user_ids: list[int] | None = None,
+        knowledge_point: str | None = None,
     ):
         """构造带归属/标签/关键词/难度过滤的查询（过滤全部下推到 SQL）。
 
@@ -191,6 +192,10 @@ class QuestionRepository:
             stmt = stmt.where(Question.user_id.in_(user_ids))
         if tag:
             stmt = stmt.where(Question.tags.cast(String).contains(f'"{tag}"'))
+        if knowledge_point:
+            stmt = stmt.where(
+                Question.knowledge_points.cast(String).contains(f'"{knowledge_point}"')
+            )
         if difficulty:
             stmt = stmt.where(Question.difficulty == difficulty)
         if starred:
@@ -224,6 +229,7 @@ class QuestionRepository:
         offset: int = 0,
         limit: int | None = None,
         user_ids: list[int] | None = None,
+        knowledge_point: str | None = None,
     ) -> list[Question]:
         stmt = self._filtered_stmt(
             user_id,
@@ -233,6 +239,7 @@ class QuestionRepository:
             difficulty=difficulty,
             starred=starred,
             user_ids=user_ids,
+            knowledge_point=knowledge_point,
         )
         if offset:
             stmt = stmt.offset(offset)
@@ -250,6 +257,7 @@ class QuestionRepository:
         difficulty: str | None = None,
         starred: bool = False,
         user_ids: list[int] | None = None,
+        knowledge_point: str | None = None,
     ) -> int:
         """与 list_for_user 相同口径的总数（供分页使用，SQL 计数）。"""
         stmt = self._filtered_stmt(
@@ -260,6 +268,7 @@ class QuestionRepository:
             difficulty=difficulty,
             starred=starred,
             user_ids=user_ids,
+            knowledge_point=knowledge_point,
         )
         count_stmt = select(func.count()).select_from(stmt.subquery())
         return int(self.session.execute(count_stmt).scalar_one())

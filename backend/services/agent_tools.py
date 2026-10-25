@@ -238,7 +238,10 @@ def build_tools(service: QuestionService, user_id: int) -> list[AgentTool]:
         """生成练习小卷：指定知识点取该组错题；未指定则按薄弱知识点 + 到期优先组卷。"""
         if knowledge_point.strip():
             questions = service.list_questions(
-                user_id, tag=knowledge_point.strip(), semantic=False, limit=min(int(size), 20)
+                user_id,
+                knowledge_point=knowledge_point.strip(),
+                semantic=False,
+                limit=min(int(size), 20),
             )
             reason = f"知识点专项：{knowledge_point.strip()}"
         else:

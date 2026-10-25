@@ -355,6 +355,30 @@ class EntryMixin:
             clean_tags = clean_tags or analysis.tags[:4]
             followup = analysis.followup_question
 
+        # 手动答案同样过数学验证（拍照链路 _verify_analysis 的对齐）：
+        # Word 批量导入保持跳过（逐题验证无批量收益且拖慢导入）
+        verification: dict | None = None
+        if clean_answer and source != "word":
+            from backend.services.math_verifier import verify_answer
+
+            try:
+                result = verify_answer(content_markdown.strip(), "", clean_answer)
+                verification = {
+                    "status": result.status,
+                    "confidence": result.confidence,
+                    "methods": result.methods,
+                    "details": result.details,
+                    "verified_at": dt.datetime.now(dt.timezone.utc),
+                }
+            except Exception as exc:  # noqa: BLE001 - 验证失败不影响保存
+                logger.warning("手动录题数学验证异常: %s", exc)
+                verification = {
+                    "status": "uncertain",
+                    "confidence": 0.0,
+                    "methods": [],
+                    "verified_at": dt.datetime.now(dt.timezone.utc),
+                }
+
         with self._session() as repo:
             question = repo.create(
                 user_id,
@@ -366,6 +390,7 @@ class EntryMixin:
                 followup_question=followup,
                 source=source,
                 image_hash=image_hash,
+                verification=verification,
             )
             self._sync_kp_links(repo, question.id, clean_points)
             out = QuestionOut.from_orm_model(question)
@@ -451,11 +476,13 @@ class QueryMixin:
         semantic: bool = True,
         offset: int = 0,
         limit: int | None = None,
+        knowledge_point: str | None = None,
     ) -> list[QuestionOut]:
         """关键词检索；开启语义搜索时执行完整混合管线：
         Keyword Top-N + Dense Top-N → RRF → Hydrate 全候选 → 可选 Rerank → 阈值过滤。
 
         offset/limit 在管线末端应用；不传 limit 返回全部（界面默认），API 层分页传入。
+        knowledge_point：按规范化知识点过滤（SQL 下推，语义路同样作用于关键词通道）。
         """
         started = time.perf_counter()
         settings = self.settings
@@ -473,6 +500,7 @@ class QueryMixin:
                 starred=starred,
                 limit=candidate_k if (keyword and semantic) else None,
                 user_ids=keyword_scope_ids,
+                knowledge_point=knowledge_point,
             )
             results = {q.id: QuestionOut.from_orm_model(q) for q in primary}
             keyword_ids = [q.id for q in primary]

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import json
 from pathlib import Path
 
 from PIL import Image
@@ -42,6 +43,69 @@ def test_list_and_keyword_search(question_service, student_user):
         or any("判别式" in t for t in q.knowledge_points)
         for q in by_keyword
     )
+
+
+def test_knowledge_point_filter(question_service, student_user):
+    """knowledge_point 过滤按规范化知识点字段命中，而非标签（提升项 #3 回归）。
+
+    generate_practice_set 传知识点名（画像字段），修复前错按 tag 过滤返回空集。
+    """
+    service = question_service
+    service.create_manual_question(
+        student_user.id,
+        content_markdown="求 y=2x²-8x+1 的最小值",
+        answer="x=2 时取最小值 -7",
+        knowledge_points=["二次函数的图象与性质"],
+        tags=["函数"],
+    )
+    service.create_manual_question(
+        student_user.id,
+        content_markdown="解方程 x+3=7",
+        answer="x=4",
+        knowledge_points=["一元一次方程"],
+        tags=["方程"],
+    )
+
+    hits = service.list_questions(
+        student_user.id, knowledge_point="二次函数的图象与性质", semantic=False
+    )
+    assert len(hits) == 1
+    assert "最小值" in hits[0].content_markdown
+
+    # Agent 工具入口同口径：generate_practice_set(knowledge_point=...) 能取到题
+    from backend.services.agent_tools import build_tools
+
+    tools = {t.name: t for t in build_tools(service, student_user.id)}
+    payload = json.loads(
+        tools["generate_practice_set"].handler(size=5, knowledge_point="二次函数的图象与性质")
+    )
+    assert payload["count"] == 1
+    assert payload["basis"].startswith("知识点专项")
+
+
+def test_manual_question_with_answer_gets_verified(question_service, student_user):
+    """手动录题带答案时跑数学验证（提升项 #4 回归）：错答案标 failed，空答案不验证。"""
+    service = question_service
+
+    wrong = service.create_manual_question(
+        student_user.id,
+        content_markdown="解方程 $x^2=4$",
+        answer="$x=\\pm 3$",
+    )
+    assert wrong.verification_status == "failed"
+
+    right = service.create_manual_question(
+        student_user.id,
+        content_markdown="解方程 $x^2=4$",
+        answer="$x=\\pm 2$",
+    )
+    assert right.verification_status == "verified"
+
+    no_answer = service.create_manual_question(
+        student_user.id,
+        content_markdown="整理：三角形内角和定理的证明思路",
+    )
+    assert no_answer.verification_status is None
 
 
 def test_keyword_search_escapes_like_wildcards(question_service, student_user):
