@@ -86,6 +86,26 @@ def test_legacy_collection_without_fingerprint_is_flagged(tmp_path):
     assert EMBEDDING_META_KEY not in (status["stored"] or "")
 
 
+def test_empty_user_scope_fails_closed(tmp_path, monkeypatch):
+    """空可见范围失败关闭（外审 2026-10-25 P0-2）：返回空且绝不触达 collection。
+
+    修复前 user_ids=[] 会把 where 置 None——退化成无用户过滤的全库查询。
+    """
+    local = Settings()
+    local.chroma_dir = Path(tmp_path) / "chroma_failclosed"
+    store = QuestionVectorStore(local)
+    store.upsert_question(990005, "失败关闭探针题", user_id=990005, tags=["测试"])
+
+    class _NoQueryAllowed:
+        def query(self, *args, **kwargs):  # pragma: no cover - 触达即失败
+            raise AssertionError("空用户范围不得触达 collection.query")
+
+    monkeypatch.setattr(store, "_collection", _NoQueryAllowed())
+    assert store.semantic_search("探针", user_ids=[], top_k=5) == []
+    assert store.similar_questions("探针", user_ids=[], top_k=5) == []
+    assert store.hybrid_dense_search("探针", user_ids=[]) == []
+
+
 def test_delete_retries_once_on_transient_failure(tmp_path, monkeypatch):
     """删除首败重试成功不告警；两败才记录遥测。"""
     local = Settings()

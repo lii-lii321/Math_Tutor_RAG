@@ -34,9 +34,10 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements-dev.txt pytest-cov
       - name: Run tests with coverage
-        env:
-          AI_PROVIDER: mock
-          RAG_ENABLED: "false"
+        # 测试环境由 tests/conftest.py 统一接管（无条件置 RAG_ENABLED=true、
+        # AI_PROVIDER=mock），检索金标门禁（含真实 ChromaDB 向量检索）在本 job
+        # 实跑；这里不再重复声明环境变量，避免与 conftest 的覆盖顺序形成
+        # 误导性死配置（外审 2026-10-25 曾据此误判 CI 必然失败）。
         run: pytest -q --cov=backend --cov=api --cov-report=term-missing --cov-fail-under=78
 
   boot-smoke:

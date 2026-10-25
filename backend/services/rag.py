@@ -293,11 +293,17 @@ class QuestionVectorStore:
         exclude_id: int | None,
         top_k: int | None,
     ) -> list[RagHit]:
+        # 失败关闭：空可见范围 = 拒绝检索，绝不退化为无用户过滤的全库查询。
+        # 当前调用方（_search_scope 等）至少传 [user_id]，此门防的是未来
+        # 新调用方/异常路径意外传空导致越权召回（外审 2026-10-25 P0-2）。
+        if not user_ids:
+            logger.warning("向量检索收到空用户范围，已按失败关闭策略拒绝执行")
+            return []
         collection = self._ensure_collection()
         if collection is None or not query_text.strip():
             return []
         top_k = top_k or self.settings.rag_top_k
-        where = {"user_id": {"$in": user_ids}} if user_ids else None
+        where = {"user_id": {"$in": user_ids}}
         try:
             # where 过滤由 chromadb 在查询时执行，无需先 count
             result = collection.query(
