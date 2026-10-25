@@ -159,6 +159,21 @@ class TestScopeTightening:
         )
         assert {q.user_id for q in hits} == {students[0].id, students[1].id}
 
+    def test_dashboard_stats_scoped_after_class_created(self, teacher, students):
+        """教师建班后，看板统计（提升项 #6）与学生总览/检索同口径：只算班内。"""
+        service = QuestionService(session_factory=SessionLocal)
+        class_service = ClassService()
+        klass = class_service.create_class(teacher.id, " 看板 scope 班")
+        class_service.add_student(teacher.id, klass["id"], students[0].id)
+
+        service.create_manual_question(students[0].id, content_markdown="班内看板题")
+        service.create_manual_question(students[1].id, content_markdown="班外看板题")
+
+        stats = service.dashboard_stats(teacher.id, include_others=True)
+        assert stats["total"] == 1
+        # 复习池/掌握归档本来就只算自己名下，班外题不得进入 total 口径
+        assert stats["due"] == 0
+
     def test_no_class_teacher_sees_all_students(self, teacher, students):
         """未建班教师保持旧行为：可见全部学生（向后兼容）。"""
         service = QuestionService(session_factory=SessionLocal)

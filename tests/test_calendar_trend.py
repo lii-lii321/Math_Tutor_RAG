@@ -60,3 +60,44 @@ def test_accuracy_trend_groups_and_ratio():
 
 def test_accuracy_trend_empty_window():
     assert build_accuracy_trend([], days=30) == []
+
+
+# ---------- 统计日界按应用时区分日（提升项 #5） ----------
+
+def test_as_date_converts_utc_to_app_timezone():
+    """UTC 17:00 = 北京次日 01:00：深夜学习必须记到北京的「明天」。"""
+    from backend.services.stats import _as_date
+
+    utc_evening = dt.datetime(2026, 10, 12, 17, 0, tzinfo=dt.timezone.utc)
+    assert _as_date(utc_evening) == dt.date(2026, 10, 13)
+
+    utc_morning = dt.datetime(2026, 10, 12, 2, 0, tzinfo=dt.timezone.utc)
+    assert _as_date(utc_morning) == dt.date(2026, 10, 12)  # 北京 10:00 同日
+
+
+def test_as_date_naive_passthrough():
+    from backend.services.stats import _as_date
+
+    naive = dt.datetime(2026, 10, 12, 23, 0)
+    assert _as_date(naive) == dt.date(2026, 10, 12)
+    assert _as_date(dt.date(2026, 10, 12)) == dt.date(2026, 10, 12)
+
+
+def test_accuracy_trend_buckets_by_app_timezone():
+    """UTC 服务器部署下，北京时间次日凌晨的复习计入次日分桶。"""
+    utc_evening = dt.datetime(2026, 10, 12, 17, 0, tzinfo=dt.timezone.utc)  # 北京 10-13 01:00
+    trend = build_accuracy_trend(
+        [FakeLog(utc_evening, "good")], days=1, today=dt.date(2026, 10, 13)
+    )
+    assert len(trend) == 1
+    assert trend[0]["total"] == 1
+
+
+def test_app_timezone_setting_rejects_invalid_name():
+    import pytest as _pytest
+    from pydantic import ValidationError
+
+    from backend.config import Settings
+
+    with _pytest.raises(ValidationError):
+        Settings.model_validate({"app_timezone": "Not/AZone"})

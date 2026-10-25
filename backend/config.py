@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     app_version: str = "2.22.0"
     # 每日复习目标（题/天），看板进度环 + 达成提示
     daily_goal: int = Field(default=10, ge=1, le=200)
+    # 统计日界时区：复习/录入时间戳存 UTC，日历/周报/连续打卡按此时区分日
+    # （默认东八区；服务器本身跑 UTC 也不会再把深夜学习记到昨天）
+    app_timezone: str = "Asia/Shanghai"
     debug: bool = False
     data_dir: Path = PROJECT_ROOT / "data"
 
@@ -136,6 +139,19 @@ class Settings(BaseSettings):
     # ---------- 复习算法 (SM-2) ----------
     review_default_ease: float = Field(default=2.5, ge=1.3)
     review_again_minutes: int = Field(default=10, ge=1)
+
+    @field_validator("app_timezone")
+    @classmethod
+    def _valid_timezone(cls, value: str) -> str:
+        import zoneinfo
+
+        try:
+            zoneinfo.ZoneInfo(value)
+        except Exception as exc:  # noqa: BLE001 - 统一转配置错误
+            raise ValueError(
+                f"APP_TIMEZONE 不是有效的 IANA 时区名: {value!r}（如 Asia/Shanghai）"
+            ) from exc
+        return value
 
     @field_validator("data_dir", "chroma_dir", mode="after")
     @classmethod

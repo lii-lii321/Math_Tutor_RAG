@@ -1116,7 +1116,11 @@ class StatsMixin:
 
     def dashboard_stats(self, user_id: int, *, include_others: bool = False) -> dict:
         with self._session() as repo:
-            questions = repo.list_for_user(user_id, include_others=include_others)
+            questions = repo.list_for_user(
+                user_id,
+                include_others=include_others,
+                user_ids=self._keyword_scope_ids(user_id, include_others),
+            )
             outs = [QuestionOut.from_orm_model(q) for q in questions]
             logs = repo.review_logs_for_user(user_id)
 

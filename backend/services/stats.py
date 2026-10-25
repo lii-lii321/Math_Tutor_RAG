@@ -9,10 +9,23 @@ from __future__ import annotations
 
 import datetime as dt
 
+from backend.config import get_settings
 from backend.models.orm import Question
 from backend.models.schemas import TagStat
 
 _GOOD_GRADES = {"good", "easy"}
+
+
+def _tz() -> dt.tzinfo:
+    """统计日界时区（settings.app_timezone，启动时已校验为合法 IANA 名）。"""
+    import zoneinfo
+
+    return zoneinfo.ZoneInfo(get_settings().app_timezone)
+
+
+def _today() -> dt.date:
+    """「今天」按应用时区取（服务器跑 UTC 时不再把深夜学习记到昨天）。"""
+    return dt.datetime.now(_tz()).date()
 
 
 def build_difficulty_distribution(questions: list[Question]) -> dict[str, int]:
@@ -74,17 +87,13 @@ def _tag_mastery(
 
 
 def build_activity(questions: list[Question], days: int = 14) -> list[dict]:
-    """近 N 天每日新增错题数，供趋势图使用。"""
-    today = dt.date.today()
+    """近 N 天每日新增错题数，供趋势图使用（按应用时区分日）。"""
+    today = _today()
     counts = {today - dt.timedelta(days=offset): 0 for offset in range(days)}
     for question in questions:
         if question.created_at is None:
             continue
-        created = question.created_at
-        if created.tzinfo is not None:
-            created = created.astimezone().date()
-        else:
-            created = created.date()
+        created = _as_date(question.created_at)
         if created in counts:
             counts[created] += 1
     return [
@@ -108,7 +117,7 @@ def study_streak(active_dates: set, today: dt.date | None = None) -> int:
     """
     if not active_dates:
         return 0
-    today = today or dt.date.today()
+    today = today or _today()
     normalized = {_as_date(value) for value in active_dates}
 
     cursor = today if today in normalized else today - dt.timedelta(days=1)
@@ -122,8 +131,15 @@ def study_streak(active_dates: set, today: dt.date | None = None) -> int:
 
 
 def _as_date(value) -> dt.date:
+    """时间戳 → 统计日界的日期。
+
+    aware（生产路径，UTC 存储）→ 转应用时区再取日期；
+    naive（测试夹具/历史裸数据）→ 视为已是本地日期，原样取日期。
+    """
     if isinstance(value, dt.datetime):
-        return value.astimezone().date() if value.tzinfo else value.date()
+        if value.tzinfo is None:
+            return value.date()
+        return value.astimezone(_tz()).date()
     return value
 
 
@@ -133,7 +149,7 @@ def build_calendar(events: list, days: int = 90, today: dt.date | None = None) -
     返回 {"z": 7×N 矩阵（周一在首行，无数据/未来日期为 None）,
           "x": 每列周一起始日期标签, "y": 星期标签, "max": 峰值}
     """
-    today = today or dt.date.today()
+    today = today or _today()
     start = today - dt.timedelta(days=days - 1)
     start -= dt.timedelta(days=start.weekday())  # 对齐周一
 
@@ -166,7 +182,7 @@ def build_accuracy_trend(logs: list, days: int = 30, today: dt.date | None = Non
 
     正确率 = (good + easy) / 当日复习总数。
     """
-    today = today or dt.date.today()
+    today = today or _today()
     start = today - dt.timedelta(days=days - 1)
     per_day: dict[dt.date, dict[str, int]] = {}
     for log in logs or []:
@@ -194,7 +210,7 @@ def weekly_report(questions: list, logs: list, today: dt.date | None = None) -> 
     questions/logs 为含 created_at / reviewed_at / grade 属性的鸭子类型。
     返回本周指标（created/reviews/accuracy/active_days）与 prev（上周同口径）。
     """
-    today = today or dt.date.today()
+    today = today or _today()
     this_monday = today - dt.timedelta(days=today.weekday())
     last_monday = this_monday - dt.timedelta(days=7)
 
@@ -225,7 +241,7 @@ def mastery_trend(
 
     掌握度 = 各标签掌握度的简单平均（与看板口径一致），百分制。
     """
-    today = today or dt.date.today()
+    today = today or _today()
     start = today - dt.timedelta(days=days - 1)
     points: list[dict] = []
     for offset in range(days):
