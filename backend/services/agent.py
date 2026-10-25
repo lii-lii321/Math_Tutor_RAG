@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import re
+from functools import lru_cache
 
 from backend.config import get_settings
 from backend.services.agent_tools import build_tools
@@ -63,6 +64,23 @@ def citation_warning(content: str, available_ids: set[int]) -> str:
         return ""
     listed = "、".join(f"#{i}" for i in unverified)
     return f"\n\n> ⚠️ 引用校验：{listed} 未出现在本轮查询结果中，该引用可能不准确，请以实际检索为准。"
+
+
+@lru_cache(maxsize=4)
+def _shared_client(api_key: str, base_url: str, timeout: float):
+    """按配置复用 OpenAI 客户端（提升项 #20）。
+
+    客户端持有 httpx 连接池，每轮对话新建会丢掉 keep-alive 复用；
+    以 (api_key, base_url, timeout) 为键缓存，配置变更自动换新实例。
+    """
+    from openai import OpenAI
+
+    return OpenAI(api_key=api_key, base_url=base_url, timeout=timeout)
+
+
+def reset_client_cache() -> None:
+    """测试钩子：清空客户端缓存（测试用 monkeypatch 注入假构造器，需每测重置）。"""
+    _shared_client.cache_clear()
 
 
 def _trim_history(history: list[dict], max_messages: int) -> list[dict]:
@@ -190,13 +208,11 @@ class AgentSession:
             self._persist(entries)
 
     def _client(self):
-        from openai import OpenAI
-
         settings = get_settings()
-        return OpenAI(
-            api_key=settings.ai_api_key or "not-configured",
-            base_url=settings.ai_base_url,
-            timeout=settings.ai_timeout_seconds,
+        return _shared_client(
+            settings.ai_api_key or "not-configured",
+            settings.ai_base_url,
+            settings.ai_timeout_seconds,
         )
 
     def chat_stream(self, user_message: str):

@@ -137,6 +137,39 @@ def test_keyword_search_escapes_like_wildcards(question_service, student_user):
     assert not any("eXca" in q.content_markdown for q in underscore)
 
 
+def test_keyword_pool_expands_when_saturated(question_service, student_user, monkeypatch):
+    """关键词命中数超候选池时扩池：最旧的命中题不得在混合路消失（提升项 #19）。
+
+    candidate_k 默认 50：建 55 道含同一关键词的题，修复前 SQL 池截到最新
+    50 条，最旧 5 题在混合路（含 rest 兜底）完全不可见。
+    """
+    service = question_service
+    # 跳过逐题向量嵌入（本用例只考察关键词通道，嵌入会拖慢到分钟级）
+    monkeypatch.setattr(
+        service.vector_store, "upsert_question", lambda *a, **k: True
+    )
+    oldest = service.create_manual_question(
+        student_user.id, content_markdown="最旧的池扩题 marker_pool_expand"
+    )
+    for i in range(54):
+        service.create_manual_question(
+            student_user.id, content_markdown=f"池扩题 {i} 号 marker_pool_expand"
+        )
+
+    hybrid = service.list_questions(
+        student_user.id, keyword="marker_pool_expand", semantic=True
+    )
+    returned_ids = {q.id for q in hybrid}
+    # 全部 55 条关键词命中（含最旧一条）都可见；混合路允许额外召回
+    # 语义相近但不含关键词的旧题，总数 ≥55 而非恰好 55
+    assert oldest.id in returned_ids
+    keyword_hits = service.list_questions(
+        student_user.id, keyword="marker_pool_expand", semantic=False, limit=100
+    )
+    assert len(keyword_hits) == 55
+    assert {q.id for q in keyword_hits} <= returned_ids
+
+
 def test_isolation_between_users(question_service, db_session, student_user):
     from backend.models.orm import User
 

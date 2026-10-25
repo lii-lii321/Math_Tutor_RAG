@@ -491,6 +491,7 @@ class QueryMixin:
 
         with self._session() as repo:
             # Keyword 通道：SQL 下推过滤，取深候选池
+            pool_cap = candidate_k if (keyword and semantic) else None
             primary = repo.list_for_user(
                 user_id,
                 include_others=include_others,
@@ -498,10 +499,24 @@ class QueryMixin:
                 keyword=keyword,
                 difficulty=difficulty,
                 starred=starred,
-                limit=candidate_k if (keyword and semantic) else None,
+                limit=pool_cap,
                 user_ids=keyword_scope_ids,
                 knowledge_point=knowledge_point,
             )
+            if pool_cap is not None and len(primary) >= pool_cap:
+                # 候选池打满 = 命中数可能被截断：扩池一次（老题不该因池深度
+                # 在混合路彻底不可见，教师班级场景可能超池）；上限防失控
+                primary = repo.list_for_user(
+                    user_id,
+                    include_others=include_others,
+                    tag=tag,
+                    keyword=keyword,
+                    difficulty=difficulty,
+                    starred=starred,
+                    limit=min(pool_cap * 10, 500),
+                    user_ids=keyword_scope_ids,
+                    knowledge_point=knowledge_point,
+                )
             results = {q.id: QuestionOut.from_orm_model(q) for q in primary}
             keyword_ids = [q.id for q in primary]
 

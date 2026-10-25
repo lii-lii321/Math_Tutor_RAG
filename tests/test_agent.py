@@ -5,8 +5,16 @@ import json
 
 import pytest
 
-from backend.services.agent import AgentSession, _trim_history
+from backend.services.agent import AgentSession, _trim_history, reset_client_cache
 from backend.services.question_service import QuestionService
+
+
+@pytest.fixture(autouse=True)
+def _clear_client_cache():
+    """客户端缓存按测试清空：monkeypatch 注入的假构造器不得跨测试泄漏。"""
+    reset_client_cache()
+    yield
+    reset_client_cache()
 
 
 class _FakeToolCall:
