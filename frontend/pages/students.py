@@ -166,7 +166,14 @@ def render_students_page(user: dict) -> None:
                 return
 
     if not rows:
-        st.info("还没有学生注册。学生注册后这里会自动出现他们的学习概况。")
+        if not classes:
+            st.info(
+                "尚未创建班级——教师可见范围为自己 + 所教班级学生（2026-10 起未建班"
+                "不再默认可见全部学生）。在上方「班级管理」建班并添加学生后，"
+                "这里会显示他们的学习概况。"
+            )
+        else:
+            st.info("班级还没有成员。学生注册后，在上方「班级管理」把他们加入班级即可。")
         return
 
     total_questions = sum(r["total"] for r in rows)

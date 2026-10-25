@@ -230,12 +230,32 @@ def test_students_overview_api(client):
     teacher_headers = _auth_header(client, "api_teacher", "secret1")
     student_headers = _auth_header(client, "api_user", "secret1")
 
+    # 范围收口：未建班教师总览为空，不回退全量学生
+    empty = client.get("/api/stats/students", headers=teacher_headers)
+    assert empty.status_code == 200
+    assert empty.json() == []
+
+    # 建班加人后可见班内学生
+    created = client.post("/api/classes", headers=teacher_headers, json={"name": "总览班"})
+    assert created.status_code == 201, created.text
+    from backend.database import SessionLocal
+    from backend.models.orm import User
+
+    with SessionLocal() as session:
+        student_id = session.query(User).filter_by(username="api_user").one().id
+    added = client.post(
+        f"/api/classes/{created.json()['id']}/members",
+        headers=teacher_headers,
+        json={"student_id": student_id},
+    )
+    assert added.status_code == 204, added.text
+
     allowed = client.get("/api/stats/students", headers=teacher_headers)
     assert allowed.status_code == 200
     assert isinstance(allowed.json(), list)
     assert any(
         row["username"] == "api_user" for row in allowed.json()
-    ), "教师应能看到学生"
+    ), "建班教师应能看到班内学生"
 
     denied = client.get("/api/stats/students", headers=student_headers)
     assert denied.status_code == 403

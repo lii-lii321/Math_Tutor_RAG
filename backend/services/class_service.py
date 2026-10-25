@@ -1,7 +1,8 @@
 """班级服务（Batch 10 多租户）：教师的可见范围由其班级决定。
 
-向后兼容：教师尚未建任何班级时，保持旧行为（可见全部学生）；
-一旦建立班级，可见范围收紧为「自己班级的学生」。
+边界收口（2026-10-25，外审 P1）：教师可见范围 = 自己 + 所教班级学生。
+未建班或班级无成员时**不再回退全量学生**——学生错题/画像属教育数据，
+默认扩大可见面必须显式建班授权，而不是靠「还没建班」的兼容回退。
 """
 from __future__ import annotations
 
@@ -115,8 +116,22 @@ class ClassService:
             session.delete(klass)
             return True
 
+    def has_classes(self, teacher_id: int) -> bool:
+        """教师是否创建过班级——范围收紧策略的分界判定。
+
+        区分「未建班」与「建班但暂无成员」：后者可见范围同样是
+        自己 + 班级成员（可能为空），不回退全量。
+        """
+        with self._session() as session:
+            count = session.execute(
+                select(func.count()).select_from(SchoolClass).where(
+                    SchoolClass.teacher_id == teacher_id
+                )
+            ).scalar_one()
+        return count > 0
+
     def student_ids_for_teacher(self, teacher_id: int) -> list[int]:
-        """教师可见的学生 ID 集：自己班级的成员；无班级时返回空列表（调用方回退全量）。"""
+        """教师可见的学生 ID 集：自己班级的成员（未建班返回空列表）。"""
         with self._session() as session:
             rows = session.execute(
                 select(ClassMember.student_id)

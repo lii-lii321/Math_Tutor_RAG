@@ -122,34 +122,36 @@ class CoreMixin:
             yield UserRepository(session)
 
     def _search_scope(self, user_id: int, include_others: bool) -> list[int]:
-        """语义检索的可见范围：普通用户仅自己；教师为 自己 + 所教班级学生。
+        """语义检索的可见范围：自己 + 所教班级学生。
 
-        教师尚未建立班级时保持旧行为（可见全部学生），保证向后兼容。
+        边界收口（2026-10-25）：未建班教师不再回退全部学生——学生错题与
+        画像是教育数据，扩大可见面必须显式建班授权。建班后即使暂无成员，
+        范围同样只含自己 + 成员（可能为空）。
         """
         if not include_others:
             return [user_id]
         from backend.services.class_service import ClassService
 
-        with self._user_session() as users:
-            all_students = [u.id for u in users.list_users() if u.role == "student"]
-        class_students = ClassService().student_ids_for_teacher(user_id)
-        return [user_id, *(class_students or all_students)]
+        class_service = ClassService()
+        if not class_service.has_classes(user_id):
+            return [user_id]
+        return [user_id, *class_service.student_ids_for_teacher(user_id)]
 
     def _keyword_scope_ids(self, user_id: int, include_others: bool) -> list[int] | None:
         """关键词检索（SQL 路）的显式可见范围，与语义路 `_search_scope` 同口径。
 
         教师已建班 → [自己] + 班级学生（SQL user_id IN 过滤）；
-        未建班或非 include_others → None（保持旧口径：仅自己 / 教师全量）。
-        返回 None 表示不加额外过滤，调用方必须透传而非丢弃。
+        未建班 → [自己]（收口后不再全量）；非 include_others → None
+        （表示仅自己的旧过滤路径，调用方必须透传而非丢弃）。
         """
         if not include_others:
             return None
         from backend.services.class_service import ClassService
 
-        class_students = ClassService().student_ids_for_teacher(user_id)
-        if not class_students:
-            return None
-        return [user_id, *class_students]
+        class_service = ClassService()
+        if not class_service.has_classes(user_id):
+            return [user_id]
+        return [user_id, *class_service.student_ids_for_teacher(user_id)]
 
     def _persist_image(self, user_id: int, image_bytes: bytes) -> str:
         """图片入库：压缩到最长边 1600px 的 JPEG，经存储后端写入，返回库存 key。"""
@@ -1075,13 +1077,13 @@ class StatsMixin:
             logs = repo.all_review_logs()
 
         outs = [QuestionOut.from_orm_model(q) for q in questions]
-        # 多租户收紧：教师建了班级后，总览仅覆盖自己班级的学生（无班级保持全量）
+        # 范围收口（2026-10-25）：总览只覆盖所教班级学生；未建班 = 空（界面
+        # 引导建班），不再回退全量学生
         from backend.services.class_service import ClassService
 
-        class_students = ClassService().student_ids_for_teacher(teacher_id)
-        if class_students:
-            outs = [o for o in outs if o.user_id in class_students]
-            students = [u for u in students if u.id in class_students]
+        class_students = set(ClassService().student_ids_for_teacher(teacher_id))
+        outs = [o for o in outs if o.user_id in class_students]
+        students = [u for u in students if u.id in class_students]
         by_user: dict[int, list[QuestionOut]] = {}
         for out in outs:
             by_user.setdefault(out.user_id, []).append(out)

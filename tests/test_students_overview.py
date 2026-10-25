@@ -33,13 +33,18 @@ def _make_user(db_session, username: str, role: str):
 
 
 def test_students_overview_requires_teacher(service, db_session, student_user):
+    from backend.services.class_service import ClassService
+
     teacher = _make_user(db_session, "report_teacher", "teacher")
     fresh = _make_user(db_session, "overview_student1", "student")
     service.analyze_and_save(fresh.id, _tiny_jpeg(), user_tags=["几何"])
+    # 范围收口（2026-10-25）：总览只覆盖班级学生——先建班加人
+    klass = ClassService().create_class(teacher.id, "总览权限班")
+    ClassService().add_student(teacher.id, klass["id"], fresh.id)
 
     rows = service.students_overview(teacher.id)
     target = [r for r in rows if r["user_id"] == fresh.id]
-    assert target, "教师应能看到学生"
+    assert target, "建班教师应能看到班内学生"
     row = target[0]
     assert row["total"] >= 1
     assert row["due"] >= 1  # 新错题待复习
@@ -50,10 +55,14 @@ def test_students_overview_requires_teacher(service, db_session, student_user):
 
 
 def test_students_overview_counts_reviews(service, db_session):
+    from backend.services.class_service import ClassService
+
     teacher = _make_user(db_session, "report_teacher2", "teacher")
     fresh = _make_user(db_session, "overview_student2", "student")
     saved, _ = service.analyze_and_save(fresh.id, _tiny_jpeg())
     service.grade_review(saved.id, fresh.id, "good")
+    klass = ClassService().create_class(teacher.id, "复习计数班")
+    ClassService().add_student(teacher.id, klass["id"], fresh.id)
 
     rows = service.students_overview(teacher.id)
     row = next(r for r in rows if r["user_id"] == fresh.id)

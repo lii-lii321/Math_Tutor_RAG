@@ -147,17 +147,36 @@ class TestScopeTightening:
         )
         assert students[1].id not in {q.user_id for q in hybrid}
 
-    def test_no_class_teacher_keyword_search_unchanged(self, teacher, students):
-        """未建班教师保持旧行为：关键词检索可见全部学生（向后兼容）。"""
+    def test_no_class_teacher_sees_only_own_questions(self, teacher, students):
+        """范围收口（2026-10-25）：未建班教师不再回退全部学生——只看自己的题。"""
         service = QuestionService(session_factory=SessionLocal)
-        marker = "无班检索兼容题"
+        marker = "无班收口题"
         service.create_manual_question(students[0].id, content_markdown=marker)
         service.create_manual_question(students[1].id, content_markdown=marker)
+        service.create_manual_question(teacher.id, content_markdown=f"自己的{marker}")
 
         hits = service.list_questions(
-            teacher.id, include_others=True, keyword="无班检索兼容", semantic=False
+            teacher.id, include_others=True, keyword="无班收口", semantic=False
         )
-        assert {q.user_id for q in hits} == {students[0].id, students[1].id}
+        assert {q.user_id for q in hits} == {teacher.id}
+
+        # 语义混合路与计数同口径
+        hybrid = service.list_questions(
+            teacher.id, include_others=True, keyword="无班收口", semantic=True
+        )
+        assert {q.user_id for q in hybrid} <= {teacher.id}
+        assert service.count_for_user(teacher.id, include_others=True, keyword="无班收口") == 1
+
+    def test_class_with_zero_members_sees_only_own(self, teacher, students):
+        """建班后零成员：范围 = 自己 + 成员（空），不回退全量（原实现的漏网分支）。"""
+        service = QuestionService(session_factory=SessionLocal)
+        ClassService().create_class(teacher.id, "空成员班")
+        service.create_manual_question(students[0].id, content_markdown="空成员班外题 zero_members_probe")
+
+        hits = service.list_questions(
+            teacher.id, include_others=True, keyword="zero_members_probe", semantic=False
+        )
+        assert hits == []
 
     def test_dashboard_stats_scoped_after_class_created(self, teacher, students):
         """教师建班后，看板统计（提升项 #6）与学生总览/检索同口径：只算班内。"""
@@ -174,12 +193,12 @@ class TestScopeTightening:
         # 复习池/掌握归档本来就只算自己名下，班外题不得进入 total 口径
         assert stats["due"] == 0
 
-    def test_no_class_teacher_sees_all_students(self, teacher, students):
-        """未建班教师保持旧行为：可见全部学生（向后兼容）。"""
+    def test_no_class_teacher_overview_is_empty(self, teacher, students):
+        """范围收口：未建班教师的学生总览为空（界面引导建班），不回退全量。"""
         service = QuestionService(session_factory=SessionLocal)
         service.create_manual_question(students[0].id, content_markdown="题")
         overview = service.students_overview(teacher.id)
-        assert {row["username"] for row in overview} >= {students[0].username}
+        assert overview == []
 
 
 class TestClassesAPI:

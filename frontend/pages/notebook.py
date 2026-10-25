@@ -328,8 +328,19 @@ def render_notebook_page(user: dict) -> None:
             )
 
         if is_teacher:
-            overview = service.students_overview(user["id"])
+            ok, overview = safe_call(
+                service.students_overview,
+                user["id"],
+                error_title="学生列表加载失败",
+            )
+            if not ok:
+                st.stop()
             student_names = ["全部学生"] + [r["username"] for r in overview]
+            if len(student_names) == 1:
+                st.caption(
+                    "ℹ️ 尚未创建班级：教师视图当前只含你自己的错题。"
+                    "到「学生总览」建班并添加学生后，这里会扩展到班级数据。"
+                )
             # 种入值先校验在当前 students_overview 选项内，再于实例化前种入
             bridge_student = incoming.get("student")
             if bridge_student is not None and bridge_student in student_names:
