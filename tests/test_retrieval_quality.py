@@ -155,7 +155,10 @@ def test_golden_keyword_recall_at_one_is_perfect(golden_env):
 
 
 def test_golden_semantic_recall_at_three_gate(golden_env):
-    """混合路（真实向量检索 + 融合）Recall@3 门禁：语义主路径持续下限。"""
+    """混合路（真实向量检索 + 融合）Recall@3 + MRR 双门禁：语义主路径持续下限。
+
+    MRR 补 Recall 的盲区：命中但排名从第 1 掉到第 3 的劣化 Recall 察觉不到。
+    """
     user_id, service, expected = golden_env
     vs = QuestionVectorStore()
     if not vs.is_available():
@@ -163,21 +166,31 @@ def test_golden_semantic_recall_at_three_gate(golden_env):
 
     misses: list[str] = []
     hits = 0
+    reciprocal_sum = 0.0
     for content, _tags, _kw, sem in _GOLDEN:
         results = service.list_questions(user_id, keyword=sem, semantic=True)
         ranked = [q.id for q in results]
+        rank = next(
+            (i + 1 for i, qid in enumerate(ranked) if qid == expected[content]), None
+        )
+        if rank is not None:
+            reciprocal_sum += 1.0 / rank
         if _recall_at_k(expected[content], ranked, 3):
             hits += 1
         else:
             misses.append(f"「{sem}」top3={ranked[:3]} 期望 {expected[content]}")
     recall = hits / len(_GOLDEN)
+    mrr = reciprocal_sum / len(_GOLDEN)
+    print(f"\n[语义金标] Recall@3={recall:.2f} MRR={mrr:.2f}")
     # 2026-10-04 实测基线 0.67（12 例中 8 例 top3 命中）：ChromaDB 内置 MiniLM
     # 对中文意译句偏弱，判别式/正弦定理/概率问法未进 top3；门禁取 0.6 兜住
     # 「管线把语义路打穿」级别的回归（打穿≈0），不再收紧以免嵌入模型波动误报。
     # 接入远程多语言嵌入（BGE-M3，config 已支持）后应上调。
+    # 2026-10-25 补测 MRR 基线 0.54，门禁 0.45（同款余量，防排名劣化）。
     assert recall >= 0.6, (
         f"语义金标 Recall@3 = {recall:.2f} < 0.6 门禁\n" + "\n".join(misses)
     )
+    assert mrr >= 0.45, f"语义金标 MRR = {mrr:.2f} < 0.45 门禁"
 
 
 def test_golden_keyword_survives_hybrid(golden_env):
