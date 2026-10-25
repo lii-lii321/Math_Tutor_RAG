@@ -52,6 +52,10 @@ _VALID_DIFFICULTIES = frozenset({"easy", "medium", "hard"})  # 与 create_manual
 _VALID_IMAGE_SUFFIXES = frozenset({".jpg", ".jpeg", ".png", ".webp"})
 # SM-2 ease 合理区间（调度器初始 2.5，上下修有限）
 _MIN_EASE, _MAX_EASE = 1.0, 5.0
+# zip 炸弹防护：解压尺寸以成员 file_size（写入时的原始大小）计，
+# 100MB 压缩包高压缩比可膨胀出 GB 级内容打爆内存
+_MAX_MEMBER_BYTES = 15 * 1024 * 1024  # 单成员（图片）解压上限
+_MAX_TOTAL_BYTES = 500 * 1024 * 1024  # 全包解压总量上限
 
 
 class _SkipItem(Exception):
@@ -86,6 +90,30 @@ def _safe_member_name(name: str) -> None:
     posix = PurePosixPath(normalized)
     if posix.is_absolute() or ".." in posix.parts or ":" in normalized.split("/")[0]:
         raise ValueError(f"备份包含不安全的路径成员: {name!r}")
+
+
+def _check_decompressed_sizes(archive: zipfile.ZipFile) -> None:
+    """zip 炸弹防护：按成员 file_size 校验解压尺寸（读取前完成，防内存被打爆）。
+
+    file_size 是成员写入时的原始（解压后）大小，由 zipfile 从中央目录读出，
+    不触发实际解压。超限抛 ValueError → API 层映射 422。
+    """
+    total = 0
+    for info in archive.infolist():
+        if info.is_dir():
+            continue
+        if info.file_size > _MAX_MEMBER_BYTES:
+            raise ValueError(
+                f"备份包含过大成员 {info.filename!r}"
+                f"（解压后 {info.file_size / 1024 / 1024:.1f}MB，"
+                f"上限 {_MAX_MEMBER_BYTES // 1024 // 1024}MB）"
+            )
+        total += info.file_size
+    if total > _MAX_TOTAL_BYTES:
+        raise ValueError(
+            f"备份解压总量超限（{total / 1024 / 1024:.0f}MB，"
+            f"上限 {_MAX_TOTAL_BYTES // 1024 // 1024}MB）"
+        )
 
 
 def _new_image_key(user_id: int, member_name: str) -> str:
@@ -304,6 +332,7 @@ def import_full_backup(user_id: int, payload: bytes) -> dict:
         with archive:
             for name in archive.namelist():
                 _safe_member_name(name)
+            _check_decompressed_sizes(archive)
             if _MANIFEST_NAME not in archive.namelist():
                 raise ValueError("备份包缺少 manifest.json")
             try:

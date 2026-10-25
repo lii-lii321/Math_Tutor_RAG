@@ -219,6 +219,49 @@ def test_zip_slip_member_rejected(owner):
             import_full_backup(owner.id, buffer2.getvalue())
 
 
+def test_zip_bomb_oversized_member_rejected(owner, monkeypatch):
+    """解压尺寸超限的成员在读取前被拒（zip 炸弹防护，提升项 #2）。
+
+    用猴子补丁压缩单成员上限到 1KB，避免测试真写 15MB 数据；
+    file_size 校验发生在任何 archive.read 之前。
+    """
+    from backend.services import full_backup as fb
+
+    monkeypatch.setattr(fb, "_MAX_MEMBER_BYTES", 1024)
+    buffer = io.BytesIO()
+    manifest = {
+        "format": "mathmaster-full-backup",
+        "version": 2,
+        "questions": [],
+        "review_logs": [],
+    }
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("manifest.json", json.dumps(manifest))
+        archive.writestr("images/q1.jpg", b"x" * 2048)  # 解压 2KB > 1KB 上限
+    with pytest.raises(ValueError, match="过大成员"):
+        import_full_backup(owner.id, buffer.getvalue())
+
+
+def test_zip_bomb_total_size_rejected(owner, monkeypatch):
+    """全包解压总量超限被拒（多成员各自合规但总量越界）。"""
+    from backend.services import full_backup as fb
+
+    monkeypatch.setattr(fb, "_MAX_TOTAL_BYTES", 2048)
+    buffer = io.BytesIO()
+    manifest = {
+        "format": "mathmaster-full-backup",
+        "version": 2,
+        "questions": [],
+        "review_logs": [],
+    }
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("manifest.json", json.dumps(manifest))
+        for i in range(4):  # 每成员 1KB 合规，总量 4KB > 2KB
+            archive.writestr(f"images/q{i}.jpg", b"x" * 1024)
+    with pytest.raises(ValueError, match="解压总量超限"):
+        import_full_backup(owner.id, buffer.getvalue())
+
+
 def test_invalid_values_skipped_without_blocking(service, owner, receiver):
     """difficulty/ease/时间戳非法的条目逐条跳过计数，合法条目照常导入。"""
     good = {
