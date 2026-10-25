@@ -128,6 +128,58 @@ def test_mastery_bar_html_right_only_when_given():
     assert without_right.count("40%") < with_right.count("40%")
 
 
+# ---------- 用户内容 HTML 转义（存储型 XSS 防护，提升项 #1） ----------
+
+def test_mastery_bar_html_escapes_user_text():
+    """知识点名/右侧文案是用户可控数据：注入载荷必须失去标签语义。"""
+    payload = "<img src=x onerror=alert(1)>"
+    html = mastery_bar_html(payload, 40.0, right=payload)
+    assert "<img" not in html  # 无原始标签 → 浏览器不会创建元素/执行事件
+    assert "&lt;img" in html  # 转义后的实体可见（onerror 沦为纯文本）
+
+
+def test_badges_row_html_escapes_tags():
+    from frontend.components import badges_row_html
+
+    tags = ["函数", "<script>alert(1)</script>", "几何<img src=x onerror=boom()>"]
+    html = badges_row_html("medium", tags)
+    assert "<script>" not in html
+    assert "<img" not in html  # 无原始标签 → 事件属性注入失效
+    assert "函数" in html and "几何" in html
+    assert "&lt;script&gt;" in html
+
+
+def test_badge_helper_escapes_text():
+    from frontend.common import badge
+
+    html = badge("<b>bold</b>", tone="warn")
+    assert "<b>" not in html
+    assert "&lt;b&gt;" in html
+    assert "mm-badge--warn" in html
+
+
+def test_render_question_markdown_never_unsafe(monkeypatch):
+    """题目正文渲染不得开启 unsafe_allow_html（LaTeX 原生渲染，无需 raw HTML）。"""
+    from unittest.mock import MagicMock
+
+    import frontend.components as components_mod
+
+    captured: dict = {}
+    mock_markdown = MagicMock()
+
+    def _capture(content, **kwargs):
+        captured["content"] = content
+        captured["kwargs"] = kwargs
+
+    mock_markdown.side_effect = _capture
+    monkeypatch.setattr(components_mod.st, "markdown", mock_markdown)
+
+    payload = "解方程 $x^2=4$ <img src=x onerror=alert(1)>"
+    components_mod.render_question_markdown(payload)
+    assert captured["content"] == payload
+    assert not captured["kwargs"].get("unsafe_allow_html")
+
+
 # ---------- safe_call 包装 ----------
 
 def test_safe_call_returns_ok_with_result():

@@ -51,9 +51,14 @@ def stat_card(value, label: str, accent: bool = False) -> None:
 
 
 def badge(text: str, tone: str = "") -> str:
-    """语义徽章原语：tone ∈ {"", "blue", "warn", "bad", "ok"}；返回 HTML 供拼接。"""
+    """语义徽章原语：tone ∈ {"", "blue", "warn", "bad", "ok"}；返回 HTML 供拼接。
+
+    text 可能源自用户数据（标签/知识点名），转义后拼接。
+    """
+    import html as _html
+
     cls = f"mm-badge mm-badge--{tone}" if tone else "mm-badge"
-    return f"<span class='{cls}'>{text}</span>"
+    return f"<span class='{cls}'>{_html.escape(text)}</span>"
 
 
 def empty_state(icon: str, title: str, action_label: str | None = None, action_key: str | None = None) -> bool:

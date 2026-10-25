@@ -43,14 +43,35 @@ def mastery_fill_html(pct: float, color: str = "#2563eb") -> str:
 def mastery_bar_html(
     label: str | None, pct: float, color: str = "#2563eb", right: str | None = None
 ) -> str:
-    """完整掌握度横条：左标签 + 右侧文案 + 轨道填充。"""
-    left = f"<span>{label}</span>" if label else "<span></span>"
-    right_html = f"<span>{right}</span>" if right else ""
+    """完整掌握度横条：左标签 + 右侧文案 + 轨道填充（标签/文案为用户数据，转义后拼接）。"""
+    left = f"<span>{html.escape(label)}</span>" if label else "<span></span>"
+    right_html = f"<span>{html.escape(right)}</span>" if right else ""
     return (
         f'<div class="mm-mastery"><div class="mm-mastery__row">{left}{right_html}</div>'
         + mastery_fill_html(pct, color)
         + "</div>"
     )
+
+
+def badges_row_html(difficulty: str, tags: list[str]) -> str:
+    """难度 + 标签徽章行（tags 为用户输入，转义防存储型 XSS 注入）。"""
+    badges = " ".join(
+        f"<span class='mm-badge'>{html.escape(t)}</span>" for t in (tags or [])
+    )
+    return (
+        f"<div><span class='mm-badge mm-badge--blue'>{html.escape(difficulty)}</span>"
+        f"{badges}</div>"
+    )
+
+
+def render_question_markdown(content: str) -> None:
+    """渲染题目/解析正文：不开启 unsafe_allow_html。
+
+    正文是用户可控输入（手动录题 / AI 输出），开 unsafe 会把 <img onerror=...>
+    之类的事件属性注入原样送进浏览器——学生构造的题目可在查看该题的教师
+    浏览器里执行脚本。LaTeX（$...$ / $$...$$）由 Streamlit 原生渲染，无需 raw HTML。
+    """
+    st.markdown(content)
 
 
 def question_detail_view(q, show_hit: bool = True) -> None:
@@ -65,11 +86,8 @@ def question_detail_view(q, show_hit: bool = True) -> None:
             st.image(image_src, width="stretch")
         else:
             st.caption("无原图（手动录入）")
-        badges = " ".join(f"<span class='mm-badge'>{t}</span>" for t in q.tags)
-        st.markdown(
-            f"<div><span class='mm-badge mm-badge--blue'>{q.difficulty}</span>{badges}</div>",
-            unsafe_allow_html=True,
-        )
+        badges = badges_row_html(q.difficulty, list(q.tags or []))
+        st.markdown(badges, unsafe_allow_html=True)
         if q.reps:
             st.caption(f"已复习 {q.reps} 次 · 间隔 {q.interval_days:.0f} 天 · 难度系数 {q.ease:.2f}")
         else:
@@ -83,7 +101,7 @@ def question_detail_view(q, show_hit: bool = True) -> None:
             st.warning("⚠️ 验证未通过：答案疑似有误，请人工确认")
         elif q.verification_status == "uncertain":
             st.caption("⚠️ 当前答案无法自动验证，请人工确认")
-        st.markdown(q.content_markdown, unsafe_allow_html=True)
+        render_question_markdown(q.content_markdown)
         if q.answer:
             st.markdown(f"**答案**：{q.answer}")
         with st.expander("📋 复制 / 分享本题"):
