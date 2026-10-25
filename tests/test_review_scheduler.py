@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from backend.services.review import ReviewScheduler
+from backend.services.review import ReviewScheduler, format_interval_short
 from backend.utils.security import hash_password
 
 
@@ -38,6 +38,29 @@ def test_again_resets_progress(scheduler):
     assert result.quality == 0
     assert result.next_interval < 1  # 10 分钟
     assert result.ease_after < 2.5
+
+
+# ---------- 评分按钮内嵌间隔预告（体验专项 C3） ----------
+
+def test_format_interval_short_buckets():
+    assert format_interval_short(0) == "10分钟"
+    assert format_interval_short(10 / (24 * 60)) == "10分钟"
+    assert format_interval_short(1) == "明天"
+    assert format_interval_short(6) == "6天"
+    assert format_interval_short(15) == "15天"
+    assert format_interval_short(75) == "2.5个月"
+
+
+def test_format_interval_short_covers_scheduler_outputs(scheduler):
+    """四档评分的典型调度输出都能给出可读预告。"""
+    cases = [
+        scheduler.next_schedule(grade="again", reps=3, ease=2.5, interval_days=15),
+        scheduler.next_schedule(grade="hard", reps=0, ease=2.5, interval_days=0),
+        scheduler.next_schedule(grade="good", reps=1, ease=2.5, interval_days=1),
+        scheduler.next_schedule(grade="easy", reps=4, ease=2.6, interval_days=60),
+    ]
+    shorts = [format_interval_short(c.next_interval) for c in cases]
+    assert all(s and len(s) <= 8 for s in shorts), shorts
 
 
 def test_hard_keeps_progress_with_reduced_ease(scheduler):

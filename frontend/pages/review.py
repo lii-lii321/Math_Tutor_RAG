@@ -5,7 +5,7 @@ import datetime as dt
 
 import streamlit as st
 
-from backend.services.review import GRADE_ORDER, format_interval
+from backend.services.review import GRADE_ORDER, format_interval, format_interval_short
 from backend.utils.paths import display_image_source
 from frontend.common import (
     edit_question_form,
@@ -113,7 +113,9 @@ def _review_card(service, user: dict) -> None:
                         ease=question.ease,
                         interval_days=question.interval_days,
                     )
-                    if st.button(GRADE_LABELS[grade], key=f"grade_{grade}", width="stretch"):
+                    # 间隔预告内嵌按钮主文案（体验 C3）：不悬停即可决策
+                    label = f"{GRADE_LABELS[grade]} · {format_interval_short(preview.next_interval)}"
+                    if st.button(label, key=f"grade_{grade}", width="stretch"):
                         snapshot = service.snapshot_review_state(question.id, user["id"])
                         updated = service.grade_review(question.id, user["id"], grade)
                         st.session_state[reveal_key] = False
@@ -142,7 +144,7 @@ def _review_card(service, user: dict) -> None:
                             }
                         st.session_state[_CURSOR_KEY] = min(cursor, max(len(q_list) - 1, 0))
                         st.rerun()  # 整页重跑：侧边栏待复习徽标即时准确
-                    st.caption(format_interval(preview.next_interval))  # 评分后该题按队列逻辑处理，游标指向下一题
+                    st.caption(format_interval(preview.next_interval))  # 完整口径兜底（按钮两行被压缩时仍有依据）
         else:
             skip_col, _ = st.columns([1, 2])
             with skip_col:
@@ -202,6 +204,15 @@ def render_review_page(user: dict) -> None:
             st.success(
                 f"🎉 本轮复习完成！共评分 {summary['graded']} 题，"
                 f"记得/秒懂占 {rate}%。错题已按 SM-2 重新排期，明天见。"
+            )
+            # 四档分布徽章：一眼看清本轮状态构成（体验 C 组补强）
+            dist_html = " ".join(
+                f'<span class="mm-badge">{GRADE_LABELS[g]} × {grades.get(g, 0)}</span>'
+                for g in GRADE_ORDER
+            )
+            st.markdown(
+                f"<div style='margin:0.2rem 0'>{dist_html}</div>",
+                unsafe_allow_html=True,
             )
             if st.button("返回学情看板", type="primary"):
                 go_to("dashboard")

@@ -44,6 +44,22 @@ def format_interval(days: float) -> str:
     return f"{months:.1f} 个月后"
 
 
+def format_interval_short(days: float) -> str:
+    """评分按钮内嵌的极简间隔预告（体验专项 C3）：无需悬停即可决策。
+
+    "10 分钟后" → "10分钟"；1 天 → "明天"；6 天 → "6天"；月级 → "2.5个月"。
+    """
+    if days <= 0:
+        return "10分钟"
+    if days < 1:
+        return f"{max(1, round(days * 24 * 60))}分钟"
+    if days == 1:
+        return "明天"
+    if days < 30:
+        return f"{round(days)}天"
+    return f"{days / 30:.1f}个月"
+
+
 class ReviewScheduler:
     """SM-2 调度器：纯函数实现，便于单元测试。"""
 
