@@ -199,6 +199,80 @@ def test_notebook_url_params_through_login_and_leave_clear(smoke_user, service):
     assert searches and searches[0].value == ""
 
 
+# ---------- 教学干预闭环 UI（能力画像页，批 3） ----------
+
+def test_teaching_intervention_loop_on_mastery_page(smoke_user, service):
+    """画像页教学闭环全链：🎯 开干预 → 作答通过 → 待复测 → 复测通过归档。"""
+    service.create_manual_question(
+        smoke_user.id,
+        content_markdown="教学干预冒烟题：求 y=2x²-8x+1 的顶点",
+        answer="顶点 (2, -7)",
+        knowledge_points=["抛物线顶点与最值"],
+    )
+    at = AppTest.from_file(_APP_ENTRY, default_timeout=180)
+    at.run()
+    assert not at.exception
+    _fill_and_login(at, smoke_user.username, _SMOKE_PASSWORD)
+    assert not at.exception
+
+    _goto_page(at, "能力画像")
+    assert not at.exception, [str(e.value) for e in at.exception]
+    # 薄弱知识点行有 🎯 开干预按钮；空干预区有引导文案
+    start_btns = [b for b in at.button if b.label == "🎯"]
+    assert start_btns, "薄弱知识点行应渲染 🎯 开干预按钮"
+    start_btns[0].click()
+    at.run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+
+    # 诊断卡出现：登记作答通过 → 进入待复测
+    pass_btns = [b for b in at.button if b.label == "✅ 作答通过"]
+    assert pass_btns, "diagnosed 干预应提供作答登记按钮"
+    pass_btns[0].click()
+    at.run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+
+    # 待复测：复测题目选择 + 复测结果按钮
+    assert any(sb.label == "复测题目" for sb in at.selectbox)
+    rt_pass = [b for b in at.button if b.label == "✅ 复测通过"]
+    assert rt_pass, "retest_scheduled 干预应提供复测登记按钮"
+    rt_pass[0].click()
+    at.run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+
+    # 复测通过后进入已完成档案；左行该知识点不再处于进行中
+    assert any("已完成干预" in str(m.value) for m in at.markdown) or any(
+        "已完成干预" in str(e.label) for e in at.expander
+    )
+
+
+def test_teaching_intervention_practice_jump_seeds_kp_filter(smoke_user, service):
+    """「去练习这组题」桥接：错题本 nb_kp 种入 + chip 回显。"""
+    service.create_manual_question(
+        smoke_user.id,
+        content_markdown="教学干预跳转题：抛物线开口方向判断",
+        answer="a>0 向上",
+        knowledge_points=["抛物线的开口与对称轴"],
+    )
+    at = AppTest.from_file(_APP_ENTRY, default_timeout=180)
+    at.run()
+    _fill_and_login(at, smoke_user.username, _SMOKE_PASSWORD)
+
+    _goto_page(at, "能力画像")
+    start_btns = [b for b in at.button if b.label == "🎯"]
+    assert start_btns
+    start_btns[0].click()
+    at.run()
+    practice_btns = [b for b in at.button if b.label == "去练习这组题"]
+    assert practice_btns
+    practice_btns[0].click()
+    at.run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    # 已到错题本且知识点筛选生效：URL 带 nb_kp，chip 回显，结果只剩该知识点题
+    assert at.query_params.get("nb_kp") == "抛物线的开口与对称轴"
+    chips = "".join(str(m.value) for m in at.markdown)
+    assert "知识点:抛物线的开口与对称轴" in chips
+
+
 # ---------- 复习页三路径 + fragment 交互 ----------
 
 def test_review_page_three_paths(smoke_user, service):
@@ -254,13 +328,15 @@ def test_review_page_grade_flow_full_rerun(smoke_user, service):
     reveal[0].click()
     at.run()
     assert not at.exception
-    # 解析与评分按钮同轮渲染（「显示解析」置 key）
-    assert any(b.label == "😎 秒懂" for b in at.button)
+    # 解析与评分按钮同轮渲染（「显示解析」置 key）；C3 起按钮内嵌间隔预告
+    assert any(b.label.startswith("😎 秒懂 ·") for b in at.button)
     assert any("答案" in str(m.value) for m in at.markdown)
 
-    grade = [b for b in at.button if b.label == "😎 秒懂"][0]
+    grade = [b for b in at.button if b.label.startswith("😎 秒懂 ·")][0]
     grade.click()
     at.run()
     assert not at.exception
     # 评分保留整页 st.rerun()：队列弹出唯一一题 → 完成态（侧边栏徽标随之准确）
     assert any("本轮复习完成" in str(s.value) for s in at.success)
+    # 完成页含四档分布徽章（体验 C 组补强）
+    assert any("😎 秒懂 × 1" in str(m.value) for m in at.markdown)

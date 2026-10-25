@@ -1,8 +1,9 @@
-"""能力画像页：知识点掌握度 + 今日自适应复习计划（Batch 04/05）。"""
+"""能力画像页：知识点掌握度 + 今日自适应复习计划 + 教学干预闭环（Batch 04/05）。"""
 from __future__ import annotations
 
 import streamlit as st
 
+from backend.services.teaching import TeachingService
 from frontend.charts import plotly_font, plotly_grid
 from frontend.common import empty_state, get_question_service, go_to, page_header
 from frontend.components import mastery_fill_html, safe_call
@@ -15,6 +16,20 @@ _STATUS_BADGE = {
 _STATUS_ICON = {"solid": "🟦", "shaky": "🟨", "weak": "🟥"}
 _FILL_COLOR = {"solid": "#2563eb", "shaky": "#94a3b8", "weak": "#dc2626"}
 _RADAR_MAX = 8
+
+_STRATEGY_LABEL = {
+    "weak_drill": "概念重建 + 基础变式",
+    "error_cause": "错因归类 + 针对性变式",
+    "maintenance": "保温综合",
+}
+_OUTCOME_META = {
+    "diagnosed": ("🩺 已诊断", "mm-badge mm-badge--blue"),
+    "practiced": ("✍️ 练习中", "mm-badge mm-badge--warn"),
+    "retest_scheduled": ("⏳ 待复测", "mm-badge mm-badge--warn"),
+    "retest_passed": ("🎉 复测通过", "mm-badge mm-badge--ok"),
+    "retest_failed": ("🔁 复测未过", "mm-badge mm-badge--bad"),
+}
+_ACTIVE_OUTCOMES = ("diagnosed", "practiced", "retest_scheduled")
 
 
 def _render_radar(profile) -> None:
@@ -49,6 +64,130 @@ def _render_radar(profile) -> None:
     st.plotly_chart(fig, width="stretch", key="chart_radar", config={"displayModeBar": False})
 
 
+def _render_interventions(user: dict) -> None:
+    """教学干预闭环操作区：诊断 → 练习 → 独立作答 → 延迟复测（右栏）。
+
+    数据面全部走 TeachingService（状态机与归属校验见 backend/services/teaching.py）；
+    UI 只做状态展示与动作触发，失败统一 error_card 降级。
+    """
+    teaching = TeachingService()
+    ok, history = safe_call(
+        teaching.history, user["id"], limit=50, error_title="教学干预记录加载失败"
+    )
+    if not ok:
+        st.stop()
+    history = history or []
+    active = [row for row in history if row["outcome"] in _ACTIVE_OUTCOMES]
+    done = [row for row in history if row["outcome"] not in _ACTIVE_OUTCOMES]
+
+    if not active and not done:
+        st.caption(
+            "在左侧薄弱知识点点「🎯」开启一次教学干预：诊断 → 针对性练习 → "
+            "独立作答 → 7 天后延迟复测，复测通过才计入掌握归档。"
+        )
+        return
+
+    # 复测题摘要映射：一次拉取当前用户题目（数量个人级，够用）
+    q_service = get_question_service()
+    snippets: dict[int, str] = {}
+    for row in active:
+        for qid in row["question_ids"]:
+            if qid not in snippets:
+                fetched = q_service.get_question(qid, user["id"])
+                snippets[qid] = (fetched.content_markdown[:24] if fetched else f"#{qid}")
+
+    for row in active:
+        iid = row["id"]
+        label, badge_cls = _OUTCOME_META[row["outcome"]]
+        with st.container(border=True):
+            st.markdown(
+                f'<span class="{badge_cls}">{label}</span> '
+                f'<span class="mm-badge">{_STRATEGY_LABEL.get(row["strategy"], row["strategy"])}</span>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(f"**{row['knowledge_point']}** · {len(row['question_ids'])} 题")
+            if row["outcome"] == "retest_scheduled":
+                st.caption(f"约定复测时间：{row['retest_due_at'][:16].replace('T', ' ')}（到期前请独立完成）")
+            else:
+                st.caption("先独立完成这组练习，再按实际作答情况登记")
+
+            if row["outcome"] in ("diagnosed", "practiced"):
+                c1, c2, c3 = st.columns([2, 1.4, 1.4])
+                with c1:
+                    if st.button("去练习这组题", key=f"ti_practice_{iid}", width="stretch"):
+                        go_to("notebook", kp=row["knowledge_point"])
+                with c2:
+                    if st.button("✅ 作答通过", key=f"ti_pass_{iid}", width="stretch"):
+                        ok2, _ = safe_call(
+                            _advance_to_outcome, teaching, row, user["id"], True,
+                            error_title="作答结果登记失败",
+                        )
+                        if ok2:
+                            st.toast("已约定 7 天后复测——到时回来登记复测结果", icon="⏳")
+                            st.rerun()
+                with c3:
+                    if st.button("😅 作答未通过", key=f"ti_fail_{iid}", width="stretch"):
+                        ok2, _ = safe_call(
+                            _advance_to_outcome, teaching, row, user["id"], False,
+                            error_title="作答结果登记失败",
+                        )
+                        if ok2:
+                            st.toast("已记录：这组题再练一轮后重新登记", icon="🔁")
+                            st.rerun()
+            else:  # retest_scheduled
+                options = row["question_ids"] or []
+                if options:
+                    fmt = {qid: f"#{qid} {snippets.get(qid, '')}" for qid in options}
+                    retest_qid = st.selectbox(
+                        "复测题目",
+                        options,
+                        format_func=lambda q, _fmt=fmt: _fmt[q],
+                        key=f"ti_retest_q_{iid}",
+                    )
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        if st.button("✅ 复测通过", key=f"ti_rt_pass_{iid}", width="stretch"):
+                            ok2, _ = safe_call(
+                                teaching.record_retest,
+                                iid, user["id"], True, retest_qid,
+                                error_title="复测结果登记失败",
+                            )
+                            if ok2:
+                                st.toast("复测通过已记录——该题满足 SM-2 条件时即归档", icon="🎉")
+                                st.rerun()
+                    with c2:
+                        if st.button("❌ 复测未过", key=f"ti_rt_fail_{iid}", width="stretch"):
+                            ok2, _ = safe_call(
+                                teaching.record_retest,
+                                iid, user["id"], False, retest_qid,
+                                error_title="复测结果登记失败",
+                            )
+                            if ok2:
+                                st.toast("已记录：题目留在复习池，继续按 SM-2 排期", icon="🔁")
+                                st.rerun()
+
+    if done:
+        with st.expander(f"已完成干预（{len(done)} 次）"):
+            for row in done:
+                label, badge_cls = _OUTCOME_META[row["outcome"]]
+                st.markdown(
+                    f'<span class="{badge_cls}">{label}</span> '
+                    f"{row['knowledge_point']} · {(row['created_at'] or '')[:10]}",
+                    unsafe_allow_html=True,
+                )
+
+
+def _advance_to_outcome(teaching: TeachingService, row: dict, user_id: int, passed: bool) -> dict:
+    """diagnosed 状态先落练习登记（沿用诊断题组），再登记独立作答结果。"""
+    if row["outcome"] == "diagnosed":
+        teaching.record_practice(row["id"], user_id, row["question_ids"])
+    return teaching.record_outcome(row["id"], user_id, passed)
+
+
+def _start_intervention(teaching: TeachingService, user_id: int, kp: str) -> dict:
+    return teaching.start_intervention(user_id, kp)
+
+
 def render_mastery_page(user: dict) -> None:
     service = get_question_service()
     page_header(
@@ -65,6 +204,7 @@ def render_mastery_page(user: dict) -> None:
         st.stop()
     profile = profile or []
 
+    teaching = TeachingService()
     left, right = st.columns([3, 2], gap="large")
 
     with left:
@@ -76,11 +216,11 @@ def render_mastery_page(user: dict) -> None:
             )
         else:
             weak_count = sum(1 for item in profile if item.status != "solid")
-            st.caption(f"共 {len(profile)} 个知识点 · 其中 {weak_count} 个待巩固 · 点击「📝」直达该知识点错题")
+            st.caption(f"共 {len(profile)} 个知识点 · 其中 {weak_count} 个待巩固 · 点击「📝」按知识点筛错题、「🎯」开启教学干预")
             _render_radar(profile)
             for item in profile:
                 with st.container(border=True):
-                    cols = st.columns([4, 2, 2, 1], vertical_alignment="center")
+                    cols = st.columns([4, 2, 2, 1, 1], vertical_alignment="center")
                     with cols[0]:
                         st.markdown(f"**{item.knowledge_point}**")
                         st.markdown(
@@ -100,6 +240,24 @@ def render_mastery_page(user: dict) -> None:
                     with cols[3]:
                         if st.button("📝", key=f"kp_go_{item.knowledge_point}", help="在错题本中按该知识点筛选"):
                             go_to("notebook", kp=item.knowledge_point)
+                    with cols[4]:
+                        if item.status != "solid":
+                            if st.button(
+                                "🎯",
+                                key=f"kp_start_{item.knowledge_point}",
+                                help="开启教学干预：诊断→练习→作答→延迟复测",
+                            ):
+                                ok, _diag = safe_call(
+                                    _start_intervention,
+                                    teaching, user["id"], item.knowledge_point,
+                                    error_title="教学干预开启失败",
+                                )
+                                if ok:
+                                    st.toast(
+                                        f"已开启「{item.knowledge_point}」教学干预，见右侧干预区",
+                                        icon="🎯",
+                                    )
+                                    st.rerun()
 
     with right:
         st.subheader("今日复习计划")
@@ -127,3 +285,7 @@ def render_mastery_page(user: dict) -> None:
                             go_to("review", mode="plan", question_id=item.question.id)
             if st.button("进入复习模式（按今日计划）", type="primary", width="stretch"):
                 go_to("review", mode="plan")
+
+        st.divider()
+        st.subheader("🎯 教学干预")
+        _render_interventions(user)
