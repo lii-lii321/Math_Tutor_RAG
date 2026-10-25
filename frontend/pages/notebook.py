@@ -47,6 +47,7 @@ def _current_filters() -> dict:
     return {
         "keyword": st.session_state.get("notebook_search", ""),
         "tag": st.session_state.get("notebook_tag", TAG_DEFAULT),
+        "kp": st.session_state.get("notebook_kp", ""),
         "sort": st.session_state.get("notebook_sort", SORT_OPTIONS[0]),
         "view": st.session_state.get("notebook_view", VIEW_OPTIONS[0]),
         "semantic": st.session_state.get("notebook_sem", True),
@@ -238,13 +239,16 @@ def render_notebook_page(user: dict) -> None:
     service = get_question_service()
     page_header("错题本", "支持关键词与语义搜索；教师可查看全部学生错题")
 
-    incoming = pop_params("tag", "keyword", "student")
+    incoming = pop_params("tag", "keyword", "student", "kp")
     url_filters = decode_filters(st.query_params.to_dict())
 
     # go_to 桥接参数无条件强制覆盖（带选项校验的 tag/student 在各自控件前处理）；
     # URL 参数仅在控件键尚未入会话时种入——刷新 / 分享 / 穿登录可达。
+    # kp（知识点筛选）为纯 chip 型预设：无下拉控件，能力画像/教学干预跳入用。
     _force_seed("notebook_search", incoming.get("keyword"))
+    _force_seed("notebook_kp", incoming.get("kp"))
     _seed_if_new("notebook_search", url_filters["keyword"], "")
+    _seed_if_new("notebook_kp", url_filters["kp"], "")
     _seed_if_new("notebook_view", url_filters["view"], VIEW_OPTIONS[0])
     _seed_if_new("notebook_sem", url_filters["semantic"], True)
     _seed_if_new("notebook_due", url_filters["only_due"], False)
@@ -382,6 +386,9 @@ def render_notebook_page(user: dict) -> None:
             chips_html += _chip(f"搜索:{keyword}")
         if tag_filter != "全部":
             chips_html += _chip(tag_filter)
+        kp_filter = st.session_state.get("notebook_kp", "")
+        if kp_filter:
+            chips_html += _chip(f"知识点:{kp_filter}")
         if is_teacher and student_name != STUDENT_DEFAULT:
             chips_html += _chip(f"学生:{student_name}")
         if only_starred:
@@ -411,6 +418,7 @@ def render_notebook_page(user: dict) -> None:
             keyword=keyword or None,
             starred=only_starred,
             semantic=semantic,
+            knowledge_point=kp_filter or None,
             error_title="错题检索失败",
         )
         if not ok:

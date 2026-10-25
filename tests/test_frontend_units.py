@@ -199,10 +199,11 @@ def test_safe_call_degrades_on_exception():
 
 # ---------- query_state：URL 参数 schema 与编解码 ----------
 
-def test_query_state_declares_eleven_nb_params():
+def test_query_state_declares_twelve_nb_params():
     assert PARAM_NAMES == (
         "nb_kw",
         "nb_tag",
+        "nb_kp",
         "nb_sort",
         "nb_view",
         "nb_sem",
@@ -213,7 +214,7 @@ def test_query_state_declares_eleven_nb_params():
         "nb_student",
         "nb_page",
     )
-    assert len(set(WIDGET_KEYS)) == len(PARAM_NAMES) == 11
+    assert len(set(WIDGET_KEYS)) == len(PARAM_NAMES) == 12
 
 
 def test_query_state_defaults_encode_to_empty_url():
@@ -221,6 +222,7 @@ def test_query_state_defaults_encode_to_empty_url():
     filters = decode_filters({})
     assert filters["keyword"] == ""
     assert filters["tag"] == "全部"
+    assert filters["kp"] == ""
     assert filters["sort"] == SORT_OPTIONS[0]
     assert filters["view"] == VIEW_OPTIONS[0]
     assert filters["semantic"] is True
@@ -228,6 +230,16 @@ def test_query_state_defaults_encode_to_empty_url():
     assert filters["page"] == 0
     assert filters["student"] == "全部学生"
     assert encode_filters(filters) == {}
+
+
+def test_query_state_knowledge_point_roundtrip():
+    """知识点筛选（chip 型预设）编解码：非空进 URL、空串省略。"""
+    encoded = encode_filters({"kp": "二次函数的图象与性质"})
+    assert encoded == {"nb_kp": "二次函数的图象与性质"}
+    decoded = decode_filters(encoded)
+    assert decoded["kp"] == "二次函数的图象与性质"
+    assert decode_filters({})["kp"] == ""
+    assert decode_filters({"nb_kp": None})["kp"] == ""
 
 
 def test_query_state_encode_only_non_defaults():

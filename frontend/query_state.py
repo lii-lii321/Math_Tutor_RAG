@@ -26,6 +26,7 @@ TAG_DEFAULT = "全部"
 STUDENT_DEFAULT = "全部学生"
 PAGE_DEFAULT = 0
 KEYWORD_DEFAULT = ""
+KP_DEFAULT = ""
 
 _TRUE_TEXT = frozenset({"1", "true"})
 _FALSE_TEXT = frozenset({"0", "false"})
@@ -34,6 +35,7 @@ _FALSE_TEXT = frozenset({"0", "false"})
 _PARAM_WIDGET_KEYS: dict[str, str] = {
     "nb_kw": "notebook_search",
     "nb_tag": "notebook_tag",
+    "nb_kp": "notebook_kp",
     "nb_sort": "notebook_sort",
     "nb_view": "notebook_view",
     "nb_sem": "notebook_sem",
@@ -51,6 +53,7 @@ WIDGET_KEYS: tuple[str, ...] = tuple(dict.fromkeys(_PARAM_WIDGET_KEYS.values()))
 _FILTER_DEFAULTS: dict[str, Any] = {
     "keyword": KEYWORD_DEFAULT,
     "tag": TAG_DEFAULT,
+    "kp": KP_DEFAULT,
     "sort": SORT_OPTIONS[0],
     "view": VIEW_OPTIONS[0],
     "semantic": True,
@@ -99,6 +102,7 @@ def decode_filters(params: Mapping[str, Any] | None = None) -> dict[str, Any]:
     return {
         "keyword": KEYWORD_DEFAULT if raw["nb_kw"] is None else str(raw["nb_kw"]),
         "tag": TAG_DEFAULT if raw["nb_tag"] is None else str(raw["nb_tag"]),
+        "kp": KP_DEFAULT if raw["nb_kp"] is None else str(raw["nb_kp"]),
         "sort": raw["nb_sort"] if raw["nb_sort"] in SORT_OPTIONS else SORT_OPTIONS[0],
         "view": raw["nb_view"] if raw["nb_view"] in VIEW_OPTIONS else VIEW_OPTIONS[0],
         "semantic": _decode_bool(raw["nb_sem"], True),
@@ -119,6 +123,8 @@ def encode_filters(filters: Mapping[str, Any] | None = None) -> dict[str, str]:
         encoded["nb_kw"] = str(merged["keyword"])
     if merged["tag"] and merged["tag"] != TAG_DEFAULT:
         encoded["nb_tag"] = str(merged["tag"])
+    if merged["kp"]:
+        encoded["nb_kp"] = str(merged["kp"])
     if merged["sort"] != SORT_OPTIONS[0]:
         encoded["nb_sort"] = str(merged["sort"])
     if merged["view"] != VIEW_OPTIONS[0]:

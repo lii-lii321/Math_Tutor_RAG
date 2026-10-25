@@ -98,8 +98,8 @@ def render_mastery_page(user: dict) -> None:
                         )
                         st.caption(f"{item.question_count} 题 · {item.due_count} 题到期")
                     with cols[3]:
-                        if st.button("📝", key=f"kp_go_{item.knowledge_point}", help="在错题本中查看"):
-                            go_to("notebook", tag=item.knowledge_point)
+                        if st.button("📝", key=f"kp_go_{item.knowledge_point}", help="在错题本中按该知识点筛选"):
+                            go_to("notebook", kp=item.knowledge_point)
 
     with right:
         st.subheader("今日复习计划")
