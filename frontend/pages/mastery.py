@@ -262,7 +262,13 @@ def render_mastery_page(user: dict) -> None:
     with right:
         st.subheader("今日复习计划")
         size = st.slider("计划题数", min_value=3, max_value=20, value=8, step=1)
-        plan = service.today_plan(user["id"], size=size)
+        ok, plan = safe_call(
+            service.today_plan,
+            user["id"], size=size,
+            error_title="今日计划生成失败",
+        )
+        if not ok:
+            st.stop()
         if not plan:
             st.success("🎉 今日没有需要处理的题目，休息一下。")
         else:

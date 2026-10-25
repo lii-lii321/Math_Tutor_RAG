@@ -53,7 +53,21 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
 
 def _resolve_user_id() -> int:
     """MCP 模式下单用户绑定：环境变量 MM_USER_ID（默认 demo 用户）。"""
-    return int(os.getenv("MM_USER_ID", "0")) or _fallback_demo_id()
+    explicit = os.getenv("MM_USER_ID", "")
+    if explicit:
+        return int(explicit)
+    user_id = _fallback_demo_id()
+    # stderr 日志（stdout 是 stdio 协议通道，不能污染）：
+    # 对含真实学生数据的库启用 MCP 时，务必显式 MM_USER_ID，
+    # 否则工具读写的是回退账号（默认 demo）的数据
+    from backend.utils.logging import get_logger
+
+    get_logger("mcp").warning(
+        "MM_USER_ID 未设置，MCP 已回退绑定到用户 #%s（MM_USERNAME/demo）——"
+        "对存有真实学生数据的库启用时请显式指定 MM_USER_ID",
+        user_id,
+    )
+    return user_id
 
 
 def _fallback_demo_id() -> int:
