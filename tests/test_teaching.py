@@ -3,11 +3,12 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import uuid
 
 import pytest
 
 from backend.database import SessionLocal
-from backend.models.orm import Question
+from backend.models.orm import Question, User
 from backend.services.question_service import QuestionService
 from backend.services.teaching import TeachingService
 
@@ -17,6 +18,18 @@ _KP = "二次函数的图象与性质"
 @pytest.fixture
 def service():
     return TeachingService(session_factory=SessionLocal)
+
+
+@pytest.fixture
+def student_user(db_session):
+    """专属学生用户：共享 demo 用户会被其他文件的同知识点题串扰（计数不隔离）。"""
+    user = User(
+        username=f"teach_{uuid.uuid4().hex[:8]}", password_hash="x", role="student"
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
 
 
 @pytest.fixture

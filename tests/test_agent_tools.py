@@ -49,9 +49,12 @@ def test_tutor_tools_registered(tools):
         "get_recent_mistakes",
         "get_review_history",
         "generate_practice_set",
+        "start_kp_intervention",
+        "get_intervention_history",
+        "record_retest_outcome",
     }
     assert expected <= set(tools)
-    assert len(tools) == 13
+    assert len(tools) == 16
 
 
 def test_add_and_search_roundtrip(tools, student_user):

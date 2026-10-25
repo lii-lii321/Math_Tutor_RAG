@@ -93,6 +93,17 @@ class TestConversationService:
 
 
 class TestAgentPersistence:
+    @pytest.fixture(autouse=True)
+    def _clear_agent_caches(self):
+        """Agent 客户端缓存按测试清空：monkeypatch 的假构造器不得跨测试泄漏。"""
+        from backend.services.agent import reset_client_cache, reset_write_limiters
+
+        reset_client_cache()
+        reset_write_limiters()
+        yield
+        reset_client_cache()
+        reset_write_limiters()
+
     def _fake_openai(self, monkeypatch, script):
         from tests.test_agent import _FakeOpenAI
 
