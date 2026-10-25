@@ -11,11 +11,15 @@ from __future__ import annotations
 import json
 import re
 from functools import lru_cache
+from typing import TYPE_CHECKING
 
 from backend.config import get_settings
 from backend.services.agent_tools import build_tools
 from backend.services.question_service import QuestionService
 from backend.utils.logging import get_logger
+
+if TYPE_CHECKING:  # pragma: no cover
+    from backend.utils.request_limiter import RequestRateLimiter
 
 logger = get_logger("agent")
 
@@ -31,12 +35,16 @@ SYSTEM_PROMPT = (
     "你可以调用工具来完成。规则："
     "1. 操作前先想清楚需要哪些信息，不确定就先查询；"
     "2. 分析学情时先取掌握度画像与近期错题，再给结论；"
-    "3. 涉及写操作（录题/评分）时向用户确认关键参数；"
+    "3. 写操作（录题/评分）先向用户复述关键参数，确认后携带 \"confirm\": true 调用；"
     "4. 回答用简体中文，引用错题时带上 ID 和标签；给建议时具体到知识点与题量。"
     "5. 学情结论和统计数字必须来自工具返回的数据，工具没有返回的信息不要推断或编造，"
     "查不到就直接说查不到；"
     "6. 引用的错题 ID（#数字）只能是本轮工具结果中出现过的 ID，"
     "不得编造 ID，也不要引用更早对话中提到但本轮未查询到的 ID。"
+    "7. 工具失败按前缀分类处理：ERROR[param] 修正参数或向用户澄清后重试；"
+    "ERROR[permission] 如实告知权限/配额限制；ERROR[business] 向用户转述业务原因；"
+    "ERROR[internal] 属临时故障，至多重试一次，仍失败就告知用户稍后再试。"
+    "任何失败都不得当成正常查询结果继续推理。"
 )
 
 
@@ -83,6 +91,27 @@ def reset_client_cache() -> None:
     _shared_client.cache_clear()
 
 
+# 每用户 Agent 写操作日配额（服务端硬门，settings.agent_write_per_day）
+_write_limiters: dict[tuple[int, int], RequestRateLimiter] = {}
+
+
+def _write_limiter(user_id: int, quota: int):
+    """取（或建）该用户的写配额滑动窗口；quota<=0 返回 None 表示不限。"""
+    if quota <= 0:
+        return None
+    key = (user_id, quota)
+    if key not in _write_limiters:
+        from backend.utils.request_limiter import RequestRateLimiter
+
+        _write_limiters[key] = RequestRateLimiter(quota, window_seconds=86400)
+    return _write_limiters[key]
+
+
+def reset_write_limiters() -> None:
+    """测试钩子：清空写配额缓存。"""
+    _write_limiters.clear()
+
+
 def _trim_history(history: list[dict], max_messages: int) -> list[dict]:
     """会话历史窗口裁剪（纯函数，不依赖 Streamlit，可脱机单测）。
 
@@ -115,6 +144,7 @@ class AgentSession:
         self.service = QuestionService()
         self.tools = build_tools(self.service, user_id)
         self._handlers = {t.name: t.handler for t in self.tools}
+        self._tool_meta = {t.name: t for t in self.tools}
         self.history: list[dict] = [
             {"role": "system", "content": SYSTEM_PROMPT}
         ]
@@ -131,17 +161,44 @@ class AgentSession:
         return [t.openai_schema() for t in self.tools]
 
     def _execute_tool(self, name: str, arguments: str) -> str:
-        handler = self._handlers.get(name)
-        if handler is None:
-            return f"未知工具: {name}"
+        """执行工具：写操作过配额/确认门；失败按 ERROR[类别] 前缀返回给 LLM。
+
+        前缀分类（提示词规则 7 教模型区分处理）：
+        param（参数错误/未知工具/缺确认）、permission（权限/配额）、
+        business（业务规则拒绝）、internal（临时故障）。
+        """
+        tool = self._tool_meta.get(name)
+        if tool is None:
+            return f"ERROR[param]: 未知工具 {name}"
+        if tool.requires_confirm:
+            quota = get_settings().agent_write_per_day
+            limiter = _write_limiter(self.user_id, quota)
+            if limiter is not None and not limiter.allow(f"agent_write:{self.user_id}"):
+                logger.warning(
+                    "Agent 写配额用尽 user=%s（每日 %s 次）", self.user_id, quota
+                )
+                return (
+                    f"ERROR[permission]: 今日 Agent 写操作配额已用尽（{quota} 次/天），"
+                    "请告知用户明天再试或到界面手动操作"
+                )
         try:
             args = json.loads(arguments) if arguments else {}
-            return handler(**args)
         except json.JSONDecodeError:
-            return f"参数 JSON 解析失败: {arguments}"
-        except Exception as exc:  # noqa: BLE001 - 工具异常回传给 LLM 自行纠正
+            return f"ERROR[param]: 参数 JSON 解析失败: {arguments}"
+        if tool.requires_confirm and args.pop("confirm", None) is not True:
+            return (
+                "ERROR[param]: 写操作缺少确认——请先向用户复述关键参数"
+                '（题面/答案/标签或题目与评分），经用户确认后携带 "confirm": true 重新调用'
+            )
+        try:
+            return tool.handler(**args)
+        except PermissionError as exc:
+            return f"ERROR[permission]: {exc}"
+        except ValueError as exc:
+            return f"ERROR[business]: {exc}"
+        except Exception as exc:  # noqa: BLE001 - 其余为临时/未知故障
             logger.warning("工具 %s 执行失败: %s", name, exc)
-            return f"工具执行出错: {exc}"
+            return f"ERROR[internal]: 工具执行出错: {exc}"
 
     def _persist(self, entries: list[tuple[str, str, str | None]]) -> None:
         """对话与工具审计落库（未绑定会话或失败时静默跳过，不影响主流程）。"""

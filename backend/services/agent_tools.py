@@ -24,6 +24,8 @@ class AgentTool:
     description: str
     parameters: dict  # JSON Schema
     handler: Callable[..., str]
+    # 写操作标记：执行前需 confirm 参数 + 受每日写配额约束（见 agent._execute_tool）
+    requires_confirm: bool = False
 
     def openai_schema(self) -> dict:
         return {
@@ -281,21 +283,35 @@ def build_tools(service: QuestionService, user_id: int) -> list[AgentTool]:
         ),
         AgentTool(
             name="add_text_question",
-            description="录入一道文本错题到错题本",
+            description=(
+                "录入一道文本错题到错题本（写操作：先向用户复述题面/答案/标签，"
+                '经确认后携带 "confirm": true 调用）'
+            ),
             parameters={
                 "type": "object",
                 "properties": {
-                    "content_markdown": {"type": "string", "description": "题面与解析（Markdown）"},
+                    "content_markdown": {
+                        "type": "string",
+                        "description": "题面与解析（Markdown）",
+                    },
                     "answer": {"type": "string", "description": "正确答案（可选）"},
                     "tags": {"type": "string", "description": "逗号分隔标签（可选）"},
+                    "confirm": {
+                        "type": "boolean",
+                        "description": "用户已确认本次写入时传 true",
+                    },
                 },
                 "required": ["content_markdown"],
             },
             handler=add_text_question,
+            requires_confirm=True,
         ),
         AgentTool(
             name="grade_question",
-            description="对错题评分（SM-2 间隔重复调度）",
+            description=(
+                "对错题评分，SM-2 自动排期（写操作：先向用户复述题目与评分，"
+                '经确认后携带 "confirm": true 调用）'
+            ),
             parameters={
                 "type": "object",
                 "properties": {
@@ -305,10 +321,15 @@ def build_tools(service: QuestionService, user_id: int) -> list[AgentTool]:
                         "enum": ["again", "hard", "good", "easy"],
                         "description": "记忆掌握程度",
                     },
+                    "confirm": {
+                        "type": "boolean",
+                        "description": "用户已确认本次评分时传 true",
+                    },
                 },
                 "required": ["question_id", "grade"],
             },
             handler=grade_question,
+            requires_confirm=True,
         ),
         AgentTool(
             name="list_due_questions",

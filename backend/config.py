@@ -96,6 +96,10 @@ class Settings(BaseSettings):
     # Agent 会话历史上界（条）：超出时裁剪为「首条 system + 最近 N 条」，
     # 防长会话 token 无上界；服务端重建历史另有默认 20 条截断
     agent_history_max_messages: int = Field(default=60, ge=10, le=200)
+    # Agent 写操作（录题/评分）每用户每日上限：服务端硬门，0 = 不限制。
+    # 单请求 SSE 会话无法做真正的用户 round-trip 确认，这是提示词之外的
+    # 服务端约束底线（防模型循环失控批量写）
+    agent_write_per_day: int = Field(default=50, ge=0, le=10000)
 
     # ---------- RAG / 向量库 ----------
     chroma_dir: Path = PROJECT_ROOT / "data" / "chroma"
