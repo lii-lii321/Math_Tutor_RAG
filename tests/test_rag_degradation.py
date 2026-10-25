@@ -88,7 +88,11 @@ def test_ensure_collection_uses_local_embedding(tmp_path, fake_chromadb):
     store = QuestionVectorStore(_rag_settings(tmp_path))
     assert store.is_available() is True
     assert fake_chromadb["embedding_fn"].kind == "default"
-    assert fake_chromadb["metadata"] == {"hnsw:space": "cosine"}
+    # metadata 同时携带嵌入身份指纹（提升项 #11）
+    assert fake_chromadb["metadata"] == {
+        "hnsw:space": "cosine",
+        "mm:embedding": "chromadb-default",
+    }
 
 
 def test_remote_embedding_function_selected(tmp_path, fake_chromadb):

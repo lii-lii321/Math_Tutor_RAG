@@ -10,6 +10,10 @@
 - 未配置 → 使用 ChromaDB 内置本地嵌入模型，零外部依赖
 
 任何环节故障均自动降级为关键词检索，保证主流程不被向量库阻断。
+
+嵌入身份指纹：collection metadata 记录建库时的嵌入模型标识；
+切换嵌入模型后旧向量与新查询不同空间，检索质量会静默劣化——
+ensure 时比对并在 data_health 体检中显式暴露（提示重建索引）。
 """
 from __future__ import annotations
 
@@ -21,6 +25,16 @@ from backend.config import Settings, get_settings
 from backend.utils.logging import get_logger
 
 logger = get_logger("rag")
+
+# collection metadata 中记录嵌入身份的键
+EMBEDDING_META_KEY = "mm:embedding"
+
+
+def embedding_fingerprint(settings: Settings) -> str:
+    """当前配置的嵌入身份：远程 (base_url|model) 或本地内置。"""
+    if settings.embedding_base_url and settings.embedding_api_key:
+        return f"{settings.embedding_base_url.rstrip('/')}|{settings.embedding_model}"
+    return "chromadb-default"
 
 
 @dataclass
@@ -59,6 +73,8 @@ class QuestionVectorStore:
         self.settings = settings or get_settings()
         self._collection = None
         self._available: bool | None = None  # None = 未探测
+        self._stored_fingerprint: str | None = None  # 建库时记录的嵌入身份
+        self._embedding_mismatch: bool | None = None  # None = 未探测/旧集合无指纹
 
     # ---------- 惰性初始化 ----------
     def _ensure_collection(self):
@@ -73,17 +89,76 @@ class QuestionVectorStore:
 
             client = chromadb.PersistentClient(path=str(self.settings.chroma_dir))
             embed_fn = self._build_embedding_fn(embedding_functions)
+            fingerprint = embedding_fingerprint(self.settings)
+            # 先取 bare 集合（不带 embedding_function）探测建库时的嵌入身份：
+            # chroma 对函数级冲突（default vs openai）会在挂载时直接抛错降级，
+            # 模型级切换（两个远程模型）则静默混用——两者都要在降级/挂载前显式识别
+            try:
+                self._check_embedding_fingerprint(
+                    (client.get_collection(name="questions").metadata or {}),
+                    fingerprint,
+                )
+            except Exception:  # noqa: BLE001 - 集合尚不存在：首次建库
+                self._stored_fingerprint = None
+                self._embedding_mismatch = None
             self._collection = client.get_or_create_collection(
                 name="questions",
                 embedding_function=embed_fn,
-                metadata={"hnsw:space": "cosine"},
+                metadata={
+                    "hnsw:space": "cosine",
+                    EMBEDDING_META_KEY: fingerprint,
+                },
             )
+            # 首次建库：bare 探测时集合尚不存在，挂载后回读补齐指纹；
+            # 旧集合（无指纹键）回读仍为 None → 保持 legacy 语义
+            if self._stored_fingerprint is None:
+                try:
+                    stored_back = (self._collection.metadata or {}).get(EMBEDDING_META_KEY)
+                except Exception:  # noqa: BLE001 - 测试替身等无 metadata 属性
+                    stored_back = None
+                self._stored_fingerprint = stored_back
+                self._embedding_mismatch = (
+                    None if stored_back is None else stored_back != fingerprint
+                )
             self._available = True
         except Exception as exc:  # noqa: BLE001 - 向量库故障不阻断主流程
             logger.warning("向量库初始化失败，已降级为关键词检索: %s", exc)
             self._collection = None
             self._available = False
         return self._collection
+
+    def _check_embedding_fingerprint(self, stored_metadata: dict, current: str) -> None:
+        """比对集合内记录的嵌入身份：不一致即告警（检索空间已换，需重建索引）。"""
+        stored = stored_metadata.get(EMBEDDING_META_KEY)
+        self._stored_fingerprint = stored
+        if stored is None:
+            self._embedding_mismatch = None
+            logger.info(
+                "向量集合缺少嵌入身份指纹（旧集合）——建议用 data_health 重建索引以补录"
+            )
+            return
+        self._embedding_mismatch = stored != current
+        if self._embedding_mismatch:
+            logger.warning(
+                "嵌入模型与建库时不一致（建库=%s 当前=%s）——旧向量与新查询"
+                "不在同一空间，检索质量已劣化，请用数据体检重建索引",
+                stored,
+                current,
+            )
+
+    def embedding_status(self) -> dict:
+        """嵌入身份健康信息（data_health 体检用）；未启用 RAG 时 match=None。"""
+        if self._available is None:
+            self._ensure_collection()
+        return {
+            "current": embedding_fingerprint(self.settings),
+            "stored": self._stored_fingerprint,
+            "match": self._stored_fingerprint is not None
+            and self._embedding_mismatch is False,
+            "mismatch": self._embedding_mismatch,
+            "legacy": self._stored_fingerprint is None,
+            "vector_available": bool(self._available),
+        }
 
     def _build_embedding_fn(self, embedding_functions):
         if self.settings.embedding_base_url and self.settings.embedding_api_key:
@@ -135,10 +210,23 @@ class QuestionVectorStore:
         collection = self._ensure_collection()
         if collection is None or not question_ids:
             return
-        try:
-            collection.delete(ids=[str(qid) for qid in question_ids])
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("向量删除失败: %s", exc)
+        # 失败重试一次：残留索引靠 data_health 体检兜底，但先自救降低漂移概率
+        for attempt in (1, 2):
+            try:
+                collection.delete(ids=[str(qid) for qid in question_ids])
+                return
+            except Exception as exc:  # noqa: BLE001
+                if attempt == 2:
+                    from backend.services.ai.telemetry import record_event
+
+                    logger.warning(
+                        "向量删除失败（已重试，残留索引待数据体检清理）: %s", exc
+                    )
+                    record_event(
+                        "rag_delete_failed",
+                        question_ids=",".join(str(q) for q in question_ids[:20]),
+                        error=f"{type(exc).__name__}: {exc}",
+                    )
 
     def indexed_ids_for_user(self, user_id: int) -> set[int]:
         """该用户已建立向量索引的题目 ID 集（数据体检用）。"""

@@ -99,6 +99,25 @@ class DataHealthService:
                 note="向量库不可用（已降级关键词检索），跳过索引核对",
             )
 
+        # 嵌入身份核对独立于可用性：模型冲突降级（default↔openai）恰恰是
+        # 最需要暴露的 mismatch 场景，不能因「向量库不可用」而被跳过
+        from backend.config import get_settings as _get_settings
+
+        if _get_settings().rag_enabled:
+            embedding = self.vector_store.embedding_status()
+            report["embedding"] = embedding
+            if embedding.get("mismatch"):
+                report["issues"] = report.get("issues", 0) + 1
+                report["embedding_note"] = (
+                    f"嵌入模型与建库时不一致（建库={embedding['stored']}，"
+                    f"当前={embedding['current']}）——请执行「重建索引」修复"
+                )
+            elif embedding.get("legacy"):
+                report["embedding_note"] = (
+                    "向量集合为旧版本建立（无嵌入身份指纹）——"
+                    "切换过嵌入模型的话请执行「重建索引」补录"
+                )
+
         images_dir = self._images_dir(user_id)
         orphans: list[str] = []
         total_orphan_bytes = 0
