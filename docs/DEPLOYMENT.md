@@ -19,7 +19,7 @@ streamlit run app.py          # Web: http://localhost:8501
 uvicorn api.main:app --port 8000   # API: http://localhost:8000/docs（可选）
 ```
 
-首次启动自动建表并创建种子账号（`SEED_*` 环境变量可改），请立即在「设置」中修改密码。
+首次启动自动建表并创建种子账号（`SEED_*` 环境变量可改），请立即在「设置」中修改密码。**公开部署建议设 `SEED_USERS=false`**：空库不再创建 admin/demo 固定凭据账号，第一个账号通过注册页 + 教师邀请码建立；比仅依赖启动告警更强一档。
 
 ## 2. Docker Compose（推荐）
 

@@ -81,12 +81,20 @@ def get_session() -> Iterator[Session]:
         yield session
 
 
-def init_db(seed_users: bool = True) -> None:
-    """建表并写入种子账号（仅当用户表为空时）。"""
+def init_db(seed_users: bool | None = None) -> None:
+    """建表并按需写入种子账号（仅当用户表为空时）。
+
+    seed_users：None（默认）跟随 Settings.seed_users——生产部署可用
+    SEED_USERS=false 让空库不再创建 admin/demo 固定凭据账号；
+    显式 True/False（测试夹具）优先于配置。
+    """
     _settings.ensure_dirs()
     Base.metadata.create_all(bind=engine)
 
-    if not seed_users:
+    effective_seed = (
+        seed_users if seed_users is not None else _settings.seed_users
+    )
+    if not effective_seed:
         return
 
     from backend.models.orm import User

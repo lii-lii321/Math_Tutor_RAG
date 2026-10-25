@@ -56,6 +56,9 @@ class Settings(BaseSettings):
     seed_admin_password: str = "admin123"
     seed_demo_username: str = "demo"
     seed_demo_password: str = "demo123"
+    # 生产部署置 SEED_USERS=false：空库不再默认创建 admin/demo 固定凭据账号
+    # （默认 true 保持本地开箱即用；显式关闭比启动告警更强一档）
+    seed_users: bool = True
     # 教师自助注册邀请码：留空 = 关闭教师自助注册（防止越权读取全体学生数据）。
     # 双语义：64 位 hex 视为 sha256 摘要（推荐，泄露配置不泄露码本身）；
     # 其他非空值为明文比对（明文请避免 64-hex 字符串，会被按摘要语义比对）。
