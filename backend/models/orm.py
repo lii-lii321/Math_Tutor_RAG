@@ -103,6 +103,8 @@ class Question(Base):
     ocr_text: Mapped[str | None] = mapped_column(Text)  # 原图 OCR 文字（可选特性）
     image_hash: Mapped[str | None] = mapped_column(String(64), index=True)  # 原图 SHA-256，去重用
     starred: Mapped[bool] = mapped_column(Boolean, default=False, index=True)  # 星标收藏
+    # 延迟复测确认时间（教学闭环）：mastered 归档要求 SM-2 达标 + 复测通过
+    retest_verified_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
 
     # 数学验证（Batch 03）
     verification_status: Mapped[str | None] = mapped_column(
@@ -275,6 +277,38 @@ class Conversation(Base):
         back_populates="conversation",
         cascade="all, delete-orphan",
         order_by="ConversationMessage.created_at",
+    )
+
+
+class TeachingIntervention(Base):
+    """教学干预闭环记录：诊断 → 练习 → 独立作答 → 延迟复测 → 归档。
+
+    教学闭环 MVP 的唯一事实源：一次干预从诊断开始生命周期推进，
+    复测通过时把关联题目的 retest_verified_at 落地（mastered 门槛的一部分）。
+    """
+
+    __tablename__ = "teaching_interventions"
+    __table_args__ = (Index("ix_teaching_user_kp", "user_id", "knowledge_point"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    knowledge_point: Mapped[str] = mapped_column(String(128))
+    # 教学策略：weak_drill（薄弱重练）/ error_cause（错因归类）/ maintenance（保温）
+    strategy: Mapped[str] = mapped_column(String(32), default="weak_drill")
+    # 本次干预覆盖的题目 ID 列表（JSON）
+    question_ids: Mapped[list] = mapped_column(JSON, default=list)
+    # 变式题来源（举一反三的母题 ID，可空）
+    variant_source_id: Mapped[int | None] = mapped_column(Integer)
+    # 生命周期：diagnosed → practiced → retest_scheduled → retest_passed / retest_failed
+    outcome: Mapped[str] = mapped_column(String(24), default="diagnosed")
+    note: Mapped[str | None] = mapped_column(Text)
+    # 独立作答通过后约定的延迟复测时间（如 7 天后）
+    retest_due_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
 

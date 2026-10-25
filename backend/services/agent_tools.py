@@ -267,6 +267,32 @@ def build_tools(service: QuestionService, user_id: int) -> list[AgentTool]:
             }
         )
 
+    # ---------- 教学闭环工具（提升项 #12） ----------
+
+    def start_kp_intervention(knowledge_point: str) -> str:
+        """诊断一个知识点并开启教学干预：掌握度/关联错题/教学策略 + 干预记录。"""
+        from backend.services.teaching import TeachingService
+
+        return _clean(TeachingService().start_intervention(user_id, knowledge_point))
+
+    def get_intervention_history(limit: int = 10) -> str:
+        """教学干预历史（诊断→练习→复测的全生命周期记录）。"""
+        from backend.services.teaching import TeachingService
+
+        rows = TeachingService().history(user_id, limit=min(int(limit), 50))
+        return _clean({"count": len(rows), "interventions": rows})
+
+    def record_retest_outcome(
+        intervention_id: int, question_id: int, passed: bool, note: str = "", confirm: bool = False
+    ) -> str:
+        """登记延迟复测结果（写操作：复测通过才计入掌握归档，需 confirm）。"""
+        from backend.services.teaching import TeachingService
+
+        record = TeachingService().record_retest(
+            intervention_id, user_id, bool(passed), question_id, note=note
+        )
+        return _clean(record)
+
     return [
         AgentTool(
             name="search_questions",
@@ -411,5 +437,57 @@ def build_tools(service: QuestionService, user_id: int) -> list[AgentTool]:
                 },
             },
             handler=generate_practice_set,
+        ),
+        AgentTool(
+            name="start_kp_intervention",
+            description=(
+                "开启知识点教学干预：返回掌握度诊断、关联错题清单与教学策略，"
+                "并创建干预记录（后续练习与复测结果挂在记录上）"
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "knowledge_point": {
+                        "type": "string",
+                        "description": "知识点名称（来自掌握度画像）",
+                    },
+                },
+                "required": ["knowledge_point"],
+            },
+            handler=start_kp_intervention,
+        ),
+        AgentTool(
+            name="get_intervention_history",
+            description="获取教学干预历史（诊断→练习→复测记录）",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "limit": {"type": "integer", "description": "返回条数上限，默认 10"},
+                },
+            },
+            handler=get_intervention_history,
+        ),
+        AgentTool(
+            name="record_retest_outcome",
+            description=(
+                "登记延迟复测结果（写操作：复测通过才把题目计入掌握归档，"
+                '先向用户确认复测题目与结果，经确认后携带 "confirm": true 调用）'
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "intervention_id": {"type": "integer", "description": "干预记录 ID"},
+                    "question_id": {"type": "integer", "description": "复测的题目 ID"},
+                    "passed": {"type": "boolean", "description": "复测是否通过"},
+                    "note": {"type": "string", "description": "备注（可选）"},
+                    "confirm": {
+                        "type": "boolean",
+                        "description": "用户已确认时传 true",
+                    },
+                },
+                "required": ["intervention_id", "question_id", "passed"],
+            },
+            handler=record_retest_outcome,
+            requires_confirm=True,
         ),
     ]

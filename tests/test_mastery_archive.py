@@ -23,16 +23,21 @@ def service():
     return QuestionService(session_factory=SessionLocal)
 
 
-def _question(reps: int, interval: float) -> QuestionOut:
+def _question(reps: int, interval: float, retest_verified: bool = True) -> QuestionOut:
+    import datetime as dt
+
     return QuestionOut(
         id=1, user_id=1, image_path=None, content_markdown="x", answer="y",
         reps=reps, interval_days=interval,
+        retest_verified_at=dt.datetime.now(dt.timezone.utc) if retest_verified else None,
     )
 
 
 def test_mastered_threshold():
+    """掌握归档 = SM-2 达标（reps≥3 且 interval≥21）+ 延迟复测确认（#12 新契约）。"""
     assert _question(3, 21).mastered is True
     assert _question(5, 60).mastered is True
+    assert _question(3, 21, retest_verified=False).mastered is False  # 缺复测确认
     assert _question(2, 30).mastered is False  # 次数不足
     assert _question(3, 10).mastered is False  # 间隔不足
     assert _question(0, 0).mastered is False
@@ -49,7 +54,7 @@ def test_mastered_questions_leave_due_pool(service, db_session, student_user):
     saved, _ = service.analyze_and_save(student.id, _tiny_jpeg())
     fresh = saved.id
 
-    # 模拟已掌握状态：3 次复习、21 天间隔
+    # SM-2 达标但未复测：仍留在复习池（单次答对 ≠ 掌握）
     from backend.database import get_session
 
     with get_session() as session:
@@ -59,6 +64,16 @@ def test_mastered_questions_leave_due_pool(service, db_session, student_user):
         question.reps = 3
         question.interval_days = 21
         question.due_at = question.created_at  # 已到期
+
+    due = service.due_questions(student.id)
+    assert any(q.id == fresh for q in due), "未复测确认的题不应提前离开复习池"
+
+    # 复测通过后才归档出池
+    with get_session() as session:
+        from backend.models.orm import Question
+
+        question = session.get(Question, fresh)
+        question.retest_verified_at = question.due_at
 
     due = service.due_questions(student.id)
     assert all(q.id != fresh for q in due), "已掌握的题不应再进入复习池"

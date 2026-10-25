@@ -75,6 +75,7 @@ class QuestionOut(BaseModel):
     last_reviewed_at: dt.datetime | None = None
     created_at: dt.datetime | None = None
     starred: bool = False
+    retest_verified_at: dt.datetime | None = None
 
     @classmethod
     def from_orm_model(cls, q) -> QuestionOut:  # noqa: ANN001 - ORM 实例
@@ -103,13 +104,19 @@ class QuestionOut(BaseModel):
             last_reviewed_at=q.last_reviewed_at,
             created_at=q.created_at,
             starred=bool(q.starred),
+            retest_verified_at=getattr(q, "retest_verified_at", None),
         )
 
     @computed_field  # type: ignore[prop-decorator]
     @property
     def mastered(self) -> bool:
-        """掌握归档：连续记牢 ≥3 次且调度间隔 ≥21 天的题移出每日复习池。"""
-        return self.reps >= 3 and self.interval_days >= 21
+        """掌握归档：SM-2 达标（连续记牢 ≥3 次且调度间隔 ≥21 天）+
+        延迟复测确认——单次答对 ≠ 掌握，复测通过才算闭环。"""
+        return (
+            self.reps >= 3
+            and self.interval_days >= 21
+            and self.retest_verified_at is not None
+        )
 
 
 class TagStat(BaseModel):
