@@ -3,3 +3,4 @@
 #   python -m backend.jobs.worker
 rq>=2.5
 redis>=6.0
+pika>=1.3

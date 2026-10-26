@@ -124,9 +124,11 @@ class Settings(BaseSettings):
     ocr_enabled: bool = False
 
     # ---------- 异步任务队列（Batch 08）----------
-    # 留空：进程内线程执行（单实例默认）。
-    # 配置如 redis://localhost:6379/0：任务走 RQ 队列，由独立 Worker 消费
-    # （python -m backend.jobs.worker；需要 pip install -r requirements-queue.txt）。
+    # 后端选择（自动，按优先级）：RABBITMQ_URL → RabbitMQ 持久化队列；
+    # REDIS_URL → RQ 队列（独立 Worker）；都为空 → 进程内线程（单实例默认）。
+    # RabbitMQ：docker compose --profile rabbitmq up -d rabbitmq rabbitmq-worker
+    # （python -m backend.jobs.rabbitmq_worker；需要 pip install -r requirements-queue.txt）
+    rabbitmq_url: str = ""
     redis_url: str = ""
 
     # ---------- 对象存储 ----------

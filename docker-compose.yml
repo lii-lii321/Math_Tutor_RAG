@@ -31,6 +31,7 @@ services:
       # 空串会覆盖 SQLite 默认值导致启动崩溃，这里兜底为容器内 SQLite
       DATABASE_URL: ${DATABASE_URL:-sqlite:////app/data/math_tutor.db}
       REDIS_URL: ${REDIS_URL:-}
+      RABBITMQ_URL: ${RABBITMQ_URL:-}
     # 覆盖镜像级 HEALTHCHECK（那是 Streamlit 的 8501 端口检查，对 uvicorn 必然失败）
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
@@ -63,6 +64,39 @@ services:
       REDIS_URL: redis://redis:6379/0
     depends_on:
       - redis
+    restart: unless-stopped
+
+  # 可选：RabbitMQ 队列（RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/）。
+  # docker compose --profile rabbitmq up -d rabbitmq rabbitmq-worker
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    profiles: ["rabbitmq"]
+    ports:
+      - "15672:15672"  # 管理界面（guest/guest，仅本机调试用）
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  rabbitmq-worker:
+    build: .
+    command: python -m backend.jobs.rabbitmq_worker
+    profiles: ["rabbitmq"]
+    volumes:
+      - mathmaster-data:/app/data
+    environment:
+      AI_PROVIDER: ${AI_PROVIDER:-mock}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AUTH_SECRET: ${AUTH_SECRET:-dev-only-secret-change-me-0123456789abcdef}
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////app/data/math_tutor.db}
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
     restart: unless-stopped
 
   # 可选：生产/演示用 MySQL。默认 SQLite 即可运行。
@@ -102,3 +136,4 @@ volumes:
   # mysql-data:
   pg-data:
   redis-data:
+  rabbitmq-data:

@@ -65,10 +65,14 @@ class JobService:
 
     @staticmethod
     def _queue():
-        """按当前配置取队列后端（每次提交时解析，配置热切换即生效）。"""
+        """按当前配置取队列后端（每次提交时解析，配置热切换即生效）。
+
+        后端优先级：RABBITMQ_URL → RabbitMQ；REDIS_URL → RQ；都空 → 线程。
+        """
         from backend.jobs.queue import get_job_queue
 
-        return get_job_queue(get_settings().redis_url)
+        settings = get_settings()
+        return get_job_queue(settings.redis_url, settings.rabbitmq_url)
 
     def cancel(self, job_id: str, user_id: int) -> bool:
         """取消任务：仅 pending 状态可取消；执行中/已结束返回 False。"""
