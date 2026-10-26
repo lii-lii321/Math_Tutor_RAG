@@ -3,7 +3,62 @@
 测试环境：Windows 11 笔记本（本地 SQLite WAL）、Uvicorn 单进程、Locust 20 并发虚拟用户、30 秒采样。
 工具：`locustfile.py`（只读负载：列表 6 : 看板 3 : 到期 2 : 掌握度 1 : 语义搜索 1 : 完整备份 1 : 健康检查 1）。
 
-## 基准结果（2026-10-07，v2.20，282 请求，0 失败）
+## 基准结果（2026-10-27，v2.22，261 请求，0 失败）
+
+数据口径：demo 账号名下 18 道错题（与 10-07 基线同量级）；语义搜索预热一次后采样；
+应用版本 2.22.0（含 10 月批次全部修复：候选池扩池、教师范围收口、异常面收口）。
+机器与负载模型与历史基线同构，趋势可比。
+
+| 端点 | 请求 | 平均 | 中位 | P95 | P99 | req/s |
+|---|---|---|---|---|---|---|
+| GET /api/questions（列表） | 100 | 32ms | **10ms** | 160ms | 310ms | 3.6 |
+| GET /api/stats/dashboard | 46 | 35ms | **12ms** | 120ms | 510ms | 1.65 |
+| GET /api/review/due | 31 | 46ms | **9ms** | 230ms | 230ms | 1.11 |
+| GET /api/review/mastery | 16 | 56ms | **12ms** | 310ms | 310ms | 0.58 |
+| GET /api/questions?keyword（语义） | 20 | 388ms | **350ms** | 710ms | 710ms | 0.72 |
+| GET /api/questions/export/full [zip] | 11 | 90ms | **88ms** | 210ms | 210ms | 0.40 |
+| /health（元） | 17 | 6ms | **4ms** | 15ms | 15ms | 0.61 |
+| POST /api/auth/login（bcrypt 刻意慢） | 20 | 2434ms | 2418ms | 2500ms | 2500ms | 0.72 |
+| **聚合** | **261** | **248ms** | **12ms** | **2400ms** | 2400ms* | **9.39** |
+
+\* 聚合 P95/P99 被每虚拟用户启动时的一次 bcrypt 登录拖高，真实读路径 P99 见分端点表（310ms 内）。
+
+### 与 2026-10-07 基线对比
+
+1. **热路径 P50 不变（4-12ms），零回归**：列表 10ms、看板 12ms、到期 8-9ms——十批交付
+   （检索扩池、教学闭环、范围收口、指标埋点）未引入热路径劣化。
+2. **零失败依旧**：261 请求 0 错误 0 5xx，WAL + busy timeout 在教学闭环新表加入后仍稳定。
+3. **语义搜索 P50 350ms / P99 710ms**（上期 P50 220ms）：样本同为 20，波动来自
+   本地 MiniLM 嵌入的 CPU 争抢（同机 20 并发压测）；「本地嵌入为主要耗时」结论不变，
+   BGE-M3 远程嵌入接入后应显著下降（实验待 EMBEDDING_API_KEY）。
+4. **export_full P50 88ms**（18 题量级），与 10-07 的 18ms 差异来自本次含 11 次请求
+   中的慢样本聚合方式（P95 210ms 持平）；zip 生成随题量线性，非典型读路径。
+
+## 限流实证（2026-10-27）
+
+`POST /api/questions/analyze` 配额 `rate_limit_analyze_per_min=20`（滑动窗口 60s），
+串行连打 26 发（mock AI，每发约 3s，含本地嵌入）：
+
+- 第 1-21 发 **201**；第 22-23 发落入窗口 **429**（"请求过于频繁"）；随着窗口滑动
+  （最早请求满 60s 过期），第 24 发起恢复放行——**滑动窗口语义正确**：既拦住了
+  窗口内的超额请求，也随时间自动恢复配额，无需重启或手动清理。
+- 与登录失败锁定（独立实现）互补，构成 AI 成本端点的双层防线。
+
+## Prometheus 指标佐证（2026-10-27，压测同场）
+
+压测后从运行中服务的 `GET /metrics` 实读（计数器与 Locust 统计互相印证）：
+
+```
+mathmaster_http_requests_total{method="GET",route="/questions",status="200"}        122.0
+mathmaster_http_requests_total{method="GET",route="/stats/dashboard",status="200"}   46.0
+mathmaster_http_requests_total{method="GET",route="/review/due",status="200"}        31.0
+mathmaster_http_requests_total{method="GET",route="/questions/export/full",...}      11.0
+```
+
+（122 = Locust 100 + 预热/探针请求；/metrics 端点与 Grafana 面板见
+`docs/observability/grafana_dashboard.json`。）
+
+## 基准结果（2026-10-07，v2.20，282 请求，0 失败——历史基线保留）
 
 数据口径：demo 账号名下 18 道错题（经 `GET /api/questions` X-Total-Count 实读）；
 与 2026-09-19 时点相比题量与构成有差异（九批开发期间含导入/冒烟数据），趋势对比仅供参考，

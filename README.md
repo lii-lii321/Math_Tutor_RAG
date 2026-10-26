@@ -1,10 +1,8 @@
 # 📘 MathMaster Edu — 基于视觉大模型与 RAG 的智能错题本
 
-> **让错题管理像呼吸一样简单。** 拍照录入 → AI 结构化解析 → 数学验证 → 向量归档 → 掌握度画像 → 自适应复习。
+> **30 秒电梯版**：MathMaster Edu 是一个把「拍照录题 → AI 结构化解析 → 数学验证 → 向量检索 → 掌握度画像 → 间隔重复复习」串成完整闭环的智能错题本，面向数学教师与学生的真实教学场景。它解决的是"错题只被收集、不被消化"的问题：题目不是存进相册就结束，而是变成可检索的教学资产，并按每个学生的遗忘曲线和薄弱知识点自动安排复习。技术上最有分量的三件事：**混合检索管线**（关键词 + 向量双路 → RRF 融合 → 可选重排，带四类检索意图金标门禁）、**SymPy 数学答案验证**（verified/failed/uncertain 三态显式区分，不给 AI 错答案放行）、**教学干预闭环**（诊断 → 练习 → 独立作答 → 延迟复测，复测通过才计入掌握归档）。
 >
-> A production-grade Smart Wrong-Question Notebook powered by a Vision LLM, RAG retrieval, math verification, mastery tracking, and spaced-repetition scheduling.
->
-> 🌐 英文版（English, condensed）：[README.en.md](README.en.md)
+> 🌐 英文版（English, condensed）：[README.en.md](README.en.md) · 📊 性能基准：[docs/PERFORMANCE.md](docs/PERFORMANCE.md)
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776ab)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.49%2B-ff4b4b)
@@ -17,6 +15,9 @@
 ---
 
 ## ✨ 项目亮点 (Highlights)
+
+<details>
+<summary><b>展开完整能力表（20+ 行）</b></summary>
 
 | 能力 | 说明 |
 |---|---|
@@ -39,6 +40,11 @@
 | 🧪 **工程化** | pytest 收集到 464 个用例（四层：单测 / API / AppTest 进程内冒烟 / Playwright E2E）、ruff、import-linter 分层门禁、覆盖率 CI 门禁 78%、检索金标集持续回归、CI（lint + 3 版本矩阵 + 启动冒烟 + E2E + Docker）、Alembic 迁移（13 个版本）、Docker Compose 一键部署、RAG 检索离线评测（Recall@K / MRR / NDCG）与 AI Tutor 评测（LLM-as-judge）、AI 遥测 |
 | 🔗 **筛选进 URL + 全局搜索** | 错题本筛选/视图/页码随 URL 可分享（穿登录可达、离开即清）；侧边栏全局搜索一次直达错题本结果（v2.14） |
 | 💾 **完整备份** | 一键 zip 备份题目 + 原图 + SM-2 进度 + 复习日志，导入图片按新属主 key 重建、逐字段恢复不丢进度（v2.16） |
+| 📈 **可观测性与队列** | Prometheus `GET /metrics`（HTTP QPS/延迟分位 + 录入/评分/Agent/AI 调用/降级事件六类领域计数器）+ Grafana 面板 JSON 开箱导入；异步任务队列三后端（进程内线程 / RQ / **RabbitMQ**，`docker compose --profile rabbitmq` 一键起）；性能基准（P50 10ms / 261 请求零失败）与限流实证见 [docs/PERFORMANCE.md](docs/PERFORMANCE.md) |
+
+</details>
+
+> 🔐 **安全提示**：首次启动创建的 `admin/admin123`、`demo/demo123` 种子账号**仅用于本地演示**，源码中不含任何生产凭据；公开部署请设 `SEED_USERS=false`（空库不再创建种子账号）并用强口令注册，`AUTH_SECRET` 必须换成强随机密钥。
 
 ## 🏗️ 架构 (Architecture)
 
