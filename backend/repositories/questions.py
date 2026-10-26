@@ -53,6 +53,9 @@ class QuestionRepository:
         )
         self.session.add(question)
         self.session.flush()
+        from backend.observability import record_question_created
+
+        record_question_created(source)
         return question
 
     def update(

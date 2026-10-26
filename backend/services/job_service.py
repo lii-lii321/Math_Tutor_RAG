@@ -60,6 +60,9 @@ class JobService:
             session.commit()
 
         self._queue().submit_analyze(job_id, user_id)
+        from backend.observability import record_job_submitted
+
+        record_job_submitted()
         logger.info("异步解析任务已提交 job=%s user=%s", job_id, user_id)
         return job_id
 

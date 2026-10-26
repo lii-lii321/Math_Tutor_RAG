@@ -259,6 +259,11 @@ def mastery_trend(
             points.append({"date": day.strftime("%m-%d"), "mastery": 0})
             continue
         stats = build_tag_stats(qs, day_logs)
+        if not stats:
+            # 题目存在但都没有标签（build_tag_stats 按标签分桶）：
+            # 无可聚合维度按 0 记点，不得除零炸掉整个看板
+            points.append({"date": day.strftime("%m-%d"), "mastery": 0})
+            continue
         avg = sum(s.mastery for s in stats) / len(stats)
         points.append({"date": day.strftime("%m-%d"), "mastery": round(avg * 100)})
     return points

@@ -1,0 +1,130 @@
+{
+  "uid": "mathmaster-overview",
+  "title": "MathMaster Edu · 服务概览",
+  "description": "基于 /metrics（Prometheus 抓取 mathmaster_* 指标）的服务概览：QPS、延迟分位、错误率、AI 调用、录入/复习/Agent 业务量。导入方式：Grafana → Dashboards → Import → 粘贴本 JSON，数据源选 Prometheus。",
+  "tags": ["mathmaster"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-3h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "DS_PROMETHEUS",
+        "type": "datasource",
+        "query": "prometheus"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "QPS（按路由）",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "sum by (route) (rate(mathmaster_http_requests_total[5m]))",
+          "legendFormat": "{{route}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "HTTP 延迟 P50 / P95 / P99",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(mathmaster_http_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "P50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(mathmaster_http_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "P95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(mathmaster_http_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "P99"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "错误率（5xx 占比）",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 8, "w": 8, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "sum(rate(mathmaster_http_requests_total{status=~\"5..\"}[5m])) / sum(rate(mathmaster_http_requests_total[5m]))",
+          "legendFormat": "5xx"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] }
+    },
+    {
+      "id": 4,
+      "title": "AI 调用（成功/失败）",
+      "type": "timeseries",
+      "gridPos": { "x": 8, "y": 8, "w": 8, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "sum by (operation, result) (rate(mathmaster_ai_calls_total[5m]))",
+          "legendFormat": "{{operation}} · {{result}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "降级防线事件（应长期为 0）",
+      "type": "timeseries",
+      "gridPos": { "x": 16, "y": 8, "w": 8, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "sum by (operation) (rate(mathmaster_degraded_events_total[5m]))",
+          "legendFormat": "{{operation}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "业务量：录入 / 复习评分 / 任务提交",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "sum by (source) (rate(mathmaster_questions_created_total[5m]))",
+          "legendFormat": "录入 · {{source}}"
+        },
+        {
+          "expr": "sum by (grade) (rate(mathmaster_reviews_graded_total[5m]))",
+          "legendFormat": "评分 · {{grade}}"
+        },
+        {
+          "expr": "rate(mathmaster_jobs_submitted_total[5m])",
+          "legendFormat": "任务提交"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Agent 工具调用（按结果分类）",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "sum by (tool, result) (rate(mathmaster_agent_tool_calls_total[5m]))",
+          "legendFormat": "{{tool}} · {{result}}"
+        }
+      ]
+    }
+  ]
+}

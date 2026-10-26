@@ -980,6 +980,10 @@ class ReviewMixin:
                 ease_after=schedule.ease_after,
                 due_at=schedule.due_at,
             )
+            if updated is not None:
+                from backend.observability import record_review_graded
+
+                record_review_graded(grade)
             return QuestionOut.from_orm_model(updated) if updated else None
 
 

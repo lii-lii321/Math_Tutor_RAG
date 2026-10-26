@@ -44,6 +44,9 @@ def track_ai_call(operation: str) -> Iterator[dict]:
         raise
     finally:
         elapsed_ms = round((time.perf_counter() - start) * 1000)
+        from backend.observability import record_ai_call
+
+        record_ai_call(operation, ctx["ok"])
         _write(
             {
                 "ts": dt.datetime.now(dt.timezone.utc).isoformat(),
@@ -61,6 +64,9 @@ def record_event(operation: str, *, error: str | None = None) -> None:
     静默降级的防线组件在这里留痕：summarize() 可直接统计发生率，
     把「曾经静默失效」变成「异常发生即可观测」。
     """
+    from backend.observability import record_degraded_event
+
+    record_degraded_event(operation)
     _write(
         {
             "ts": dt.datetime.now(dt.timezone.utc).isoformat(),

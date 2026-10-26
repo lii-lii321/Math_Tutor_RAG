@@ -166,7 +166,17 @@ class AgentSession:
         前缀分类（提示词规则 7 教模型区分处理）：
         param（参数错误/未知工具/缺确认）、permission（权限/配额）、
         business（业务规则拒绝）、internal（临时故障）。
+        全部出口（含早退）统一过 record_agent_tool_call 遥测。
         """
+        result = self._dispatch_tool(name, arguments)
+        from backend.observability import record_agent_tool_call
+
+        record_agent_tool_call(
+            name, "ok" if not result.startswith("ERROR[") else result[6:].split("]")[0]
+        )
+        return result
+
+    def _dispatch_tool(self, name: str, arguments: str) -> str:
         tool = self._tool_meta.get(name)
         if tool is None:
             return f"ERROR[param]: 未知工具 {name}"
@@ -188,7 +198,7 @@ class AgentSession:
         if tool.requires_confirm and args.pop("confirm", None) is not True:
             return (
                 "ERROR[param]: 写操作缺少确认——请先向用户复述关键参数"
-                '（题面/答案/标签或题目与评分），经用户确认后携带 "confirm": true 重新调用'
+                "（题面/答案/标签或题目与评分），经用户确认后携带 \"confirm\": true 重新调用"
             )
         try:
             return tool.handler(**args)

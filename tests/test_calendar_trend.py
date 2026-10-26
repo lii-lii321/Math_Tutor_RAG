@@ -101,3 +101,24 @@ def test_app_timezone_setting_rejects_invalid_name():
 
     with _pytest.raises(ValidationError):
         Settings.model_validate({"app_timezone": "Not/AZone"})
+
+
+def test_mastery_trend_survives_tagless_questions():
+    """无标签题目不得炸掉掌握度趋势（真实 bug：build_tag_stats 空桶除零）。
+
+    触发条件：用户所有题都没有 tags/knowledge_points 且有复习日志。
+    """
+    from backend.services.stats import mastery_trend
+
+    class Q:  # 无标签题
+        id, created_at = 1, __import__("datetime").datetime(2026, 10, 1, tzinfo=__import__("datetime").timezone.utc)
+        tags: list = []
+        knowledge_points: list = []
+
+    class Log:
+        question_id, grade, next_interval = 1, "good", 3.0
+        reviewed_at = __import__("datetime").datetime(2026, 10, 2, tzinfo=__import__("datetime").timezone.utc)
+
+    points = mastery_trend([Q()], [Log()], days=3, today=__import__("datetime").date(2026, 10, 3))
+    assert points, "有题目与日志的窗口应产出趋势点"
+    assert all(p["mastery"] == 0 for p in points)

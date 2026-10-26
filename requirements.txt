@@ -44,3 +44,4 @@ genanki>=0.13
 # 可选：S3 兼容对象存储（.env 设 STORAGE_BACKEND=s3 后启用，MinIO/OSS/COS）
 # boto3>=1.34
 sympy>=1.13
+prometheus-client>=0.21
