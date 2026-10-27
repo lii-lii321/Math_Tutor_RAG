@@ -277,32 +277,65 @@ class EntryMixin:
         1) 行首题号识别成功 → 直接拆题入库，零 AI 调用、零超时风险；
         2) 识别不到题号 → 按段落边界分段（每段 ~4000 字）走 AI 拆题，
            单段失败跳过不阻断整批；拆题调用自带重试。
-        返回 {"total", "imported", "items", "mode", "failed_segments"}。
+        每个题块额外做：答案段分离（【答案】/答案：→ answer 字段）、
+        空壳过滤（正文有效字符过短的占位块跳过计数）、章节标题继承
+        （最近标题作为知识点，补齐 word 导入的画像/检索维度）。
+        返回 {"total", "imported", "items", "mode", "failed_segments", "skipped_stubs"}。
         """
         from backend.services.docx_import import (
+            content_char_len,
             extract_docx_text,
-            split_by_question_numbers,
+            last_heading,
+            separate_answer,
+            split_structured,
         )
 
         text = extract_docx_text(docx_bytes)
 
         mode = "题号结构识别（零 AI 调用）"
         failed_segments = 0
-        numbered_parts = split_by_question_numbers(text)
-        if numbered_parts:
-            chunks = [
-                {"content": part, "answer": "", "knowledge_points": [], "difficulty": "medium"}
-                for part in numbered_parts
-            ]
+        skipped_stubs = 0
+        structured_parts = split_structured(text)
+        if structured_parts is not None:
+            chunks = []
+            for item in structured_parts:
+                if content_char_len(item["content"]) < 6:
+                    skipped_stubs += 1
+                    logger.info("Word 导入跳过空壳题块（%s 字符）", content_char_len(item["content"]))
+                    continue
+                heading = item.get("heading", "")
+                chunks.append(
+                    {
+                        "content": item["content"],
+                        "answer": item["answer"],
+                        "knowledge_points": [heading] if heading else [],
+                        "difficulty": "medium",
+                    }
+                )
         else:
             mode = "AI 分段拆题"
             chunks = []
+            heading = ""
             for segment in _segment_text(text):
+                heading = last_heading(segment, heading)
                 try:
-                    chunks.extend(self.ai.split_questions(segment))
+                    segment_chunks = self.ai.split_questions(segment)
                 except Exception as exc:  # noqa: BLE001 - 单段失败跳过，不阻断整批
                     failed_segments += 1
                     logger.warning("分段拆题失败（跳过该段 %s 字）: %s", len(segment), exc)
+                    continue
+                for chunk in segment_chunks:
+                    # AI 漏拆的答案段同样分离；AI 给出的知识点优先，缺省继承章节标题
+                    content, answer = separate_answer(str(chunk.get("content", "")))
+                    inherited = [str(k) for k in (chunk.get("knowledge_points") or [])][:3]
+                    chunk = dict(chunk)
+                    chunk["content"] = content
+                    if answer and not chunk.get("answer"):
+                        chunk["answer"] = answer
+                    if not inherited and heading:
+                        inherited = [heading]
+                    chunk["knowledge_points"] = inherited
+                    chunks.append(chunk)
         if len(chunks) > max_questions:
             logger.warning("拆出 %s 题超过上限，截断为 %s 题", len(chunks), max_questions)
             chunks = chunks[:max_questions]
@@ -323,8 +356,23 @@ class EntryMixin:
                 imported.append(out)
             except Exception as exc:  # noqa: BLE001 - 单题失败不阻断整批
                 logger.warning("Word 导入单题失败: %s", exc)
-        logger.info("Word 导入完成 user=%s 拆出 %s 题，入库 %s 题（%s，失败段 %s）", user_id, len(chunks), len(imported), mode, failed_segments)
-        return {"total": len(chunks), "imported": len(imported), "items": imported, "mode": mode, "failed_segments": failed_segments}
+        logger.info(
+            "Word 导入完成 user=%s 拆出 %s 题，入库 %s 题（%s，失败段 %s，空壳 %s）",
+            user_id,
+            len(chunks),
+            len(imported),
+            mode,
+            failed_segments,
+            skipped_stubs,
+        )
+        return {
+            "total": len(chunks),
+            "imported": len(imported),
+            "items": imported,
+            "mode": mode,
+            "failed_segments": failed_segments,
+            "skipped_stubs": skipped_stubs,
+        }
 
     def create_manual_question(
         self,

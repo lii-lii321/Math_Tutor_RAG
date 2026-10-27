@@ -11,7 +11,13 @@ from backend.models.orm import User
 from backend.services.ai import get_ai_service
 from backend.services.ai.base import BaseAIProvider
 from backend.services.ai.mock import MockProvider
-from backend.services.docx_import import extract_docx_text, split_by_question_numbers
+from backend.services.docx_import import (
+    content_char_len,
+    extract_docx_text,
+    last_heading,
+    separate_answer,
+    split_by_question_numbers,
+)
 from backend.services.question_service import QuestionService
 
 
@@ -266,6 +272,63 @@ class TestQuestionNumberSplit:
     def test_too_few_numbers_returns_none(self):
         assert split_by_question_numbers("1. 只有一题\n结尾说明") is None
 
+    def test_sub_question_numbers_merge_into_parent(self):
+        """(1)(2) 子问题号回退 → 并入当前题块，不拆成空壳（真实数据实测缺陷）。"""
+        text = "\n".join(
+            [
+                "错题集",
+                "3. 3×3×3 正方体表面涂色后切割，三面红/两面红/一面红/无红各有几个？",
+                "（1）三面红的有几个？",
+                "（2）两面红的有几个？",
+                "4. 每面切三刀得 4×4×4，各色块数量？",
+                "5. 长方体粮囤容积问题。",
+            ]
+        )
+        parts = split_by_question_numbers(text)
+        assert parts is not None
+        assert len(parts) == 3, "（1）（2）应并入第 3 题，而不是拆成 5 块"
+        assert "（1）三面红" in parts[0] and "（2）两面红" in parts[0]
+
+
+class TestSeparateAnswer:
+    def test_answer_block_extracted_with_explanation_bound(self):
+        part = "\n".join(
+            [
+                "3. 3×3×3 正方体表面涂色后切割，各色块数量？",
+                "【答案】三面红 8 个，两面红 12 个，一面红 6 个，无红 1 个。",
+                "【解析】顶点 8 个不变；棱上 12(n-2) 个。",
+            ]
+        )
+        content, answer = separate_answer(part)
+        assert "三面红 8 个" in answer
+        assert "12(n-2)" not in answer  # 解析段不混入答案
+        assert "【解析】顶点" in content
+        assert "正方体表面涂色" in content
+
+    def test_inline_answer_marker(self):
+        content, answer = separate_answer("2. 计算 16 的算术平方根。\n答案：4")
+        assert answer == "4"
+        assert "算术平方根" in content
+
+    def test_no_answer_marker_untouched(self):
+        part = "1. 求 x。\n解析：开平方。"
+        content, answer = separate_answer(part)
+        assert content == part
+        assert answer == ""
+
+
+class TestStubAndHeading:
+    def test_content_char_len_ignores_numbering_and_punctuation(self):
+        assert content_char_len("(1)/(2)/(3). ；") < 6
+        assert content_char_len("已知 x=1，求 2x。") >= 6
+
+    def test_last_heading_skips_question_headers(self):
+        part = "\n".join(["## 第 3 题", "### 圆的计算", "5. 长方体粮囤容积问题。"])
+        assert last_heading(part) == "圆的计算"
+
+    def test_last_heading_fallback_kept_when_part_has_none(self):
+        assert last_heading("5. 无标题的题。", fallback="上一章的标题") == "上一章的标题"
+
 
 class TestStructuralImportPath:
     def test_numbered_doc_skips_ai_entirely(self):
@@ -303,3 +366,49 @@ class TestStructuralImportPath:
         assert result["mode"].startswith("题号结构识别")
         assert result["imported"] == 3
         assert result["failed_segments"] == 0
+        assert result["skipped_stubs"] == 0
+
+    def test_structured_import_separates_answers_merges_subs_inherits_heading(self):
+        """真实数据实测缺陷的端到端回归：答案进 answer 字段、（1）（2）并入
+        母题、空壳跳过、章节标题继承为知识点。"""
+        init_db(seed_users=True)
+        with SessionLocal() as session:
+            user = User(
+                username=f"docx5_{uuid.uuid4().hex[:8]}", password_hash="x", role="student"
+            )
+            session.add(user)
+            session.commit()
+            session.refresh(user)
+
+        service = QuestionService(session_factory=SessionLocal)
+
+        def _must_not_call(_text):
+            raise AssertionError("本路径不应调用 AI 拆题")
+
+        service.ai.split_questions = _must_not_call
+
+        import docx
+
+        buf = io.BytesIO()
+        document = docx.Document()
+        document.add_heading("三、圆柱与圆锥", level=2)
+        document.add_paragraph("1. 3×3×3 正方体表面涂色后切割，三面红/两面红/一面红/无红各有几个？")
+        document.add_paragraph("（1）三面红的有几个？")
+        document.add_paragraph("（2）两面红的有几个？")
+        document.add_paragraph("【答案】8 个 / 12 个 / 6 个 / 1 个。")
+        document.add_paragraph("2. 圆柱粮囤底面周长 20 米，求容积。")
+        document.add_paragraph("3. 没有答案和标题的普通题。")
+        document.save(buf)
+
+        result = service.add_questions_from_docx(user.id, buf.getvalue(), tags=["实测"])
+        assert result["imported"] == 3, "（1）（2）并入第 1 题，共 3 题"
+        assert result["skipped_stubs"] == 0
+
+        first = result["items"][0]
+        assert "8 个 / 12 个" in first.answer, "答案段应进入 answer 字段"
+        assert "【答案】" not in first.content_markdown
+        assert "（1）三面红" in first.content_markdown, "子问保留在母题题面"
+        assert "圆柱与圆锥" in first.knowledge_points, "章节标题继承为知识点"
+        assert "圆柱与圆锥" in first.tags or "实测" in first.tags
+        assert result["items"][1].answer == ""
+        assert all("圆柱与圆锥" in q.knowledge_points for q in result["items"]), "标题跨题继承"
