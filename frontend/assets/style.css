@@ -1,317 +1,839 @@
-/* MathMaster Edu — MUJI 极简风格
-   约束：克制配色（藏青标题 / 石板灰正文 / 蓝色点缀）、大量留白、系统无衬线、无紫、无炫技动效 */
+/* ============================================================================
+   MathMaster Edu — UI 样式单一真源 v3（MUJI 克制风 · 令牌驱动）
+   ----------------------------------------------------------------------------
+   由 data/ui_design/tokens.css 草稿融合既有 mm-* 组件类而来（spec.md v3）：
+   - load_css() 以内联 <style> 注入（common.py），禁用 @import——
+     Streamlit 内联样式下相对路径不可靠。
+   - 深色：theme.py 只切 <html data-theme="dark"> 属性，本文件
+     [data-theme="dark"] 变量段是唯一深色真源（§14 为原生 chrome 兜底）。
+   - 橙色 #e8590c/#ff8a4c 全面退役：行动=品牌蓝（唯一强调色），警告=琥珀
+     （--warn ≡ --shaky 同源），破坏=红，无数据=灰。
+   兼容红线（不得违反）：
+   - 类名锁定：mm-badge 及 --blue/--warn/--bad/--ok、mm-empty
+     （tests/test_ui_primitives.py:12-25,33 断言锁定）。
+   - 变量名锁定：--weak/--shaky/--good（common.py mastery_color 引用）、
+     --navy/--slate/--slate-light/--muted/--blue/--blue-soft/--card/--border/--bg
+     （auth/app/dashboard 等页面内联引用）。
+   - 控件 key、按钮文案、API 行为不在样式范围内。
+   ============================================================================ */
 
+
+/* ==========================================================================
+   1. 变量：浅色（默认）
+   ========================================================================== */
 :root {
-  --navy: #1a365d;
-  --slate: #334155;
-  --slate-light: #64748b;
-  --blue: #2563eb;
-  --blue-soft: #eff6ff;
-  --border: #e2e8f0;
-  --bg: #f8fafc;
-  --card: #ffffff;
-  --muted: #94a3b8;
-  /* 三档掌握度语义色：阈值与后端引擎同源，只用于表达状态，不用于装饰 */
-  --weak: #dc2626;
-  --shaky: #d97706;
-  --good: #059669;
+  color-scheme: light;
+
+  /* ---- 中性：面 ---- */
+  --bg: #f8fafc;              /* 页面底 */
+  --card: #ffffff;            /* 卡面（旧名，锁定） */
+  --surface-sunken: #f1f5f9;  /* 下沉面：chip 底、行悬停、禁用底 */
+  --border: #e2e8f0;          /* 常规描边（旧名，锁定） */
+  --border-strong: #cbd5e1;   /* 强描边：次级按钮、悬停 */
+  --track: #e2e8f0;           /* 进度条/横条轨道 */
+
+  /* ---- 中性：文字（--navy 系旧名保留为别名） ---- */
+  --ink: #1a365d;             /* 标题/品牌藏青 */
+  --ink-body: #334155;        /* 正文 */
+  --ink-muted: #64748b;       /* 次要文字/caption */
+  --ink-faint: #94a3b8;       /* 弱化文字/占位/无数据 */
+  --navy: var(--ink);         /* 旧名别名（锁定） */
+  --slate: var(--ink-body);   /* 旧名别名（锁定） */
+  --slate-light: var(--ink-muted); /* 旧名别名（锁定） */
+  --muted: var(--ink-faint);  /* 旧名别名（锁定） */
+
+  /* ---- 品牌：唯一的行动/强调色 ---- */
+  --brand: #2563eb;
+  --brand-strong: #1d4ed8;    /* 文字级蓝/hover 加深 */
+  --brand-soft: #eff6ff;      /* 蓝底 */
+  --brand-line: #bfdbfe;      /* 蓝描边 */
+  --brand-ring: rgba(37, 99, 235, 0.20);  /* 焦点环 */
+  --blue: var(--brand);       /* 旧名别名（锁定） */
+  --blue-soft: var(--brand-soft); /* 旧名别名（锁定） */
+
+  /* ---- 语义状态：唯一真源（CSS/HTML/徽章/进度共用） ----
+     每档四件套：主色（填充/图标）+ soft（底）+ line（描边）+ ink（小字文字，
+     保证浅底上的对比度）。Python 侧 Plotly 字面量见 frontend/charts.semantic_colors() */
+  --weak: #dc2626;  --weak-soft: #fef2f2;  --weak-line: #fecaca;  --weak-ink: #b91c1c;
+  --shaky: #d97706; --shaky-soft: #fffbeb; --shaky-line: #fde68a; --shaky-ink: #b45309;
+  --good: #059669;  --good-soft: #ecfdf5;  --good-line: #a7f3d0;  --good-ink: #047857;
+  --info: #2563eb;  --info-soft: #eff6ff;  --info-line: #bfdbfe;  --info-ink: #1d4ed8;
+
+  /* 破坏性操作（与 --weak 同红系，语义独立命名，便于将来拆分深浅） */
+  --bad: #dc2626;   --bad-soft: #fef2f2;   --bad-line: #fecaca;   --bad-ink: #b91c1c;
+
+  /* 警告别名：--warn 与 --shaky 同源（琥珀系），警告不再用橙 */
+  --warn: var(--shaky);
+  --warn-soft: var(--shaky-soft);
+  --warn-line: var(--shaky-line);
+
+  /* ---- 搜索命中高亮 ---- */
+  --highlight: #fef3c7;
+  --highlight-ink: #92400e;
+
+  /* ---- Hero 行动卡（深藏青底，两主题共用同一套，不随主题翻面） ---- */
+  --hero-bg: #132339;
+  --hero-ink: #eef2f7;
+  --hero-muted: #9fb0c9;
+  --hero-line: #24395c;       /* hero 内分隔/轨道 */
+  --hero-brand: #3b82f6;      /* hero 上蓝（比页面蓝亮一档） */
+  --hero-ok: #34d399;
+  --hero-warn: #fbbf24;       /* hero 上逾期/警告（琥珀提亮，取代 #ff8a4c/#e8590c） */
+  --hero-neutral: #64748b;    /* hero 上中性档（分段条「稍后」；hero 底两主题同值，不随主题翻面） */
+
+  /* ---- 字体 ---- */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", Consolas, "SFMono-Regular", Menlo, monospace;
+
+  /* ---- 字号阶梯 ---- */
+  --text-xs: 0.75rem;    /* 徽章/图例/页脚 */
+  --text-sm: 0.85rem;    /* caption/次要/卡内节标题 */
+  --text-base: 1rem;     /* 正文/#### 小节标题 */
+  --text-lg: 1.15rem;    /* 问候行/强调句 */
+  --text-xl: 1.35rem;    /* 页面标题（page_header 的 h2） */
+
+  /* ---- 大数字三档（全站只有这三档，--num-xl 每屏至多一个） ---- */
+  --num-md: 1.5rem;      /* hero KPI 值 */
+  --num-lg: 2rem;        /* 统计卡（mm-stat__value） */
+  --num-xl: 2.6rem;      /* 签名数字（复习页待复习数等，加 mm-stat--xl 启用） */
+
+  --weight-normal: 400;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  --leading-none: 1;
+  --leading-tight: 1.25;
+  --leading-normal: 1.6;
+
+  /* ---- 间距阶梯（--space-5 = 1.6rem 为分区固定区距） ---- */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.6rem;
+  --space-6: 2.4rem;
+
+  /* ---- 圆角 ---- */
+  --radius-sm: 8px;      /* 小控件/缩略图 */
+  --radius-md: 10px;     /* 按钮/输入 */
+  --radius-lg: 14px;     /* 卡片（与旧 .mm-card 一致） */
+  --radius-xl: 16px;     /* hero/登录大卡 */
+  --radius-full: 999px;  /* 徽章/pill/进度 */
+
+  /* ---- 阴影（克制：仅悬停与主按钮） ---- */
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 6px 20px rgba(26, 54, 93, 0.08);
+  --shadow-brand: 0 2px 8px rgba(37, 99, 235, 0.25);
+  --shadow-brand-hover: 0 4px 14px rgba(37, 99, 235, 0.35);
+
+  /* ---- 组件尺寸 ---- */
+  --card-pad: 1.15rem 1.3rem;       /* 统一卡内边距 */
+  --card-pad-tight: 0.8rem 1.1rem;  /* 紧凑行/嵌套卡 */
+  --track-h: 6px;                   /* 掌握度横条轨道高 */
 }
 
-/* ---------------- 全局 ---------------- */
+
+/* ==========================================================================
+   2. 变量：深色（theme.py 只切 <html data-theme="dark">，变量随动）
+   ========================================================================== */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #0f172a;
+  --card: #1e293b;
+  --surface-sunken: #172033;
+  --border: #334155;
+  --border-strong: #475569;
+  --track: #334155;
+
+  --ink: #f1f5f9;
+  --ink-body: #e2e8f0;
+  --ink-muted: #94a3b8;
+  --ink-faint: #7c8ba1;
+
+  --brand: #3b82f6;
+  --brand-strong: #60a5fa;
+  --brand-soft: #172554;
+  --brand-line: #1e40af;
+  --brand-ring: rgba(59, 130, 246, 0.30);
+
+  --weak: #f87171;  --weak-soft: #3f1d1d;  --weak-line: #7f1d1d;  --weak-ink: #fca5a5;
+  --shaky: #fbbf24; --shaky-soft: #3b2f12; --shaky-line: #92400e; --shaky-ink: #fcd34d;
+  --good: #34d399;  --good-soft: #0f2e24;  --good-line: #065f46;  --good-ink: #6ee7b7;
+  --info: #93c5fd;  --info-soft: #172554;  --info-line: #1e40af;  --info-ink: #93c5fd;
+
+  --bad: #f87171;   --bad-soft: #3f1d1d;   --bad-line: #7f1d1d;   --bad-ink: #fca5a5;
+
+  --highlight: #4d3c14;
+  --highlight-ink: #fde68a;
+
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-brand: 0 2px 10px rgba(59, 130, 246, 0.30);
+  --shadow-brand-hover: 0 4px 16px rgba(59, 130, 246, 0.42);
+}
+
+
+/* ==========================================================================
+   3. 全局
+   ========================================================================== */
 .stApp {
   background: var(--bg);
-  color: var(--slate);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
-    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  color: var(--ink-body);
+  font-family: var(--font-sans);
 }
 
+/* 标题层级（定尺寸，收编 Streamlit 默认）：h2=页题 h3=小节 h4=卡内节 h5=小标签 */
+.stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4,
 h1, h2, h3, h4 {
-  color: var(--navy) !important;
-  font-weight: 600 !important;
+  color: var(--ink) !important;
+  font-weight: var(--weight-semibold) !important;
   letter-spacing: 0.01em;
 }
+.stMarkdown h2, h2 { font-size: var(--text-xl) !important; }
+.stMarkdown h3, h3 { font-size: 1.12rem !important; }
+.stMarkdown h4, h4 { font-size: var(--text-base) !important; }
+.stMarkdown h5, h5 {
+  font-size: var(--text-sm) !important;
+  color: var(--ink-muted) !important;
+  font-weight: var(--weight-semibold) !important;
+  letter-spacing: 0.02em;
+  margin: 0 0 var(--space-2) 0;
+}
 
-a { color: var(--blue); }
+a { color: var(--brand); }
+a:hover { color: var(--brand-strong); }
 
 hr {
   border: none !important;
   border-top: 1px solid var(--border) !important;
-  margin: 1rem 0 !important;
+  margin: var(--space-4) 0 !important;
 }
 
-/* ---------------- 侧边栏 ---------------- */
-section[data-testid="stSidebar"] {
-  background: var(--card);
-  border-right: 1px solid var(--border);
+code { font-family: var(--font-mono); }
+
+/* 搜索命中高亮（components.py 内联 #fef3c7 的替代：<mark> 或 .mm-hit） */
+mark, .mm-hit {
+  background: var(--highlight);
+  color: var(--highlight-ink);
+  border-radius: 4px;
+  padding: 0 0.15em;
 }
 
-/* ---------------- 卡片 ---------------- */
-.mm-card {
+/* 分区原语：替代 <br> 垫高与裸 hr（区块间固定 1.6rem）。
+   用法：st.markdown('<div class="mm-section"></div>', unsafe_allow_html=True) */
+.mm-section { margin-top: var(--space-5); }
+
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: var(--radius-full); }
+::-webkit-scrollbar-thumb:hover { background: var(--ink-faint); }
+
+button:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+
+/* ==========================================================================
+   4. 卡片体系（收敛为一套原语）
+   --------------------------------------------------------------------------
+   st.container(border=True) 的统一卡样式：
+   - Streamlit ≤1.6x 渲染为 div[data-testid=stVerticalBlockBorderWrapper]；
+   - 1.65 起该 testid 移除，边框容器=普通 stVerticalBlock + emotion 边框签名类
+     （1.65 实测哈希 st-emotion-cache-y32s0w；升级后哈希失效即优雅回退
+     Streamlit 原生边框样式，不影响功能）。
+   与 .mm-card 共用同一规则；深色只改变量，无需逐类覆盖。
+   ========================================================================== */
+.mm-card,
+div[data-testid="stVerticalBlockBorderWrapper"],
+div[data-testid="stVerticalBlock"].st-emotion-cache-y32s0w {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 1.4rem 1.6rem;
-  margin-bottom: 1rem;
-  transition: box-shadow 0.18s ease, transform 0.18s ease;
+  border-radius: var(--radius-lg);
+  padding: var(--card-pad);
+  box-shadow: var(--shadow-sm);
 }
-.mm-card:hover { box-shadow: 0 6px 20px rgba(26, 54, 93, 0.08); }
-.mm-card--flat { box-shadow: none; }
+div[data-testid="stVerticalBlockBorderWrapper"],
+div[data-testid="stVerticalBlock"].st-emotion-cache-y32s0w { height: 100%; } /* 错题网格等高（保留旧行为） */
+.mm-card { margin-bottom: var(--space-4); }
+.mm-card:hover { box-shadow: var(--shadow-md); }
 
-/* 统计卡 */
+/* 统计卡（可悬停微浮；--accent 顶边强调、--xl 签名大数字档） */
 .mm-stat {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 1.2rem 1.4rem;
+  border-radius: var(--radius-lg);
+  padding: 1.05rem 1.2rem;
   height: 100%;
+  box-shadow: var(--shadow-sm);
   transition: box-shadow 0.18s ease, transform 0.18s ease;
 }
 .mm-stat:hover {
-  box-shadow: 0 6px 20px rgba(26, 54, 93, 0.08);
+  box-shadow: var(--shadow-md);
   transform: translateY(-2px);
 }
 .mm-stat__value {
-  font-size: 2.2rem;
-  font-weight: 700;
-  color: var(--navy);
-  line-height: 1.2;
+  font-size: var(--num-lg);
+  font-weight: var(--weight-bold);
+  color: var(--ink);
+  line-height: var(--leading-tight);
 }
 .mm-stat__label {
-  font-size: 0.88rem;
-  color: var(--slate-light);
-  margin-top: 0.3rem;
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+  margin-top: var(--space-1);
 }
-.mm-stat--accent { border-top: 3px solid var(--blue); }
+.mm-stat--accent { border-top: 3px solid var(--brand); }
+.mm-stat--xl .mm-stat__value { font-size: var(--num-xl); }
 
-/* ---------------- 欢迎区 ---------------- */
-.mm-welcome {
-  background: linear-gradient(135deg, var(--navy) 0%, #234a7d 100%);
-  color: #ffffff;
-  border-radius: 16px;
-  padding: 1.8rem 2rem;
-  margin-bottom: 1.4rem;
+/* 队列/计划行原语（dashboard 队列行加 span.mm-queue-mark 标记后按 :has 生效；
+   独立 HTML 行可直接用 .mm-queue-row） */
+.mm-queue-row {
+  padding: 0.55rem var(--space-2);
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--radius-sm);
 }
-.mm-welcome h1 { color: #ffffff !important; margin: 0 0 0.35rem 0; }
-.mm-welcome p { color: rgba(255, 255, 255, 0.82); margin: 0; }
+.mm-queue-row:last-child { border-bottom: none; }
+.mm-queue-row:hover { background: var(--surface-sunken); }
+.mm-queue-mark { display: none; }
+div[data-testid="stHorizontalBlock"]:has(.mm-queue-mark) {
+  padding: 0.55rem var(--space-2);
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+div[data-testid="stHorizontalBlock"]:has(.mm-queue-mark):hover {
+  background: var(--surface-sunken);
+}
 
-/* ---------------- 徽标 ---------------- */
-.mm-badge {
+
+/* ==========================================================================
+   5. 徽章 / pill / chip（一套系统，两档尺寸）
+   --------------------------------------------------------------------------
+   mm-badge 唯一徽章类；语义 tone 新代码用 --info/--warn/--bad/--ok，
+   旧名 --blue 保留为 --info 兼容别名（测试锁定）。
+   mm-pill 全系保留为兼容别名（规则与 badge 完全一致）。
+   ========================================================================== */
+.mm-badge, .mm-pill {
   display: inline-block;
-  font-size: 0.75rem;
-  padding: 0.15rem 0.6rem;
-  border-radius: 999px;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-normal);
+  line-height: 1.4;
+  padding: 0.14rem 0.6rem;
+  border-radius: var(--radius-full);
   border: 1px solid var(--border);
-  color: var(--slate-light);
+  color: var(--ink-muted);
   background: var(--card);
-  margin-right: 0.35rem;
+  margin-right: 0.3rem;
+  vertical-align: middle;
+  white-space: nowrap;
 }
-.mm-badge--blue { color: var(--blue); border-color: #bfdbfe; background: var(--blue-soft); }
-.mm-badge--warn { color: #b45309; border-color: #fde68a; background: #fffbeb; }
-.mm-badge--bad  { color: #b91c1c; border-color: #fecaca; background: #fef2f2; }
-.mm-badge--ok   { color: #047857; border-color: #a7f3d0; background: #ecfdf5; }
+.mm-badge--blue, .mm-badge--info,
+.mm-pill--blue, .mm-pill--info { color: var(--info-ink); border-color: var(--info-line); background: var(--info-soft); }
+.mm-badge--warn,
+.mm-pill--warn, .mm-pill--shaky { color: var(--shaky-ink); border-color: var(--shaky-line); background: var(--shaky-soft); }
+.mm-badge--bad,
+.mm-pill--bad, .mm-pill--weak { color: var(--weak-ink); border-color: var(--weak-line); background: var(--weak-soft); }
+.mm-badge--ok,
+.mm-pill--ok, .mm-pill--good { color: var(--good-ink); border-color: var(--good-line); background: var(--good-soft); }
+.mm-pill--none { color: var(--ink-faint); border-color: var(--border); background: var(--surface-sunken); }
 
-/* ---------------- 知识点掌握条 ---------------- */
-.mm-mastery { margin-bottom: 0.85rem; }
+/* 大号档（hero 内/引导空态用） */
+.mm-badge--lg, .mm-pill--lg {
+  font-size: var(--text-sm);
+  padding: 0.2rem 0.7rem;
+}
+
+/* 筛选回显 chip（非交互，无 ✕ 假 affordance） */
+.mm-chip {
+  display: inline-block;
+  font-size: var(--text-xs);
+  padding: 0.16rem 0.65rem;
+  border-radius: var(--radius-full);
+  background: var(--surface-sunken);
+  color: var(--ink-muted);
+  border: 1px solid var(--border);
+  margin-right: 0.3rem;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.mm-chip--active {
+  background: var(--brand-soft);
+  border-color: var(--brand-line);
+  color: var(--brand-strong);
+}
+
+/* 中性上下文条（「已选中 N 题」等；替代 st.warning 滥用） */
+.mm-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.55rem 0.9rem;
+  margin: var(--space-2) 0;
+}
+.mm-bar__text { font-size: var(--text-sm); font-weight: var(--weight-semibold); color: var(--ink-body); }
+
+
+/* ==========================================================================
+   6. Hero 行动卡（看板）
+   ========================================================================== */
+.mm-hero {
+  background: var(--hero-bg);
+  color: var(--hero-ink);
+  border-radius: var(--radius-xl);
+  padding: 1.4rem 1.6rem;
+}
+.mm-hero__title {
+  font-size: 1.25rem;
+  font-weight: var(--weight-bold);
+  color: #ffffff;
+  margin: 0 0 0.2rem 0;
+}
+.mm-hero__sub { font-size: var(--text-sm); color: var(--hero-muted); margin: 0 0 0.8rem 0; }
+.mm-kpi-row { display: flex; gap: 2rem; margin: 0.9rem 0 0.6rem 0; flex-wrap: wrap; }
+.mm-kpi__value {
+  font-size: var(--num-md);
+  font-weight: var(--weight-bold);
+  color: #ffffff;
+  line-height: var(--leading-none);
+}
+.mm-kpi__label { font-size: 0.76rem; color: var(--hero-muted); margin-top: 0.15rem; }
+.mm-segbar {
+  display: flex;
+  height: 10px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--hero-line);
+}
+.mm-segbar__overdue { background: var(--hero-warn); }
+.mm-segbar__today   { background: var(--hero-brand); }
+.mm-segbar__later   { background: var(--hero-neutral); }
+.mm-segbar__legend {
+  display: flex;
+  gap: 1.3rem;
+  margin-top: 0.45rem;
+  font-size: 0.76rem;
+  color: var(--hero-muted);
+  flex-wrap: wrap;
+}
+.mm-dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: baseline; }
+
+
+/* ==========================================================================
+   7. 进度原语：掌握度横条 + st.progress
+   ========================================================================== */
+.mm-mastery { margin-bottom: 0.8rem; }
 .mm-mastery__row {
   display: flex;
   justify-content: space-between;
-  font-size: 0.86rem;
-  color: var(--slate);
-  margin-bottom: 0.25rem;
+  font-size: var(--text-sm);
+  color: var(--ink-body);
+  margin-bottom: var(--space-1);
 }
 .mm-mastery__track {
-  height: 6px;
-  background: var(--border);
-  border-radius: 999px;
+  height: var(--track-h);
+  background: var(--track);
+  border-radius: var(--radius-full);
   overflow: hidden;
 }
 .mm-mastery__fill {
   height: 100%;
-  border-radius: 999px;
-  background: var(--blue);
+  border-radius: var(--radius-full);
+  background: var(--brand); /* 默认品牌蓝；薄弱/不稳固由调用方传 var(--weak)/var(--shaky) */
 }
-.mm-mastery__fill--weak { background: #d97706; }
 
-/* ---------------- 复习卡片 ---------------- */
-.mm-flashcard {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 2rem;
-  text-align: center;
-}
-.mm-flashcard__hint { color: var(--muted); font-size: 0.9rem; }
+/* st.progress 原生条（轨道 --track / 填充 --brand） */
+[data-testid="stProgress"] > div { background: var(--track) !important; }
+[data-testid="stProgress"] [role="progressbar"] { background: var(--track) !important; }
+[data-testid="stProgress"] [role="progressbar"] > div { background: var(--brand) !important; }
 
-/* ---------------- 登录卡 ---------------- */
-.mm-login {
-  max-width: 420px;
-  margin: 4rem auto 0 auto;
+
+/* ==========================================================================
+   8. 空态
+   ========================================================================== */
+.mm-empty {
   text-align: center;
+  padding: 2.6rem 1rem;
+  color: var(--ink-muted);
 }
+.mm-empty__icon { font-size: 2.6rem; margin-bottom: var(--space-2); }
+/* 提示型单行空态 */
+.mm-empty--inline { padding: var(--space-4) 1rem; }
+
+.mm-muted { color: var(--ink-muted); font-size: var(--text-sm); }
+
+
+/* ==========================================================================
+   9. 文本截断（CSS 行数截断原语）
+   --------------------------------------------------------------------------
+   仅可包裹「安全 HTML/纯文本」内容；st.markdown 服务端原文透传
+   （markdown.py:71），块级 div 内的 Markdown/LaTeX 不会被前端 remark
+   再解析——不要用它包整段 content_markdown（会渲染出字面 ** 与未匹配 $）。
+   ========================================================================== */
+.mm-clamp-2, .mm-clamp-3 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.mm-clamp-2 { -webkit-line-clamp: 2; }
+.mm-clamp-3 { -webkit-line-clamp: 3; }
+
+
+/* ==========================================================================
+   10. 登录页 / 侧边栏品牌块
+   ========================================================================== */
+/* 登录态没有 sidebar：以外层容器整体收窄居中（.mm-auth 语义等价实现）。
+   mm-auth 若在 Python 侧包裹同样生效；此处用 :has 兜底未包裹的情形 */
+.mm-auth { max-width: 560px; margin: 3.2rem auto 0 auto; }
+.stApp:not(:has(section[data-testid="stSidebar"])) .block-container {
+  max-width: 560px;
+  margin: 0 auto;
+  padding-top: 3.2rem;
+}
+.mm-login { text-align: center; }
 .mm-login__title {
   font-size: 2rem;
-  font-weight: 700;
-  color: var(--navy);
+  font-weight: var(--weight-bold);
+  color: var(--ink);
   margin: 0;
 }
-.mm-login__subtitle { color: var(--slate-light); margin: 0.4rem 0 1.6rem 0; }
+.mm-login__subtitle { color: var(--ink-muted); margin: 0.4rem 0 1.4rem 0; }
 
-/* ---------------- 头像 ---------------- */
+/* 侧边栏品牌块（app.py 内联 #1a365d 的替代：深色自动反白） */
+.mm-brand { text-align: center; padding: 1.1rem 0 0.6rem 0; }
+.mm-brand__title { font-size: 1.15rem; font-weight: var(--weight-bold); color: var(--ink); }
+
 .user-avatar {
   width: 42px;
   height: 42px;
   border-radius: 50%;
-  background: var(--blue-soft);
-  color: var(--blue);
+  background: var(--brand-soft);
+  color: var(--brand);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   font-size: 0.95rem;
 }
 
-/* ---------------- 其他细节 ---------------- */
-.mm-muted { color: var(--slate-light); font-size: 0.86rem; }
-
-/* 空状态 */
-.mm-empty {
-  text-align: center;
-  padding: 2.6rem 1rem;
-  color: var(--slate-light);
-}
-.mm-empty__icon { font-size: 2.6rem; margin-bottom: 0.5rem; }
-
-/* 按钮：圆角 + 平滑过渡 */
-.stButton > button {
-  border-radius: 10px;
-  transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
-}
-.stButton > button:hover { transform: translateY(-1px); }
-.stButton > button[kind="primary"] {
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
-}
-.stButton > button[kind="primary"]:hover {
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
-}
-
-/* 折叠面板：悬停高亮 */
-div[data-testid="stExpander"]:hover { border-color: #cbd5e1 !important; }
-div[data-testid="stExpander"] details:hover > summary { color: var(--navy); }
-
-/* 输入框聚焦描边统一为品牌蓝 */
-.stTextInput input:focus, st-emotion-cache textarea:focus {
-  border-color: var(--blue) !important;
-  box-shadow: 0 0 0 1px var(--blue) !important;
-}
-
-/* 滚动条（WebKit） */
-::-webkit-scrollbar { width: 9px; height: 9px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 999px;
-}
-::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-
-/* 侧边栏导航项激活态 */
-section[data-testid="stSidebar"] [data-baseweb] a { transition: background-color 0.12s ease; }
-
-/* 页面底部留白 */
-.block-container { padding-bottom: 3rem; }
-
-div[data-testid="stExpander"] {
-  border: 1px solid var(--border) !important;
-  border-radius: 12px !important;
-  background: var(--card);
-}
-
-.block-container { padding-top: 2.2rem; max-width: 1200px; }
-
-/* ---------------- 看板 Hero：深藏青行动卡（v2 模板） ---------------- */
-.mm-hero {
-  background: #132339;
-  border-radius: 16px;
-  color: #eef2f7;
-  padding: 1.5rem 1.8rem;
-}
-.mm-hero__title { font-size: 1.25rem; font-weight: 700; color: #ffffff; margin: 0 0 0.2rem 0; }
-.mm-hero__sub { font-size: 0.85rem; color: #9fb0c9; margin: 0 0 0.9rem 0; }
-.mm-hero__btn {
-  background: #e8590c; color: #ffffff; border: none; border-radius: 10px;
-  padding: 0.55rem 1.4rem; font-weight: 600; font-size: 0.95rem;
-}
-.mm-kpi-row { display: flex; gap: 2.2rem; margin: 1rem 0 0.6rem 0; flex-wrap: wrap; }
-.mm-kpi__value { font-size: 1.8rem; font-weight: 700; color: #ffffff; line-height: 1.1; }
-.mm-kpi__label { font-size: 0.76rem; color: #9fb0c9; }
-.mm-segbar { display: flex; height: 10px; border-radius: 6px; overflow: hidden; background: #24395c; }
-.mm-segbar__overdue { background: #e8590c; }
-.mm-segbar__today { background: #3b82f6; }
-.mm-segbar__later { background: #64748b; }
-.mm-segbar__legend { display: flex; gap: 1.4rem; margin-top: 0.45rem; font-size: 0.76rem; color: #9fb0c9; }
-.mm-dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; }
-
-/* ---------------- 掌握度 pill（队列表格用） ---------------- */
-.mm-pill { display: inline-block; padding: 0.1rem 0.55rem; border-radius: 999px; font-size: 0.78rem; font-weight: 600; }
-.mm-pill--weak { background: #fdecea; color: #dc2626; }
-.mm-pill--shaky { background: #fef3e2; color: #b45309; }
-.mm-pill--good { background: #e7f6ef; color: #059669; }
-.mm-pill--none { background: #f1f5f9; color: #94a3b8; }
-
-/* ---------------- 连续学习卡 ---------------- */
-.mm-streak__value { font-size: 2.6rem; font-weight: 700; color: var(--navy); line-height: 1; }
-.mm-streak__unit { font-size: 0.85rem; color: var(--slate-light); }
-
-/* ---------------- 队列行 ---------------- */
-.mm-queue-row { padding: 0.55rem 0; border-bottom: 1px solid var(--border); }
-.mm-queue-row:last-child { border-bottom: none; }
-
-
-/* ---------------- 错题卡片网格 ---------------- */
+/* 错题卡缩略（无原图时） */
 .mm-card-thumb {
   display: flex;
   align-items: center;
   justify-content: center;
   height: 110px;
   border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--blue-soft);
-  color: var(--blue);
+  border-radius: var(--radius-sm);
+  background: var(--brand-soft);
+  color: var(--brand);
   font-size: 1.05rem;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   margin-bottom: 0.55rem;
   overflow: hidden;
   white-space: nowrap;
 }
-div[data-testid='stVerticalBlockBorderWrapper'] { height: 100%; }
 
-/* ---------------- 移动端响应式（D1/D2，≤768px） ----------------
-   纯样式收紧：布局不横向溢出、触控目标 ≥44px；桌面端（>768px）零变化。 */
+
+/* ==========================================================================
+   11. 按钮（primary 纪律见 spec.md §5.3：每视图至多一个 primary）
+   ========================================================================== */
+.stButton > button,
+div[data-testid="stDownloadButton"] > button,
+div[data-testid="stFormSubmitButton"] > button,
+button[data-testid="stPopoverButton"] {
+  border-radius: var(--radius-md);
+  transition: transform 0.12s ease, box-shadow 0.12s ease,
+    background-color 0.12s ease, border-color 0.12s ease;
+}
+.stButton > button:hover,
+div[data-testid="stDownloadButton"] > button:hover,
+div[data-testid="stFormSubmitButton"] > button:hover,
+button[data-testid="stPopoverButton"]:hover { transform: translateY(-1px); }
+
+/* primary：唯一行动色（品牌蓝） */
+.stButton > button[kind="primary"],
+div[data-testid="stDownloadButton"] > button[kind="primary"],
+div[data-testid="stFormSubmitButton"] > button[kind="primary"] {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #ffffff;
+  box-shadow: var(--shadow-brand);
+}
+.stButton > button[kind="primary"]:hover,
+div[data-testid="stDownloadButton"] > button[kind="primary"]:hover,
+div[data-testid="stFormSubmitButton"] > button[kind="primary"]:hover {
+  box-shadow: var(--shadow-brand-hover);
+}
+
+/* secondary/默认：白卡描边，悬停染蓝 */
+.stButton > button[kind="secondary"],
+.stButton > button:not([kind="primary"]),
+div[data-testid="stDownloadButton"] > button:not([kind="primary"]),
+div[data-testid="stFormSubmitButton"] > button:not([kind="primary"]) {
+  background: var(--card);
+  border: 1px solid var(--border-strong);
+  color: var(--ink-body);
+}
+.stButton > button[kind="secondary"]:hover,
+.stButton > button:not([kind="primary"]):hover,
+div[data-testid="stDownloadButton"] > button:not([kind="primary"]):hover,
+div[data-testid="stFormSubmitButton"] > button:not([kind="primary"]):hover {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+
+/* ==========================================================================
+   12. 表单控件焦点（统一 3px 品牌环）
+   --------------------------------------------------------------------------
+   选择器双轨：data-baseweb（旧版）+ testid（1.65 起 baseweb 属性全面移除，
+   文本族改为 *RootElement）。两套并存，随版本各自命中。
+   ========================================================================== */
+div[data-baseweb="input"] input:focus,
+div[data-baseweb="textarea"] textarea:focus,
+div[data-baseweb="select"] > div:focus,
+div[data-testid="stNumberInput"] input:focus,
+div[data-testid="stTextInput"] input:focus,
+div[data-testid="stTextInputRootElement"] input:focus,
+div[data-testid="stTextArea"] textarea:focus,
+div[data-testid="stTextAreaRootElement"] textarea:focus,
+div[data-testid="stChatInput"] textarea:focus,
+div[data-testid="stChatInputRootElement"] textarea:focus {
+  border-color: var(--brand) !important;
+  box-shadow: 0 0 0 3px var(--brand-ring) !important;
+}
+/* 分段控件/开关聚焦（Chrome/Edge 105+ 的 :focus-within 即可，无需 :has） */
+div[data-testid="stSegmentedControl"] [data-baseweb="segmented-control"]:focus-within {
+  box-shadow: 0 0 0 3px var(--brand-ring);
+  border-radius: var(--radius-sm);
+}
+div[data-testid="stToggle"] [data-baseweb="checkbox"]:focus-within,
+div[data-testid="stCheckbox"] :focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+
+/* ==========================================================================
+   13. 折叠面板 / 页签 / 侧边栏 / 页面容器
+   ========================================================================== */
+div[data-testid="stExpander"] {
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-lg) !important;
+  background: var(--card);
+}
+div[data-testid="stExpander"]:hover { border-color: var(--border-strong) !important; }
+div[data-testid="stExpander"] details:hover > summary { color: var(--ink); }
+div[data-testid="stExpander"] details > summary { color: var(--ink-body); }
+
+[data-baseweb="tab-list"] { border-color: var(--border); }
+[data-baseweb="tab"],
+[data-testid="stTab"] { color: var(--ink-muted); }
+[data-baseweb="tab"][aria-selected="true"],
+[data-testid="stTab"][aria-selected="true"] {
+  color: var(--brand) !important;
+  border-color: var(--brand) !important;
+}
+
+/* 侧边栏 */
+section[data-testid="stSidebar"] {
+  background: var(--card);
+  border-right: 1px solid var(--border);
+}
+section[data-testid="stSidebar"] [data-baseweb] a { transition: background-color 0.12s ease; }
+
+/* 页面容器 */
+.block-container { padding-top: 2.2rem; padding-bottom: 3rem; max-width: 1200px; }
+
+
+/* ==========================================================================
+   14. 深色模式：结构覆盖（变量覆盖不到的 Streamlit 原生 chrome）
+   --------------------------------------------------------------------------
+   已知限制：config.toml 仍 base="light"，st.dataframe 画布
+   （glide-data-grid 位图）无法纯 CSS 反色——仅加边框融入；分段控件
+   baseweb 底色若残留浅色同样属已知取舍（spec.md §6.4）。
+   ========================================================================== */
+[data-theme="dark"] .stApp { background: var(--bg); color: var(--ink-body); }
+[data-theme="dark"] section[data-testid="stSidebar"] {
+  background: var(--card);
+  border-right: 1px solid var(--border);
+}
+[data-theme="dark"] .stMarkdown h1, [data-theme="dark"] .stMarkdown h2,
+[data-theme="dark"] .stMarkdown h3, [data-theme="dark"] .stMarkdown h4,
+[data-theme="dark"] h1, [data-theme="dark"] h2,
+[data-theme="dark"] h3, [data-theme="dark"] h4 { color: var(--ink) !important; }
+[data-theme="dark"] .stMarkdown h5, [data-theme="dark"] h5 { color: var(--ink-muted) !important; }
+[data-theme="dark"] hr { border-top-color: var(--border) !important; }
+[data-theme="dark"] a { color: var(--brand); }
+
+/* 输入族 */
+[data-theme="dark"] div[data-baseweb="input"] input,
+[data-theme="dark"] div[data-baseweb="textarea"] textarea,
+[data-theme="dark"] div[data-testid="stNumberInput"] input,
+[data-theme="dark"] div[data-testid="stTextInput"] input,
+[data-theme="dark"] div[data-testid="stTextArea"] textarea,
+[data-theme="dark"] div[data-testid="stChatInput"] textarea {
+  background: var(--bg) !important;
+  color: var(--ink-body) !important;
+  border-color: var(--border);
+}
+[data-theme="dark"] div[data-baseweb="select"] > div {
+  background: var(--card) !important; /* emotion 内联底色必须 !important 压制 */
+  color: var(--ink-body);
+  border-color: var(--border);
+}
+
+/* 下拉菜单/弹层（含筛选 popover、select 菜单） */
+[data-theme="dark"] div[data-baseweb="popover"],
+[data-theme="dark"] div[data-baseweb="menu"],
+[data-theme="dark"] [data-testid="stPopoverBody"] {
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--ink-body);
+}
+
+/* 卡片族（变量已覆盖，此处兜底 emotion 内联底色） */
+[data-theme="dark"] .mm-card,
+[data-theme="dark"] .mm-stat,
+[data-theme="dark"] div[data-testid="stVerticalBlockBorderWrapper"],
+[data-theme="dark"] div[data-testid="stVerticalBlock"].st-emotion-cache-y32s0w,
+[data-theme="dark"] div[data-testid="stExpander"] {
+  background: var(--card) !important;
+  border-color: var(--border) !important;
+}
+/* 头部工具条：随主题翻面（emotion 固定浅底） */
+[data-theme="dark"] [data-testid="stHeader"] { background-color: transparent; }
+/* 已知限制：sac.menu 组件 iframe 体固定白底，CSS 不可达（同 dataframe 画布）。
+   深色下给圆角，使其呈现为侧边栏内一块"浅色面板"而非突兀白块 */
+[data-theme="dark"] section[data-testid="stSidebar"] iframe { border-radius: var(--radius-md); }
+[data-theme="dark"] .mm-stat__value { color: var(--ink) !important; }
+[data-theme="dark"] .mm-stat__label, [data-theme="dark"] .mm-muted { color: var(--ink-muted) !important; }
+[data-theme="dark"] .mm-empty { color: var(--ink-muted) !important; }
+[data-theme="dark"] .mm-mastery__row { color: var(--ink-body) !important; }
+[data-theme="dark"] .mm-mastery__track { background: var(--track); }
+[data-theme="dark"] .mm-bar,
+[data-theme="dark"] .mm-chip { background: var(--surface-sunken); }
+[data-theme="dark"] .mm-chip--active { background: var(--brand-soft); }
+[data-theme="dark"] .mm-card-thumb { background: var(--brand-soft); }
+
+/* 按钮族 */
+[data-theme="dark"] .stButton > button,
+[data-theme="dark"] div[data-testid="stDownloadButton"] > button,
+[data-theme="dark"] div[data-testid="stFormSubmitButton"] > button,
+/* stPopoverButton 本体即 <button>（非包装 div），须直接命中 */
+[data-theme="dark"] button[data-testid="stPopoverButton"] {
+  background: var(--card);
+  color: var(--ink-body);
+  border: 1px solid var(--border-strong);
+}
+[data-theme="dark"] .stButton > button[kind="primary"],
+[data-theme="dark"] div[data-testid="stDownloadButton"] > button[kind="primary"],
+[data-theme="dark"] div[data-testid="stFormSubmitButton"] > button[kind="primary"] {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #ffffff;
+}
+[data-theme="dark"] .stButton > button[kind="secondary"]:hover,
+[data-theme="dark"] .stButton > button:not([kind="primary"]):hover,
+[data-theme="dark"] div[data-testid="stDownloadButton"] > button:not([kind="primary"]):hover,
+[data-theme="dark"] div[data-testid="stFormSubmitButton"] > button:not([kind="primary"]):hover,
+[data-theme="dark"] button[data-testid="stPopoverButton"]:hover {
+  border-color: var(--brand);
+  color: var(--brand-strong);
+}
+/* 控件标签：emotion 固定浅色主题正文字色，深色下偏暗，翻为 --ink-body */
+[data-theme="dark"] div[data-testid="stWidgetLabel"] p { color: var(--ink-body); }
+/* 纯文本 markdown 容器（无显式颜色的段落，如侧栏用户块）：emotion 主题
+   色固定偏暗，深色下整体翻为 --ink-body；显式 var(--*)/类色的元素不受影响 */
+[data-theme="dark"] div[data-testid="stMarkdownContainer"] { color: var(--ink-body); }
+
+/* 页签/聊天/提示 */
+[data-theme="dark"] [data-baseweb="tab-list"] { border-color: var(--border); }
+[data-theme="dark"] [data-baseweb="tab"],
+[data-theme="dark"] [data-testid="stTab"] { color: var(--ink-muted); }
+[data-theme="dark"] [data-baseweb="tab"][aria-selected="true"],
+[data-theme="dark"] [data-testid="stTab"][aria-selected="true"] {
+  color: var(--brand) !important;
+  border-color: var(--brand) !important;
+}
+[data-theme="dark"] [data-testid="stChatMessage"] { background: var(--card); border: 1px solid var(--border); }
+[data-theme="dark"] [data-testid="stChatInput"] > div { background: var(--card); border-color: var(--border); }
+[data-theme="dark"] [data-testid="stToast"] {
+  background: var(--card);
+  color: var(--ink-body);
+  border: 1px solid var(--border);
+}
+/* st.info/success/warning/error：深色下统一为卡面+中性边，可读性优先
+   （语义色仍由文字/emoji 承载；tone 级描边受限于原生 DOM 无 kind 钩子） */
+[data-theme="dark"] div[data-testid="stAlert"] {
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  color: var(--ink-body);
+}
+[data-theme="dark"] div[data-testid="stAlert"] p,
+[data-theme="dark"] div[data-testid="stAlert"] div[data-testid="stMarkdownContainer"] {
+  color: var(--ink-body);
+}
+
+/* st.dataframe：画布不可反色（已知限制），仅融入边框 */
+[data-theme="dark"] div[data-testid="stDataFrame"] {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+/* 1.65 控件结构适配：data-baseweb 属性已全面移除，改用 testid + react-aria 属性 */
+/* selectbox：react-aria group 即白底方块（emotion 内联底色需 !important） */
+[data-theme="dark"] div[data-testid="stSelectbox"] div[role="group"] {
+  background: var(--card) !important;
+  border-color: var(--border);
+}
+[data-theme="dark"] div[data-testid="stSelectbox"] div[role="group"] input[role="combobox"] {
+  color: var(--ink-body);
+}
+/* selectbox 下拉展开列表（portal 渲染） */
+[data-theme="dark"] ul[role="listbox"] {
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+[data-theme="dark"] ul[role="listbox"] [role="option"] { color: var(--ink-body); }
+/* 分段控件（st.segmented_control 在 1.65 渲染为 stButtonGroup radiogroup，
+   未选中=白底按钮；选中档用 --brand-soft/--brand-strong 保证深色可读） */
+[data-theme="dark"] div[data-testid="stButtonGroup"] button[aria-checked="false"] {
+  background: var(--card);
+  color: var(--ink-body);
+}
+[data-theme="dark"] div[data-testid="stButtonGroup"] button[aria-checked="true"] {
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+}
+
+
+/* ==========================================================================
+   15. 移动端（≤768px，保持既有行为：收紧内边距、触控目标 ≥44px）
+   ========================================================================== */
 @media (max-width: 768px) {
-  /* 页面容器：收紧内边距，释放窄屏横向空间 */
   .block-container {
     padding-top: 1.2rem;
     padding-bottom: 2rem;
     max-width: 100%;
   }
-
-  /* 卡片类：缩内边距 */
-  .mm-hero { padding: 1.1rem 1.1rem; }
+  .mm-hero { padding: 1.1rem; }
   .mm-stat { padding: 0.9rem 1rem; }
-  .mm-flashcard { padding: 1.2rem 1rem; }
-  .mm-card { padding: 1rem 1.1rem; }
-
-  /* KPI 行：缩间距 + 降字号（flex-wrap 桌面端已有，窄屏自然换行） */
+  .mm-card,
+  div[data-testid="stVerticalBlockBorderWrapper"],
+  div[data-testid="stVerticalBlock"].st-emotion-cache-y32s0w { padding: 1rem 1.1rem; }
   .mm-kpi-row { gap: 1.1rem; }
   .mm-kpi__value { font-size: 1.35rem; }
   .mm-stat__value { font-size: 1.6rem; }
-
-  /* 分段条图例：允许换行，避免窄屏截断 */
+  .mm-stat--xl .mm-stat__value { font-size: 2rem; }
   .mm-segbar__legend { flex-wrap: wrap; gap: 0.5rem 1rem; }
-
-  /* 错题卡片缩略：降高度，三列换行后不占半屏 */
   .mm-card-thumb { height: 78px; font-size: 0.95rem; }
-
-  /* 触控目标（D2）：全部按钮 ≥44px 高，字号微调提升可读性 */
   .stButton > button {
     min-height: 44px;
     font-size: 0.92rem;

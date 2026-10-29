@@ -4,7 +4,7 @@ from __future__ import annotations
 import streamlit as st
 
 from backend.services.teaching import TeachingService
-from frontend.charts import plotly_font, plotly_grid
+from frontend.charts import plotly_font, plotly_grid, semantic_colors
 from frontend.common import empty_state, get_question_service, go_to, page_header
 from frontend.components import mastery_fill_html, safe_call
 
@@ -14,7 +14,9 @@ _STATUS_BADGE = {
     "weak": "mm-badge mm-badge--bad",
 }
 _STATUS_ICON = {"solid": "🟦", "shaky": "🟨", "weak": "🟥"}
-_FILL_COLOR = {"solid": "#2563eb", "shaky": "#94a3b8", "weak": "#dc2626"}
+# 掌握度横条填充色：与 common.mastery_color / style.css 语义变量同源
+# （HTML 内联直用 var(--*)，深色自动翻面；solid 走品牌蓝）
+_FILL_COLOR = {"solid": "var(--brand)", "shaky": "var(--shaky)", "weak": "var(--weak)"}
 _RADAR_MAX = 8
 
 _STRATEGY_LABEL = {
@@ -39,13 +41,14 @@ def _render_radar(profile) -> None:
     items = profile[:_RADAR_MAX]
     if len(items) < 3:
         return  # 少于 3 个维度雷达图没有信息量
+    brand = semantic_colors()["brand"]
     fig = go.Figure(
         go.Scatterpolar(
             r=[round(item.mastery * 100) for item in items],
             theta=[item.knowledge_point for item in items],
             fill="toself",
             fillcolor="rgba(37, 99, 235, 0.18)",
-            line_color="#2563eb",
+            line_color=brand,
             name="掌握度%",
         )
     )
@@ -289,7 +292,8 @@ def render_mastery_page(user: dict) -> None:
                     with cols[1]:
                         if st.button("复习", key=f"plan_go_{item.question.id}", width="stretch"):
                             go_to("review", mode="plan", question_id=item.question.id)
-            if st.button("进入复习模式（按今日计划）", type="primary", width="stretch"):
+            # primary 纪律（spec §5.3）：本页无 primary，全 secondary
+            if st.button("进入复习模式（按今日计划）", width="stretch"):
                 go_to("review", mode="plan")
 
         st.divider()

@@ -15,6 +15,7 @@ import io
 from pathlib import Path
 
 from backend.models.schemas import QuestionOut
+from backend.services.export_cache import cached_bytes, content_key
 from backend.services.full_backup import _fingerprint
 from backend.utils.logging import get_logger
 from backend.utils.text import strip_markdown
@@ -31,7 +32,19 @@ _MODEL_NAME = "MathMaster 错题卡（问答题）"
 def generate_anki_deck(
     questions: list[QuestionOut], *, deck_name: str = "MathMaster 错题本"
 ) -> io.BytesIO:
-    """错题列表 → Anki 牌组 .apkg（正面原图/题面，背面解析+答案+标签）。"""
+    """错题列表 → Anki 牌组 .apkg（内容指纹缓存：同内容 rerun 复用字节流）。
+
+    空列表 ValueError 语义保持在渲染实现内：抛错不入缓存，行为与直调一致。
+    """
+    key = content_key("anki", questions, deck_name=deck_name)
+    data = cached_bytes(key, lambda: _render_anki_deck(questions, deck_name).getvalue())
+    # 每次返回新 BytesIO：调用方读尽游标互不影响
+    return io.BytesIO(data)
+
+
+def _render_anki_deck(
+    questions: list[QuestionOut], deck_name: str = "MathMaster 错题本"
+) -> io.BytesIO:
     if not questions:
         raise ValueError("没有可导出的错题")
     try:

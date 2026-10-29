@@ -41,6 +41,28 @@ def plotly_layout(fig, height: int = 220) -> None:
     fig.update_yaxes(gridcolor=grid)
 
 
+def semantic_colors() -> dict:
+    """语义色/序数色的唯一 Python 来源（Plotly 用；HTML 内联请用 var(--*)）。
+
+    与 style.css 的 --weak/--shaky/--good/--info/--brand 变量段同值同源：
+    浅色=深字色档，深色=提亮档。HTML 内联样式继续用 var(--*)（CSS 变量
+    Plotly 不认），仅图表字面量走这里。
+    """
+    if is_dark():
+        return {
+            "weak": "#f87171", "shaky": "#fbbf24", "good": "#34d399",
+            "info": "#93c5fd", "brand": "#3b82f6", "neutral": "#64748b",
+            "ink": "#f1f5f9", "grid": "#334155",
+            "seq": ["#60a5fa", "#3b82f6", "#1e3a8a"],   # 难度三档：浅→深
+        }
+    return {
+        "weak": "#dc2626", "shaky": "#d97706", "good": "#059669",
+        "info": "#2563eb", "brand": "#2563eb", "neutral": "#94a3b8",
+        "ink": "#1a365d", "grid": "#e2e8f0",
+        "seq": ["#93c5fd", "#2563eb", "#1a365d"],
+    }
+
+
 def heatmap_colorscale() -> list[list[str | float]]:
     """学习热力图色带：零值格深色模式下用卡片色，避免整版刺眼亮块。"""
     if is_dark():

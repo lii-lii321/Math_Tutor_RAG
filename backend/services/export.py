@@ -16,6 +16,7 @@ from docx.shared import Inches, Pt
 from PIL import Image
 
 from backend.models.schemas import QuestionOut
+from backend.services.export_cache import cached_bytes, content_key
 from backend.utils.paths import materialize_image
 
 ExportMode = Literal["redo", "detailed"]
@@ -24,6 +25,22 @@ _BLANK_LINES_AFTER_QUESTION = 4
 
 
 def generate_word_exam(
+    questions: list[QuestionOut],
+    exam_title: str = "错题复习卷",
+    mode: ExportMode = "redo",
+    answer_key: bool = False,
+) -> io.BytesIO:
+    """错题列表 → Word 复习卷（内容指纹缓存：同内容 rerun 复用字节流）。"""
+    key = content_key("word", questions, title=exam_title, mode=mode, answer_key=answer_key)
+    data = cached_bytes(
+        key,
+        lambda: _render_word_exam(questions, exam_title, mode, answer_key).getvalue(),
+    )
+    # 每次返回新 BytesIO：调用方（download_button/测试）读尽游标互不影响
+    return io.BytesIO(data)
+
+
+def _render_word_exam(
     questions: list[QuestionOut],
     exam_title: str = "错题复习卷",
     mode: ExportMode = "redo",
@@ -98,6 +115,19 @@ def html_escape(text: str) -> str:
 
 
 def generate_pdf_exam(
+    questions: list[QuestionOut],
+    exam_title: str = "错题复习卷",
+    include_answers: bool = True,
+) -> io.BytesIO:
+    """PDF 复习卷（内容指纹缓存）：题目（原图/题面）在前，卷末参考答案。"""
+    key = content_key("pdf", questions, title=exam_title, include_answers=include_answers)
+    data = cached_bytes(
+        key, lambda: _render_pdf_exam(questions, exam_title, include_answers).getvalue()
+    )
+    return io.BytesIO(data)
+
+
+def _render_pdf_exam(
     questions: list[QuestionOut],
     exam_title: str = "错题复习卷",
     include_answers: bool = True,

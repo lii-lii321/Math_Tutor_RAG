@@ -20,6 +20,7 @@ from backend.services.weekly_report import (
 )
 from frontend.charts import (
     heatmap_colorscale,
+    semantic_colors,
 )
 from frontend.charts import (
     plotly_font as _plotly_font,
@@ -34,13 +35,10 @@ from frontend.common import (
     get_question_service,
     go_to,
     mastery_color,
-    page_header,
     provider_badges,
     stat_card,
 )
 from frontend.components import mastery_bar_html, safe_call
-
-_BLUE = "#2563eb"
 
 
 def _render_difficulty(dist: dict) -> None:
@@ -48,7 +46,8 @@ def _render_difficulty(dist: dict) -> None:
     if not dist or sum(dist.values()) == 0:
         st.caption("还没有错题数据。")
         return
-    color_map = {"easy": "#93c5fd", "medium": "#2563eb", "hard": "#1a365d"}
+    _seq = semantic_colors()["seq"]  # 难度三档：浅→深（easy/medium/hard）
+    color_map = {"easy": _seq[0], "medium": _seq[1], "hard": _seq[2]}
     pie = px.pie(
         names=[k for k in dist],
         values=[dist[k] for k in dist],
@@ -148,7 +147,9 @@ def _render_mastery_donut(mastery_map: dict[int, float]) -> None:
         st.caption("尚无复习数据。")
         return
     overall = round(sum(mastery_map.values()) / total * 100)
-    colors = {"已掌握": "#059669", "不稳固": "#d97706", "薄弱": "#dc2626"}
+    # 语义色单源：与 common.mastery_color()/style.css 同一套（看板环/队列徽章同色）
+    _sem = semantic_colors()
+    colors = {"已掌握": _sem["good"], "不稳固": _sem["shaky"], "薄弱": _sem["weak"]}
     fig = go.Figure(
         go.Pie(
             labels=list(buckets),
@@ -180,7 +181,7 @@ def _render_mastery_donut(mastery_map: dict[int, float]) -> None:
     for label, count in buckets.items():
         st.markdown(
             f"<div style='display:flex;justify-content:space-between;font-size:0.85rem'>"
-            f"<span style='color:{colors[label]}'>● {label}</span>"
+            f"<span><span class='mm-dot' style='background:{colors[label]}'></span>{label}</span>"
             f"<span>{count}</span></div>",
             unsafe_allow_html=True,
         )
@@ -194,13 +195,15 @@ def _render_accuracy_week(trend: list[dict]) -> None:
         return
 
     def _bar_color(acc) -> str:
+        # 语义分档（橙退役）：好=good / 一般=info / 差=shaky / 无数据=neutral
+        _sem = semantic_colors()
         if acc is None:
-            return "#cbd5e1"
+            return _sem["neutral"]
         if acc >= 80:
-            return "#059669"
+            return _sem["good"]
         if acc >= 60:
-            return "#3b82f6"
-        return "#e8590c"
+            return _sem["info"]
+        return _sem["shaky"]
 
     fig = go.Figure(
         go.Bar(
@@ -225,17 +228,20 @@ def _render_accuracy_week(trend: list[dict]) -> None:
 
 def render_dashboard(user: dict) -> None:
     service = get_question_service()
-    page_header(
-        "学情看板",
-        f"{dt.datetime.now():%m 月 %d 日} · 功能已经很完整，这一屏回答“今天该做什么”",
-    )
+    # 页面标题职能由下方问候行承担（--text-xl），不再重复渲染 page_header
 
     ok, stats = safe_call(service.dashboard_stats, user["id"], error_title="学情数据加载失败")
     if not ok:
         st.stop()
-    ok, due_list = safe_call(service.due_questions, user["id"], error_title="复习队列加载失败")
-    if not ok:
-        st.stop()
+    # 到期池同帧复用：侧边栏（app.py 每次 rerun 先于页面渲染）已查过同一份
+    # due_questions，这里直接取用；用户不一致或侧边栏异常时回退直查，行为不变
+    frame_due = st.session_state.get("_frame_due_list")
+    if frame_due is not None and frame_due[0] == user["id"]:
+        due_list = frame_due[1]
+    else:
+        ok, due_list = safe_call(service.due_questions, user["id"], error_title="复习队列加载失败")
+        if not ok:
+            st.stop()
     ok, mastery_map = safe_call(
         service.mastery_by_question, user["id"], error_title="掌握度数据加载失败"
     )
@@ -272,11 +278,11 @@ def render_dashboard(user: dict) -> None:
 
     weak_tags = stats.get("weak_tags", [])
 
-    # ---- 顶栏问候 ----
+    # ---- 顶栏问候（本页页面标题：--text-xl 藏青） ----
     st.markdown(
         f"""
         <div style="display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap">
-          <div><span style="font-size:1.35rem;font-weight:700;color:var(--navy)">{_greeting()}，{user['username']}</span>
+          <div><span style="font-size:var(--text-xl);font-weight:700;color:var(--navy)">{_greeting()}，{user['username']}</span>
           <span class="mm-muted" style="margin-left:0.8rem">{dt.datetime.now():%m 月 %d 日 星期}{'一二三四五六日'[dt.datetime.now().weekday()]}</span></div>
           <div>{provider_badges()}</div>
         </div>
@@ -299,16 +305,16 @@ def render_dashboard(user: dict) -> None:
               <div class="mm-hero__sub">{"⚠️ 其中有 " + str(overdue) + " 道已逾期，建议优先处理。" if overdue else "队列健康，按顺序复习即可。"}</div>
               <div class="mm-kpi-row">
                 <div><div class="mm-kpi__value">{len(due_list)}</div><div class="mm-kpi__label">待复习</div></div>
-                <div><div class="mm-kpi__value" style="color:#ff8a4c">{overdue}</div><div class="mm-kpi__label">已逾期</div></div>
+                <div><div class="mm-kpi__value" style="color:var(--hero-warn)">{overdue}</div><div class="mm-kpi__label">已逾期</div></div>
                 <div><div class="mm-kpi__value">{len(weak_tags)}</div><div class="mm-kpi__label">薄弱知识点</div></div>
-                <div><div class="mm-kpi__value" style="color:{'#34d399' if goal_met else '#ffffff'}">{today_graded}<span style="font-size:0.8rem;color:#9fb0c9">/{daily_goal}</span></div><div class="mm-kpi__label">今日目标{' ✅' if goal_met else ''}</div></div>
+                <div><div class="mm-kpi__value" style="color:{'var(--hero-ok)' if goal_met else '#ffffff'}">{today_graded}<span style="font-size:0.8rem;color:var(--hero-muted)">/{daily_goal}</span></div><div class="mm-kpi__label">今日目标{' ✅' if goal_met else ''}</div></div>
                 <div><div class="mm-kpi__value">{stats.get("streak", 0)}</div><div class="mm-kpi__label">连续学习（天）</div></div>
               </div>
               <div style="display:flex;align-items:center;gap:0.8rem;margin:0.8rem 0">
-                <div style="flex:1;background:#24395c;border-radius:6px;height:8px;overflow:hidden">
-                  <div style="background:{'#059669' if goal_met else '#3b82f6'};height:8px;width:{goal_pct:.0f}%;border-radius:6px"></div>
+                <div style="flex:1;background:var(--hero-line);border-radius:6px;height:8px;overflow:hidden">
+                  <div style="background:{'var(--hero-ok)' if goal_met else 'var(--hero-brand)'};height:8px;width:{goal_pct:.0f}%;border-radius:6px"></div>
                 </div>
-                <span style="font-size:0.78rem;color:#9fb0c9;white-space:nowrap">今日目标 {today_graded}/{daily_goal} 题{' ✅' if goal_met else ''}</span>
+                <span style="font-size:0.78rem;color:var(--hero-muted);white-space:nowrap">今日目标 {today_graded}/{daily_goal} 题{' ✅' if goal_met else ''}</span>
               </div>
               <div class="mm-segbar">
                 <div class="mm-segbar__overdue" style="width:{w_over}%"></div>
@@ -327,20 +333,10 @@ def render_dashboard(user: dict) -> None:
         if st.button("▶ 开始今日复习", type="primary", width="stretch", key="hero_start"):
             go_to("review", mode="due")
 
-    # ---- 连续学习 + 热力图 ----
+    # ---- 学习热力图（侧栏；连续学习大数字已并入 Hero KPI，不再重复呈现） ----
     with side_col:
-        streak_top, streak_best = st.columns(2)
-        with streak_top:
-            st.markdown(
-                f"""
-                <div class="mm-streak__value">{stats.get("streak", 0)}</div>
-                <div class="mm-streak__unit">天连续学习</div>
-                """,
-                unsafe_allow_html=True,
-            )
-        with side_col:
-            _render_heatmap(stats.get("calendar", {}), chart_key="heatmap_main")
-            st.caption("■ 少 → 多")
+        _render_heatmap(stats.get("calendar", {}), chart_key="heatmap_main")
+        st.caption("■ 少 → 多")
 
     # ---- KPI 卡行（紧凑保留，E2E 与信息锚点） ----
     k1, k2, k3, k4 = st.columns(4)
@@ -382,25 +378,31 @@ def render_dashboard(user: dict) -> None:
         st.subheader("待复习队列")
         plan = service.today_plan(user["id"], size=5)
         if not plan:
-            st.info("🎉 今日复习任务已清空，错题本处于健康状态。")
+            st.success("🎉 今日复习任务已清空，错题本处于健康状态。")
         else:
             for item in plan:
                 q = item.question
                 m = mastery_map.get(q.id)
                 if m is None:
-                    pill = '<span class="mm-pill mm-pill--none">未复习</span>'
+                    pill = '<span class="mm-badge">未复习</span>'
                 else:
                     pct = round(m * 100)
                     if m < WEAK_THRESHOLD:
-                        pill = f'<span class="mm-pill mm-pill--weak">薄弱 {pct}%</span>'
+                        pill = f'<span class="mm-badge mm-badge--bad">薄弱 {pct}%</span>'
                     elif m < SHAKY_THRESHOLD:
-                        pill = f'<span class="mm-pill mm-pill--shaky">不稳定 {pct}%</span>'
+                        pill = f'<span class="mm-badge mm-badge--warn">不稳定 {pct}%</span>'
                     else:
-                        pill = f'<span class="mm-pill mm-pill--good">良好 {pct}%</span>'
-                cols = st.columns([5, 2, 3, 2, 1])
+                        pill = f'<span class="mm-badge mm-badge--ok">良好 {pct}%</span>'
+                cols = st.columns([5, 2, 3, 2, 1], vertical_alignment="center")
                 with cols[0]:
+                    # 行标记（display:none）：CSS 借 :has 给整行上队列基线样式。
+                    # 串里一旦含 HTML，Streamlit 不再处理 ** 粗体标记——
+                    # 粗体必须写成 <strong> 且用户内容先转义
+                    import html as _html
+
+                    excerpt = _html.escape(q.content_markdown[:38])
                     st.markdown(
-                        f"**{q.content_markdown[:38]}**",
+                        f'<span class="mm-queue-mark"></span><strong>{excerpt}</strong>',
                         unsafe_allow_html=True,
                     )
                 with cols[1]:
@@ -433,7 +435,7 @@ def render_dashboard(user: dict) -> None:
         else:
             st.caption("复习几道题后，这里会生成薄弱点分析。")
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown('<div class="mm-section"></div>', unsafe_allow_html=True)
 
     # ---- 掌握度分布 + 近 7 日正确率 ----
     dist_col, acc_col = st.columns(2, gap="large")
@@ -482,14 +484,14 @@ def render_dashboard(user: dict) -> None:
 
     # ---- 次要图表收进折叠 ----
     with st.expander("更多图表（录入趋势 / 学习日历 / 难度分布 / 掌握度趋势）"):
-        page_header("近 14 天录入趋势")
+        st.subheader("近 14 天录入趋势")
         activity = stats["activity"]
         bar = px.bar(
             x=[a["date"] for a in activity],
             y=[a["count"] for a in activity],
             labels={"x": "日期", "y": "新增错题"},
         )
-        bar.update_traces(marker_color=_BLUE)
+        bar.update_traces(marker_color=semantic_colors()["brand"])
         bar.update_layout(
             margin=dict(t=10, b=20, l=20, r=20),
             height=260,
@@ -517,7 +519,7 @@ def render_dashboard(user: dict) -> None:
                     markers=True,
                     labels={"x": "日期", "y": "掌握度%"},
                 )
-                line.update_traces(line_color="#059669")
+                line.update_traces(line_color=semantic_colors()["good"])
                 line.update_layout(
                     margin=dict(t=10, b=10, l=10, r=10),
                     height=220,

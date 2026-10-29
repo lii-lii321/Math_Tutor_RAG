@@ -7,15 +7,20 @@ import streamlit as st
 from streamlit_agraph import Config, Edge, Node, agraph
 
 from backend.services.mastery import mastery_status
+from frontend.charts import semantic_colors
 from frontend.common import get_question_service, go_to, page_header
 from frontend.components import safe_call
 
-_MASTERY_NODE_COLORS = {
-    "weak": "#dc2626",  # 薄弱
-    "shaky": "#d97706",  # 不稳固
-    "solid": "#2563eb",  # 已掌握
-    "unknown": "#94a3b8",  # 无复习数据
-}
+
+def _mastery_node_colors() -> dict[str, str]:
+    """图谱节点色：与 charts.semantic_colors() 单源（值不变，深色随主题提亮）。"""
+    sem = semantic_colors()
+    return {
+        "weak": sem["weak"],      # 薄弱
+        "shaky": sem["shaky"],    # 不稳固
+        "solid": sem["brand"],    # 已掌握
+        "unknown": sem["neutral"],  # 无复习数据
+    }
 
 
 def _mastery_level(mastery: float | None) -> str:
@@ -62,12 +67,13 @@ def render_graph_page(user: dict) -> None:
     top_set = set(top_tags)
 
     max_count = max(tag_count[t] for t in top_tags)
+    node_colors = _mastery_node_colors()
     nodes = [
         Node(
             id=tag,
             label=f"{tag} ({tag_count[tag]})",
             size=18 + 26 * tag_count[tag] / max_count,
-            color=_MASTERY_NODE_COLORS[_mastery_level(tag_mastery.get(tag))],
+            color=node_colors[_mastery_level(tag_mastery.get(tag))],
         )
         for tag in top_tags
     ]
@@ -88,7 +94,7 @@ def render_graph_page(user: dict) -> None:
         physics=True,
         hierarchical=False,
         nodeHighlightBehavior=True,
-        highlightColor="#2563eb",
+        highlightColor=semantic_colors()["brand"],
         collapsible=False,
         node={"labelProperty": "label"},
         link={"labelProperty": "weight", "renderLabel": False},

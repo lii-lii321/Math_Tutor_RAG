@@ -187,7 +187,7 @@ def render_students_page(user: dict) -> None:
     with c3:
         stat_card(total_due, "待复习")
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown('<div class="mm-section"></div>', unsafe_allow_html=True)
 
     table_data = [
         {
@@ -203,7 +203,7 @@ def render_students_page(user: dict) -> None:
     ]
     st.dataframe(table_data, width="stretch", hide_index=True)
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown('<div class="mm-section"></div>', unsafe_allow_html=True)
     page_header("逐个查看", "展开学生查看其知识点掌握情况，或直达其错题本视图")
 
     for r in rows:

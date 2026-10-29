@@ -19,6 +19,9 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import threading
+import time
+from collections import OrderedDict
 from dataclasses import dataclass, field
 
 from backend.config import Settings, get_settings
@@ -28,6 +31,67 @@ logger = get_logger("rag")
 
 # collection metadata 中记录嵌入身份的键
 EMBEDDING_META_KEY = "mm:embedding"
+
+# ---------- 查询向量进程级 LRU ----------
+# 同一查询文本的重复检索（重复搜索 / 页面往返 / 全局搜索跳转）不应每次都
+# 重走 ONNX/远程嵌入推理——实测这是语义检索热路径的主要成本（~225ms/次，
+# 与题库规模无关）。键含嵌入身份指纹：本地内置与不同远程模型各自隔离，
+# 切换模型不会把旧向量串进新空间。嵌入失败返回 None，调用方回退原
+# query_texts 路径（结果不变，仅少一次缓存机会）。
+_QUERY_EMBED_CACHE_MAX = 256
+_WARMUP_TEXT = "mm:prewarm"
+_query_embed_lock = threading.Lock()
+_query_embed_cache: "OrderedDict[tuple[str, str], tuple[float, ...]]" = OrderedDict()
+
+
+def cached_query_embedding(fingerprint: str, text: str, embed_fn) -> list[float] | None:
+    """查询文本 → 向量（进程级 LRU）；embed_fn 不可用/推理失败返回 None。"""
+    key = (fingerprint, text)
+    with _query_embed_lock:
+        hit = _query_embed_cache.get(key)
+        if hit is not None:
+            _query_embed_cache.move_to_end(key)
+            return list(hit)
+    try:
+        vector = embed_fn([text])[0]
+    except Exception as exc:  # noqa: BLE001 - 嵌入失败回退集合内嵌（结果不变）
+        logger.warning("查询向量预计算失败，回退集合内嵌路径: %s", exc)
+        return None
+    with _query_embed_lock:
+        _query_embed_cache[key] = tuple(float(x) for x in vector)
+        _query_embed_cache.move_to_end(key)
+        while len(_query_embed_cache) > _QUERY_EMBED_CACHE_MAX:
+            _query_embed_cache.popitem(last=False)
+    # 返回纯 Python float（np.float32 会被 chroma 的 embeddings 校验拒绝）
+    return list(_query_embed_cache[key])
+
+
+_prewarm_started = threading.Event()
+
+
+def start_background_prewarm(vector_store: "QuestionVectorStore") -> None:
+    """进程一次性的后台预热：把 Chroma 挂载 + 嵌入模型加载移出用户首次语义检索。
+
+    应用启动时触发（frontend/common.py 的 get_question_service），daemon 线程
+    静默执行；失败不影响任何功能，首次真实检索按原路径自愈。
+    """
+    if _prewarm_started.is_set():
+        return
+    _prewarm_started.set()
+
+    def _run() -> None:
+        started = time.perf_counter()
+        try:
+            ok = vector_store.warmup()
+            logger.info(
+                "RAG 后台预热%s（%.0f ms）",
+                "完成" if ok else "未完成",
+                (time.perf_counter() - started) * 1000,
+            )
+        except Exception as exc:  # noqa: BLE001 - 预热绝不影响主流程
+            logger.info("RAG 后台预热异常（首次检索会自愈）: %s", exc)
+
+    threading.Thread(target=_run, name="rag-prewarm", daemon=True).start()
 
 
 def embedding_fingerprint(settings: Settings) -> str:
@@ -75,6 +139,8 @@ class QuestionVectorStore:
         self._available: bool | None = None  # None = 未探测
         self._stored_fingerprint: str | None = None  # 建库时记录的嵌入身份
         self._embedding_mismatch: bool | None = None  # None = 未探测/旧集合无指纹
+        self._embed_fn = None  # _ensure_collection 成功后持有嵌入函数（查询向量缓存用）
+        self._embed_fingerprint = ""
 
     # ---------- 惰性初始化 ----------
     def _ensure_collection(self):
@@ -90,6 +156,8 @@ class QuestionVectorStore:
             client = chromadb.PersistentClient(path=str(self.settings.chroma_dir))
             embed_fn = self._build_embedding_fn(embedding_functions)
             fingerprint = embedding_fingerprint(self.settings)
+            self._embed_fn = embed_fn
+            self._embed_fingerprint = fingerprint
             # 先取 bare 集合（不带 embedding_function）探测建库时的嵌入身份：
             # chroma 对函数级冲突（default vs openai）会在挂载时直接抛错降级，
             # 模型级切换（两个远程模型）则静默混用——两者都要在降级/挂载前显式识别
@@ -173,6 +241,24 @@ class QuestionVectorStore:
 
     def is_available(self) -> bool:
         return bool(self._ensure_collection() is not None)
+
+    def warmup(self) -> bool:
+        """启动预热：挂载集合 + 触发嵌入模型加载，把冷启动移出用户首次语义检索。
+
+        只做进程级资源初始化（Chroma 挂载 / ONNX 或远程嵌入客户端就绪），
+        不触碰任何用户数据；失败返回 False，首次真实检索按原路径自愈。
+        """
+        try:
+            collection = self._ensure_collection()
+        except Exception as exc:  # noqa: BLE001 - 预热失败不影响正确性
+            logger.info("RAG 预热：集合挂载失败（首次检索会再尝试）: %s", exc)
+            return False
+        if collection is None:
+            return False
+        if self._embed_fn is not None:
+            # 加载嵌入模型并顺手把预热文本向量入缓存；失败静默（返回 None）
+            cached_query_embedding(self._embed_fingerprint, _WARMUP_TEXT, self._embed_fn)
+        return True
 
     # ---------- 写入 / 删除 ----------
     def upsert_question(
@@ -305,12 +391,26 @@ class QuestionVectorStore:
         top_k = top_k or self.settings.rag_top_k
         where = {"user_id": {"$in": user_ids}}
         try:
-            # where 过滤由 chromadb 在查询时执行，无需先 count
-            result = collection.query(
-                query_texts=[query_text],
-                n_results=top_k + (1 if exclude_id else 0),
-                where=where,
-            )
+            # 查询向量缓存命中时直接传预计算向量，跳过集合内重复嵌入推理；
+            # 未命中先在调用侧嵌入一次并入缓存，嵌入失败/测试替身无嵌入函数时
+            # 回退 query_texts 原路径（Chroma 内部嵌入，结果不变）
+            embedding = None
+            if self._embed_fn is not None:
+                embedding = cached_query_embedding(
+                    self._embed_fingerprint, query_text, self._embed_fn
+                )
+            if embedding is not None:
+                result = collection.query(
+                    query_embeddings=[embedding],
+                    n_results=top_k + (1 if exclude_id else 0),
+                    where=where,
+                )
+            else:
+                result = collection.query(
+                    query_texts=[query_text],
+                    n_results=top_k + (1 if exclude_id else 0),
+                    where=where,
+                )
         except Exception as exc:  # noqa: BLE001
             logger.warning("向量检索失败: %s", exc)
             return []

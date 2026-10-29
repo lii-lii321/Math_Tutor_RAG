@@ -31,7 +31,7 @@ def safe_call(fn, *args, error_title: str = "加载失败，请稍后重试", **
         return False, None
 
 
-def mastery_fill_html(pct: float, color: str = "#2563eb") -> str:
+def mastery_fill_html(pct: float, color: str = "var(--brand)") -> str:
     """掌握度横条的轨道+填充部分（无标签行），pct 为 0~100。"""
     width = max(min(pct, 100), 3)
     return (
@@ -41,7 +41,7 @@ def mastery_fill_html(pct: float, color: str = "#2563eb") -> str:
 
 
 def mastery_bar_html(
-    label: str | None, pct: float, color: str = "#2563eb", right: str | None = None
+    label: str | None, pct: float, color: str = "var(--brand)", right: str | None = None
 ) -> str:
     """完整掌握度横条：左标签 + 右侧文案 + 轨道填充（标签/文案为用户数据，转义后拼接）。"""
     left = f"<span>{html.escape(label)}</span>" if label else "<span></span>"
@@ -133,9 +133,9 @@ def _hit_preview(q) -> None:
         end = min(len(source), pos + len(kw) + 30)
         fragment = source[start:end]
         highlighted = re_escape_and_mark(fragment, kw)
+        # .mm-hit 高亮底色走 --highlight/--highlight-ink 令牌（深色自动翻面）
         st.markdown(
-            f"🔍 命中：<span style='background:#fef3c7;border-radius:4px'>"
-            f"{highlighted}</span>",
+            f"🔍 命中：<span class='mm-hit'>{highlighted}</span>",
             unsafe_allow_html=True,
         )
         return

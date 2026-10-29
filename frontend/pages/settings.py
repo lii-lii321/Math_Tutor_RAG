@@ -88,8 +88,9 @@ def render_settings_page(user: dict) -> None:
                     "重启后自动启用真实模型。"
                 )
             else:
+                # provider 名是装饰信息，用中性徽章（--ok 只表示「健康」状态）
                 st.markdown(
-                    f'<span class="mm-badge mm-badge--ok">{info.provider}</span> '
+                    f'<span class="mm-badge">{info.provider}</span> '
                     f'<span class="mm-badge">模型：{info.model}</span>',
                     unsafe_allow_html=True,
                 )

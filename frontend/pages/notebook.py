@@ -8,7 +8,6 @@ import streamlit as st
 from backend.services.anki_export import generate_anki_deck
 from backend.services.comment_service import CommentService
 from backend.services.export import generate_pdf_exam, generate_word_exam
-from backend.services.mastery import SHAKY_THRESHOLD, WEAK_THRESHOLD
 from backend.services.question_service import sanitize_tags
 from backend.utils.paths import display_image_source
 from frontend.common import (
@@ -17,6 +16,7 @@ from frontend.common import (
     followup_chat,
     get_question_service,
     go_to,
+    mastery_color,
     page_header,
     pop_params,
 )
@@ -110,18 +110,12 @@ def _due_mark(q, now: dt.datetime) -> str:
 
 
 def _mastery_parts(mastery_map: dict[int, float], q_id: int) -> tuple[int, str] | None:
-    """掌握度 -> (百分数, 档位色)，与后端 WEAK/SHAKY 阈值同源；未复习过返回 None。"""
+    """掌握度 -> (百分数, 档位色)；颜色走 common.mastery_color 唯一映射
+    （var(--weak)/var(--shaky)/var(--good)，HTML 内联直用），未复习过返回 None。"""
     if q_id not in mastery_map:
         return None
     ratio = mastery_map[q_id]
-    pct = round(ratio * 100)
-    if ratio < WEAK_THRESHOLD:
-        color = "#dc2626"
-    elif ratio < SHAKY_THRESHOLD:
-        color = "#94a3b8"
-    else:
-        color = "#2563eb"
-    return pct, color
+    return round(ratio * 100), mastery_color(ratio)
 
 
 @st.dialog("错题详情", width="large")
@@ -174,9 +168,10 @@ def _render_card_grid(
                     )
 
                     date_txt = q.created_at.strftime("%m-%d") if q.created_at else ""
+                    # 中性徽章收敛：难度 + 日期；到期 emoji 纯文本（装饰不占语义色）
                     st.markdown(
                         f"<span class='mm-badge'>{_DIFF_LABELS.get(q.difficulty, q.difficulty)}</span>"
-                        f"<span class='mm-badge mm-badge--blue'>{_due_mark(q, now)}</span>"
+                        f" {_due_mark(q, now)} "
                         f"<span class='mm-badge'>{date_txt}</span>",
                         unsafe_allow_html=True,
                     )
@@ -388,9 +383,10 @@ def render_notebook_page(user: dict) -> None:
         # 筛选控件全部就位：桥接参数落到 URL、页码钳制自愈（值未变时零消息）
         _write_url_filters()
 
-        # chip 回显：当前生效的筛选条件（实时控件值而非仅 preset，点击 ✕ 走下方清除）
+        # chip 回显：当前生效的筛选条件（实时控件值而非仅 preset，
+        # mm-chip 为非交互回显样式；清除动作走下方独立按钮，key/文案不动）
         def _chip(label: str) -> str:
-            return f"<span class='mm-badge mm-badge--blue'>{label} ✕</span>"
+            return f"<span class='mm-chip mm-chip--active'>{label}</span>"
 
         chips_html = ""
         if keyword:
@@ -472,10 +468,10 @@ def render_notebook_page(user: dict) -> None:
                 f"🔔 你有 **{total_unread}** 条教师新批注未读——带 🔴 标记的题点开「批注」即可查看"
             )
 
-        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown('<div class="mm-section"></div>', unsafe_allow_html=True)
         if questions:
-            exp_col1, exp_col2, exp_col3, exp_col4 = st.columns(4)
-            with exp_col1:
+            # 导出收进单个 popover、全部 secondary（本页 primary 纪律：仅批量删除）
+            with st.popover("📤 导出练习卷 / 牌组", use_container_width=True):
                 redo_io = generate_word_exam(questions, "错题复习卷", mode="redo", answer_key=True)
                 st.download_button(
                     "导出重做版（原图+留白+卷末答案）",
@@ -483,10 +479,8 @@ def render_notebook_page(user: dict) -> None:
                     file_name=f"错题复习卷_重做版_{dt.date.today():%Y%m%d}.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     width="stretch",
-                    type="primary",
                     help="只含题目与答题留白，卷末附参考答案，适合打印重做",
                 )
-            with exp_col2:
                 detail_io = generate_word_exam(questions, "错题详解卷", mode="detailed")
                 st.download_button(
                     "导出详解版（含解析答案）",
@@ -496,7 +490,6 @@ def render_notebook_page(user: dict) -> None:
                     width="stretch",
                     help="含完整解析、答案与变式练习",
                 )
-            with exp_col3:
                 pdf_io = generate_pdf_exam(questions, "错题复习卷")
                 st.download_button(
                     "导出 PDF（打印友好）",
@@ -506,7 +499,6 @@ def render_notebook_page(user: dict) -> None:
                     width="stretch",
                     help="题目在前、卷末参考答案，任何设备可打开",
                 )
-            with exp_col4:
                 anki_io = generate_anki_deck(questions)
                 st.download_button(
                     "🃏 导出 Anki 牌组 (.apkg)",
@@ -577,7 +569,12 @@ def render_notebook_page(user: dict) -> None:
         )
 
     if selected_ids:
-        st.warning(f"已选中 {len(selected_ids)} 题")
+        # 中性上下文条（非警告）：已选数量回显（spec §5.7）
+        st.markdown(
+            f'<div class="mm-bar"><span class="mm-bar__text">'
+            f"已选中 {len(selected_ids)} 题</span></div>",
+            unsafe_allow_html=True,
+        )
         selected = [q for q in questions if q.id in set(selected_ids)]
         act1, act2, act3, act4 = st.columns(4)
         with act1:
@@ -698,7 +695,7 @@ def _render_question_detail(service, q, user) -> None:
         question_detail_view(q)
         if q.followup_question:
             save_followup_button(service, q, user, q.followup_question)
-        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown('<div class="mm-section"></div>', unsafe_allow_html=True)
         regrade_buttons(service, q, user)
         _single_question_export(q)
         _share_card_button(q)

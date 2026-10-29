@@ -52,7 +52,7 @@ def _review_card(service, user: dict) -> None:
 
     st.markdown(
         f"""
-        <div class="mm-stat mm-stat--accent" style="margin-bottom:0.8rem">
+        <div class="mm-stat mm-stat--accent mm-stat--xl" style="margin-bottom:0.8rem">
           <div class="mm-stat__value">{len(due)}</div>
           <div class="mm-stat__label">道错题待复习 · 当前进度 {cursor + 1} / {len(due)} · 本轮已评 {stats.get("graded", 0)} 题</div>
         </div>

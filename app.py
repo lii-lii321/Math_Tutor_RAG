@@ -77,15 +77,19 @@ def _render_sidebar(user: dict) -> str:
     # 今日复习待办数（仅当 >0 时显示徽标）
     due_count = 0
     try:
-        due_count = len(get_question_service().due_questions(user["id"]))
+        due_list = get_question_service().due_questions(user["id"])
+        due_count = len(due_list)
+        # 同帧共享：侧边栏先于页面渲染，看板等页面直接复用本次查询结果，
+        # 免去同一次 rerun 内对到期池的重复全量查询（数据零过期窗口）
+        st.session_state["_frame_due_list"] = (user["id"], due_list)
     except Exception:  # noqa: BLE001 - 侧边栏徽标失败不影响主界面
         pass
 
     with st.sidebar:
         st.markdown(
             """
-            <div style="text-align:center;padding:1.2rem 0 0.6rem 0">
-              <div style="font-size:1.15rem;font-weight:700;color:#1a365d">📘 MathMaster Edu</div>
+            <div class="mm-brand">
+              <div class="mm-brand__title">📘 MathMaster Edu</div>
               <div class="mm-muted">视觉大模型 × RAG 错题本</div>
             </div>
             """,

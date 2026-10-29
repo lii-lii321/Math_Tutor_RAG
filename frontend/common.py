@@ -29,13 +29,37 @@ def logout_user() -> None:
     st.session_state["user"] = None
 
 
+def _start_rag_prewarm(service: QuestionService) -> None:
+    """应用启动后台预热 RAG（进程一次）：把 Chroma 挂载 + 嵌入模型加载
+    （进程冷启动实测 2.7~5.1s）移出用户首次语义检索。
+
+    仅在真实 Streamlit 脚本上下文内触发；pytest / bare 导入不预热，
+    线程 daemon 且全程吞异常——预热失败只影响首查延迟，不影响正确性。
+    """
+    try:
+        from streamlit.runtime.scriptrunner import get_script_run_ctx
+
+        if get_script_run_ctx() is None:
+            return
+    except Exception:  # noqa: BLE001 - 版本差异下保守跳过
+        return
+    try:
+        from backend.services.rag import start_background_prewarm
+
+        start_background_prewarm(service.vector_store)
+    except Exception:  # noqa: BLE001 - 预热失败不影响应用
+        pass
+
+
 @st.cache_resource
 def get_question_service() -> QuestionService:
     """进程级共享：AI 客户端与向量库句柄复用，避免每页重建。
 
     QuestionService 内部每次操作独立开短事务，缓存实例是安全的。
     """
-    return QuestionService()
+    service = QuestionService()
+    _start_rag_prewarm(service)
+    return service
 
 
 def stat_card(value, label: str, accent: bool = False) -> None:

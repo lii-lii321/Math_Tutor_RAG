@@ -72,7 +72,8 @@ def render_tutor_page(user: dict) -> None:
                             st.warning("检测到重复上传：已为你复用既有错题记录。")
                         _render_analysis(saved, analysis, service, user)
             else:
-                st.info("👈 上传错题图片后点击「开始 AI 解析」，结构化解析结果将显示在这里。")
+                # 提示型空态（spec §5.7）：无下一步动作的占位说明用 caption
+                st.caption("👈 上传错题图片后点击「开始 AI 解析」，结构化解析结果将显示在这里。")
 
     with tab_word:
         _render_word_import(service, user)
