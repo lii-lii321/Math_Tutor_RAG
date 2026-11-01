@@ -55,24 +55,17 @@ except Exception:  # noqa: BLE001 - SW 注册失败不影响应用
 
 
 # 侧边栏页面表：唯一来源 frontend/nav.py
-_PAGES = {page.label: page.key for page in PAGES if not page.teacher_only}
-_TEACHER_PAGES = {page.label: page.key for page in PAGES if page.teacher_only}
-
-
 def _render_sidebar(user: dict) -> str:
     from frontend.common import get_question_service, initials
     from frontend.nav import GROUP_LABELS
 
-    visible = dict(_PAGES)
-    if user.get("role") == "teacher":
-        # 教师专属页插在「知识图谱」之前
-        ordered = list(visible.items())
-        insert_at = next(
-            (i for i, (label, key) in enumerate(ordered) if key == "graph"),
-            len(ordered),
-        )
-        ordered[insert_at:insert_at] = list(_TEACHER_PAGES.items())
-        visible = dict(ordered)
+    # 可见页直接按 nav.py 顺序 + 角色过滤（teacher_only 项已在注册表
+    # 声明归属分组，无需再插入调序）
+    visible = {
+        page.label: page.key
+        for page in PAGES
+        if not page.teacher_only or user.get("role") == "teacher"
+    }
 
     # 今日复习待办数（仅当 >0 时显示徽标）
     due_count = 0
@@ -180,9 +173,11 @@ def _render_sidebar(user: dict) -> str:
     # 解析回 review，否则有到期题时点「今日复习」会静默回落到看板
     if due_count > 0:
         all_pages[_label_with_badge(resolve_label("review"), "review")] = "review"
-    selected = menu or resolve_label("dashboard")
-    # 组标题点击返回组名——忽略并回退到看板；子项点击返回页面标签本身
-    return all_pages.get(selected, "dashboard")
+    # 教师默认落地工作台（操作视角），学生默认学情看板
+    default_key = "workbench" if user.get("role") == "teacher" else "dashboard"
+    selected = menu or resolve_label(default_key)
+    # 组标题点击返回组名——忽略并回退到默认页；子项点击返回页面标签本身
+    return all_pages.get(selected, default_key)
 
 
 def _cleanup_notebook_url_on_leave(current: str) -> None:
@@ -214,7 +209,11 @@ def main() -> None:
 
     page = _render_sidebar(user)
     _cleanup_notebook_url_on_leave(page)
-    if page == "dashboard":
+    if page == "workbench":
+        from frontend.pages.workbench import render_workbench_page
+
+        render_workbench_page(user)
+    elif page == "dashboard":
         render_dashboard(user)
     elif page == "tutor":
         render_tutor_page(user)

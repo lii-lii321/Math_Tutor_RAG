@@ -18,8 +18,9 @@ class NavPage:
     group: str = "learn"  # today / learn / explore —— 侧边栏三组分层
 
 
-# 有序注册表，即侧边栏展示顺序；teacher_only 项由 app.py 插在「知识图谱」之前
+# 有序注册表，即侧边栏展示顺序；teacher_only 项由 app.py 按角色过滤
 PAGES: tuple[NavPage, ...] = (
+    NavPage("workbench", "教师工作台", teacher_only=True, group="today"),
     NavPage("dashboard", "学情看板", group="today"),
     NavPage("review", "今日复习", group="today"),
     NavPage("tutor", "AI 录题", group="learn"),

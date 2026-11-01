@@ -13,7 +13,7 @@ import datetime as dt
 import json
 import threading
 from collections import OrderedDict
-from typing import Callable
+from collections.abc import Callable
 
 from backend.utils.logging import get_logger
 
@@ -23,7 +23,7 @@ logger = get_logger("export_cache")
 _MAX_ENTRIES = 8
 
 _lock = threading.Lock()
-_cache: "OrderedDict[str, bytes]" = OrderedDict()
+_cache: OrderedDict[str, bytes] = OrderedDict()
 
 
 def content_key(kind: str, questions, **options) -> str:

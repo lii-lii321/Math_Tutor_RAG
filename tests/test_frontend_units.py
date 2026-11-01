@@ -49,13 +49,14 @@ def test_nav_page_keys_matches_registry():
     assert PAGE_KEYS == frozenset(page.key for page in PAGES)
 
 
-def test_nav_only_students_is_teacher_only():
+def test_nav_only_workbench_and_students_are_teacher_only():
     teacher_pages = [page.key for page in PAGES if page.teacher_only]
-    assert teacher_pages == ["students"]
+    assert teacher_pages == ["workbench", "students"]
 
 
 def test_resolve_label_known_and_unknown():
-    assert resolve_label("dashboard") == PAGES[0].label
+    assert resolve_label("workbench") == PAGES[0].label  # 教师工作台置顶「今天」组
+    assert resolve_label("dashboard") == "学情看板"
     with pytest.raises(KeyError):
         resolve_label("no-such-page")
 

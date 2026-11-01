@@ -34,14 +34,15 @@ def test_label_to_key_matches_registry():
 
 
 def test_resolution_covers_app_sidebar_keys():
-    """可解析的 key 集合与 app.py 侧边栏使用的 key 集合一致。"""
+    """可解析的 key 集合与 app.py 侧边栏的 key 集合一致。
+
+    app.py 已按 nav.py 注册表直接过滤角色（无独立 _PAGES 拆分表）——
+    侧边栏全量 key 集合即 PAGES 全集。
+    """
     import app
 
-    app_keys = set(app._PAGES.values()) | set(app._TEACHER_PAGES.values())
-    assert app_keys == set(nav.PAGE_KEYS)
+    assert set(nav.PAGE_KEYS) == {page.key for page in app.PAGES}
     for page in nav.PAGES:
-        table = app._TEACHER_PAGES if page.teacher_only else app._PAGES
-        assert table[page.label] == page.key
         assert nav.resolve_label(page.key) == page.label
 
 

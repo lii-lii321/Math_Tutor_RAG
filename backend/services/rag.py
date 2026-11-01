@@ -41,7 +41,7 @@ EMBEDDING_META_KEY = "mm:embedding"
 _QUERY_EMBED_CACHE_MAX = 256
 _WARMUP_TEXT = "mm:prewarm"
 _query_embed_lock = threading.Lock()
-_query_embed_cache: "OrderedDict[tuple[str, str], tuple[float, ...]]" = OrderedDict()
+_query_embed_cache: OrderedDict[tuple[str, str], tuple[float, ...]] = OrderedDict()
 
 
 def cached_query_embedding(fingerprint: str, text: str, embed_fn) -> list[float] | None:
@@ -69,7 +69,7 @@ def cached_query_embedding(fingerprint: str, text: str, embed_fn) -> list[float]
 _prewarm_started = threading.Event()
 
 
-def start_background_prewarm(vector_store: "QuestionVectorStore") -> None:
+def start_background_prewarm(vector_store: QuestionVectorStore) -> None:
     """进程一次性的后台预热：把 Chroma 挂载 + 嵌入模型加载移出用户首次语义检索。
 
     应用启动时触发（frontend/common.py 的 get_question_service），daemon 线程

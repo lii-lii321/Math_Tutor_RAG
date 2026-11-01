@@ -273,6 +273,73 @@ def test_teaching_intervention_practice_jump_seeds_kp_filter(smoke_user, service
     assert "知识点:抛物线的开口与对称轴" in chips
 
 
+# ---------- 教师工作台（教师默认落地页） ----------
+
+def test_teacher_workbench_onboarding_then_populated(db_session, service):
+    """教师登录默认落地工作台：未建班显示三步引导；建班加学生后出现
+    学生卡、复测到期徽标与动态。"""
+    import datetime as dt
+
+    from backend.database import SessionLocal
+    from backend.models.orm import Question, TeachingIntervention, User
+    from backend.services.class_service import ClassService
+    from backend.services.teaching import TeachingService
+    from backend.utils.security import hash_password
+
+    teacher_pw = secrets.token_urlsafe(8)
+    teacher = User(
+        username=f"wb_smoke_{uuid.uuid4().hex[:6]}",
+        password_hash=hash_password(teacher_pw, 4),
+        role="teacher",
+    )
+    db_session.add(teacher)
+    db_session.commit()
+    db_session.refresh(teacher)
+
+    at = AppTest.from_file(_APP_ENTRY, default_timeout=180)
+    at.run()
+    _fill_and_login(at, teacher.username, teacher_pw)
+    assert not at.exception, [str(e.value) for e in at.exception]
+    # 教师默认落地工作台；未建班 → 三步引导
+    assert any("教师工作台" in str(m.value) for m in at.markdown)
+    assert any("还没有创建班级" in str(m.value) for m in at.markdown)
+
+    # 种数据：建班 + 学生 + 到期题 + 干预走到复测排期（约定拨到 2 天后）
+    student = User(
+        username=f"wb_stu_{uuid.uuid4().hex[:6]}", password_hash="x", role="student"
+    )
+    db_session.add(student)
+    db_session.commit()
+    db_session.refresh(student)
+    class_service = ClassService()
+    klass = class_service.create_class(teacher.id, "工作台冒烟班")
+    class_service.add_student(teacher.id, klass["id"], student.id)
+    q = service.create_manual_question(
+        student.id,
+        content_markdown="工作台冒烟题：有理数乘法符号法则",
+        answer="同号得正",
+        knowledge_points=["有理数的乘法"],
+    )
+    with SessionLocal() as session:
+        row = session.get(Question, q.id)
+        row.due_at = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=1)
+        session.commit()
+    teaching = TeachingService(session_factory=SessionLocal)
+    diag = teaching.start_intervention(student.id, "有理数的乘法")
+    teaching.record_practice(diag["intervention_id"], student.id, [q.id])
+    teaching.record_outcome(diag["intervention_id"], student.id, passed=True)
+    with SessionLocal() as session:
+        record = session.get(TeachingIntervention, diag["intervention_id"])
+        record.retest_due_at = dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=2)
+        session.commit()
+
+    at.run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    flat = "\n".join(str(m.value) for m in at.markdown)
+    assert student.username in flat, "学生卡应出现在工作台"
+    assert "复测窗口" in flat, "3 天内的复测应打上到期徽标"
+
+
 # ---------- 复习页三路径 + fragment 交互 ----------
 
 def test_review_page_three_paths(smoke_user, service):
