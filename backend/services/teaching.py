@@ -17,7 +17,7 @@ from contextlib import contextmanager
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from backend.models.orm import Question, TeachingIntervention
+from backend.models.orm import Question, ReviewLog, TeachingIntervention
 from backend.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -216,6 +216,67 @@ class TeachingService:
             return self._to_dict(record)
 
     # ---------- 查询 ----------
+
+    def mastery_delta(self, intervention_id: int, user_id: int) -> dict | None:
+        """干预有效性对比：诊断时点掌握度 → 当前掌握度（回答「有没有用」）。
+
+        按干预覆盖题目逐题计算（无日志题按 UNREVIEWED_SCORE 计，与掌握度
+        引擎口径一致）；before 只用诊断时间戳之前的复习日志。
+        """
+        from collections import defaultdict
+
+        from backend.services.mastery import UNREVIEWED_SCORE, question_mastery
+
+        with self._session() as session:
+            record = self._get_owned(session, intervention_id, user_id)
+            if record is None:
+                return None
+            qids = [int(q) for q in (record.question_ids or []) if str(q).isdigit()]
+            created = record.created_at or _now()
+            if created.tzinfo is None:
+                created = created.replace(tzinfo=dt.timezone.utc)
+            logs = (
+                session.execute(
+                    select(ReviewLog).where(
+                        ReviewLog.user_id == user_id,
+                        ReviewLog.question_id.in_(qids),
+                    )
+                )
+                .scalars()
+                .all()
+                if qids
+                else []
+            )
+        if not qids:
+            return None
+
+        epoch = dt.datetime.min.replace(tzinfo=dt.timezone.utc)
+
+        def _aware(value: dt.datetime | None) -> dt.datetime:
+            if value is None:
+                return epoch
+            return value if value.tzinfo else value.replace(tzinfo=dt.timezone.utc)
+
+        aware_created = _aware(created)
+        before_logs = [l for l in logs if _aware(l.reviewed_at) <= aware_created]
+
+        def _kp_mastery(logs: list) -> float:
+            per_question: dict[int, list] = defaultdict(list)
+            for log in logs:
+                per_question[log.question_id].append(log)
+            values = [
+                question_mastery(per_question.get(qid, [])) for qid in qids
+            ]
+            return sum(values) / len(values)
+
+        before = _kp_mastery(before_logs)
+        after = _kp_mastery(list(logs))
+        return {
+            "before": round(before, 3),
+            "after": round(after, 3),
+            "delta": round(after - before, 3),
+            "reviewed_after": sum(1 for l in logs if _aware(l.reviewed_at) > aware_created),
+        }
 
     def history(self, user_id: int, limit: int = 20) -> list[dict]:
         """干预历史（新→旧），供 Agent/教师查看教学档案。"""

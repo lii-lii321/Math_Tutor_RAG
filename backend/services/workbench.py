@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from backend.models.orm import Question, ReviewLog, TeachingIntervention, User
 from backend.services.class_service import ClassService
+from backend.services.teaching import TeachingService
 from backend.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -158,6 +159,7 @@ class TeacherWorkbenchService:
         # 干预与复测窗口
         interventions_out: list[dict] = []
         retest_due = 0
+        teaching_service = TeachingService(self._session_factory)
         for record in interventions:
             due_at = record.retest_due_at
             window = ""
@@ -172,6 +174,7 @@ class TeacherWorkbenchService:
                     retest_due += 1
                 else:
                     window = f"复测约定 {due_at:%m-%d}"
+            delta = teaching_service.mastery_delta(record.id, record.user_id)
             interventions_out.append(
                 {
                     "id": record.id,
@@ -181,6 +184,7 @@ class TeacherWorkbenchService:
                     "outcome": record.outcome,
                     "window": window,
                     "question_ids": list(record.question_ids or []),
+                    "mastery": delta,
                 }
             )
 

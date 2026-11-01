@@ -109,6 +109,49 @@ def test_mastered_requires_retest_verification(student_user, kp_questions):
     assert verified.mastered is True
 
 
+def test_mastery_delta_measures_intervention_effect(service, student_user, kp_questions):
+    """干预有效性对比（1.2）：诊断前无日志 → before=0.2 基线；评分后 after 上移。"""
+    from backend.services.question_service import QuestionService
+
+    q1, _ = kp_questions
+    diagnosis = service.start_intervention(student_user.id, _KP)
+    iid = diagnosis["intervention_id"]
+    service.record_practice(iid, student_user.id, [q1.id])
+
+    delta = service.mastery_delta(iid, student_user.id)
+    assert delta is not None
+    assert delta["before"] == pytest.approx(0.2, abs=0.01), "诊断前无日志按未复习基线"
+    assert delta["after"] == pytest.approx(0.2, abs=0.01)
+    assert delta["reviewed_after"] == 0
+
+    q_service = QuestionService(session_factory=SessionLocal)
+    # created_at/reviewed_at 在 SQLite 都是秒级精度（server_default=func.now()）：
+    # 诊断与评分必须跨秒，否则评分日志落进「诊断时点」边界导致 before 失真
+    import time as _time
+
+    _time.sleep(1.1)
+    q_service.grade_review(q1.id, student_user.id, "good")
+
+    delta = service.mastery_delta(iid, student_user.id)
+    assert delta["after"] > delta["before"], "复习后掌握度应上移"
+    assert delta["reviewed_after"] == 1
+    assert delta["delta"] == pytest.approx(delta["after"] - delta["before"], abs=0.001)
+
+
+def test_mastery_delta_none_for_stranger(service, student_user, kp_questions):
+    from backend.models.orm import User
+
+    with SessionLocal() as session:
+        stranger = User(
+            username=f"md_stranger_{uuid.uuid4().hex[:6]}", password_hash="x", role="student"
+        )
+        session.add(stranger)
+        session.commit()
+        stranger_id = stranger.id
+    diagnosis = service.start_intervention(student_user.id, _KP)
+    assert service.mastery_delta(diagnosis["intervention_id"], stranger_id) is None
+
+
 def test_state_machine_and_ownership(service, student_user, kp_questions):
     """状态机非法迁移与跨用户访问按业务错误拒绝。"""
     q1, _ = kp_questions
