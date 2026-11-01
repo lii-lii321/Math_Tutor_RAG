@@ -39,6 +39,103 @@ def _load_golden() -> list[tuple[str, list[str], str, str]]:
     ]
 
 
+# 真实查询组（提升方案 2.2）：查询按学生W 真实错题的手写学生口吻改写，
+# 期望命中 = 该知识点（kp）下任一题。知识来源于开发库 student_w_1027
+# 的 63 题真实错题（19 个知识点取 15 个代表）；学生真实姓名不入库。
+REAL_QUERIES: list[tuple[str, str]] = [
+    ("这个物体可以近似看成由哪些几何体组合而成", "1.1生活中的立体图形(1)"),
+    ("粮囤上面圆锥下面圆柱容积怎么求", "1.1生活中的立体图形(2)"),
+    ("正方体表面涂红后切割小方块三面涂红的有几块", "第2课时截一个几何体"),
+    ("多项式是关于 x 的二次多项式求字母取值", "第三章巩固复习1（3.1）"),
+    ("两个无盖长方体纸盒拼接后的表面积", "第三章3.2整式的加减（2）"),
+    ("点阵图案第 n 层有多少个点的规律", "第三章3.3探索与表达规律"),
+    ("观察一列等式归纳出通项公式", "第三章问题解决策略：归纳"),
+    ("数轴上动点 P 使得两段距离和最小", "第二章有理数巩固复习2（2.1～2.5）"),
+    ("干支纪年法怎么推算年份对应的干支", "第二章有理数有理数的混合运算（1）"),
+    ("乘方定义的阅读材料题", "第二章有理数第1课时有理数的乘方（1）"),
+    ("定义新运算若记作 n=x 怎么求值", "第二章有理数第1课时有理数的乘方（2）"),
+    ("冷库进出货正负数记录最后库存变化", "第二章有理数第1课时有理数的乘法（2）"),
+    ("有理数乘法法则的阅读理解题", "第二章有理数第1课时有理数的乘法（1）"),
+    ("数轴上 A B 之间一点 C 使距离和最小", "第二章有理数第2课时有理数的除法（2）"),
+    ("连续奇数求和的规律怎么表示", "第二章有理数第2课时科学记数法"),
+    ("小正方形大正方形拼图用代数式表示面积", "第二章第1课时代数式（2）"),
+    ("字母互换位置结果不变的整式", "第二章第2课时整式"),
+]
+
+
+def _real_group(store, user_id: int, pairs) -> dict:
+    """真实查询组：学生W 真实错题 × 手写学生口吻查询，命中 = 期望知识点
+    下任一题进 top3。"""
+    from backend.database import SessionLocal
+    from backend.repositories.questions import QuestionRepository
+    from backend.services.fusion import rrf_fuse
+
+    with SessionLocal() as session:
+        questions = QuestionRepository(session).list_for_user(user_id)
+    kp_map: dict[int, set[str]] = {}
+    for q in questions:
+        kp_map[q.id] = set(q.knowledge_points or [])
+
+    def _keyword_rank(query: str) -> list[int]:
+        # 与标签组同口径：子串匹配（真实改写查询通常无字面命中——这是组的意义）
+        kw = query.lower()
+        return [
+            q.id
+            for q in questions
+            if kw in (q.content_markdown or "").lower()
+            or kw in (q.answer or "").lower()
+            or any(kw in str(k).lower() for k in (q.knowledge_points or []))
+        ]
+
+    def _hit(ids: list[int], expected_kp: str) -> bool:
+        return any(expected_kp in kp_map.get(qid, set()) for qid in ids[:3])
+
+    k_values = (1, 3, 5, 10)
+    recall = {name: {k: 0 for k in k_values} for name in ("keyword", "vector", "rrf")}
+    mrr = {"keyword": 0.0, "vector": 0.0, "rrf": 0.0}
+    misses: list[str] = []
+    total = 0
+
+    for query, expected_kp in pairs:
+        total += 1
+        kw_ids = _keyword_rank(query)
+        vec_hits = store.semantic_search(query, user_ids=[user_id], top_k=10)
+        vec_ids = [h.question_id for h in vec_hits]
+        fused = rrf_fuse(vec_ids, kw_ids, top_k=10)
+
+        def _mrr(ids: list[int], _kp: str = expected_kp) -> float:
+            for rank, qid in enumerate(ids, 1):
+                if _kp in kp_map.get(qid, set()):
+                    return 1.0 / rank
+            return 0.0
+
+        mrr["keyword"] += _mrr(kw_ids)
+        mrr["vector"] += _mrr(vec_ids)
+        mrr["rrf"] += _mrr(fused)
+        for k in k_values:
+            for name, ids in (("keyword", kw_ids), ("vector", vec_ids), ("rrf", fused)):
+                if _hit(ids, expected_kp):
+                    recall[name][k] += 1
+        if not _hit(fused, expected_kp):
+            misses.append(f"「{query}」期望 {expected_kp}")
+
+    if total == 0:
+        return {"samples": 0}
+
+    def _pipeline(name: str) -> dict:
+        return {
+            f"recall_at_{k}": round(recall[name][k] / total, 3) for k in k_values
+        } | {
+            "mrr": round(mrr[name] / total, 3),
+        }
+
+    return {
+        "samples": total,
+        "pipelines": {n: _pipeline(n) for n in ("keyword", "vector", "rrf")},
+        "misses": misses[:8],
+    }
+
+
 def _golden_group(store, user_id: int, entries) -> dict:
     """语义改写组：金标语料（专属用户隔离）× 语义问法，三路对比。"""
     from backend.database import SessionLocal
@@ -104,6 +201,7 @@ def main() -> None:
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--golden", action="store_true", help="跑语义改写组（金标语料）")
+    parser.add_argument("--real", action="store_true", help="跑真实查询组（学生W 真实错题）")
     args = parser.parse_args()
 
     from backend.config import get_settings
@@ -119,7 +217,24 @@ def main() -> None:
 
     report: dict = {"generated_at": dt.datetime.now(dt.timezone.utc).isoformat()}
 
-    if args.golden:
+    if args.real:
+        with SessionLocal() as session:
+            real_user = session.query(User).filter_by(username="student_w_1027").first()
+        if real_user is None:
+            print("真实查询组需要 student_w_1027 的开发库数据——本地不存在，跳过")
+            return 1
+        group = _real_group(store, real_user.id, REAL_QUERIES)
+        report["real_group"] = group
+        if group.get("samples"):
+            print(f"真实查询组（{group['samples']} 条学生口吻查询）：")
+            for name, metrics in group["pipelines"].items():
+                print(
+                    f"  {name:>8}: R@3={metrics['recall_at_3']} "
+                    f"R@10={metrics['recall_at_10']} MRR={metrics['mrr']}"
+                )
+            for miss in group.get("misses", []):
+                print("  miss:", miss)
+    elif args.golden:
         entries = _load_golden()
         with SessionLocal() as session:
             golden_user = session.query(User).filter_by(username="golden_retrieval").first()
