@@ -2,7 +2,7 @@
 # Python >= 3.10
 
 # Web 框架
-streamlit>=1.64.0
+streamlit>=1.65.0
 streamlit-antd-components>=0.3.2
 streamlit-agraph>=0.0.45
 plotly>=7.1.0
