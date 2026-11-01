@@ -107,6 +107,80 @@ class TestDerivativeInverse:
         assert check_derivative_inverse("解方程 $x^2 = 9$", "", "$x = 3$") is None
 
 
+class TestArithmeticChains:
+    """算术恒等式验证（提升项 2.1）：真实七年级答案的算术链核对。
+
+    设计要点（真实数据验收定稿）：不匹配一律 uncertain 绝不 failed——
+    输入常是教师参考答案（定义正确）+ 公式图丢失后的残缺文本。
+    """
+
+    def test_integer_chain_correct_verified(self):
+        """全角等号 + 七数连加 + 等式链（真实学生数据原样样本）。"""
+        from backend.services.math_verifier import verify_answer
+
+        result = verify_answer("", "", "解：22+40+58+42+26+44+62＝294＝7×42")
+        assert result.status == "verified"
+        assert "arithmetic_chains" in result.methods
+        assert "2 条" in result.details
+
+    def test_integer_chain_mismatch_uncertain_never_failed(self):
+        from backend.services.math_verifier import verify_answer
+
+        result = verify_answer("", "", "解：22+40+58+42+26+44+62＝296")
+        assert result.status == "uncertain"
+        assert "应为 294" in result.details
+        assert "人工确认" in result.details
+
+    def test_decimal_chain_exact_verified(self):
+        from backend.services.math_verifier import verify_answer
+
+        result = verify_answer("", "", "解：3.14×8×2＝50.24")
+        assert result.status == "verified"
+
+    def test_decimal_chain_small_deviation_uncertain(self):
+        from backend.services.math_verifier import verify_answer
+
+        result = verify_answer("", "", "解：3.14×8×2＝50.3")
+        assert result.status == "uncertain"
+        assert "舍入" in result.details
+
+    def test_leading_negative_chain_verified(self):
+        """负号开头段（真实数据 #83 的单行形态：-8+16=8）。"""
+        from backend.services.math_verifier import verify_answer
+
+        result = verify_answer("", "", "解：原式＝-8+16＝8")
+        assert result.status == "verified"
+        assert "1 条" in result.details
+
+    def test_cross_line_never_chained(self):
+        """跨行不拼链（真实数据 #83/#95 误判根因）：上一步尾+下一步头
+        不得拼成跨步恒等式——各行无完整链时返回 None。"""
+        from backend.services.math_verifier.arithmetic_verifier import (
+            check_arithmetic_chains,
+        )
+
+        # 若跨行拼接会得到 4×4=-8+16=8 的假恒等式；单行内无完整链 → None
+        assert check_arithmetic_chains("", "", "原式＝4×4\n＝-8+16\n＝8") is None
+        assert check_arithmetic_chains("", "", "(-2)×2\n＝-9+4-3+6-4\n＝-6") is None
+
+    def test_variable_substring_rejected(self):
+        """变量表达式子串不得成链（真实数据 #66：m-1+1 里的 1+1=2+2）。"""
+        from backend.services.math_verifier.arithmetic_verifier import (
+            check_arithmetic_chains,
+        )
+
+        assert check_arithmetic_chains("", "", "m-1+1=2+2，a=-3") is None
+
+    def test_variable_equations_skipped(self):
+        """含字母的等式不归本方法管（解代入的领地）：无链 → None。"""
+        from backend.services.math_verifier.arithmetic_verifier import (
+            check_arithmetic_chains,
+        )
+
+        assert check_arithmetic_chains("", "", "解：x+3=7，所以 x=4") is None
+        assert check_arithmetic_chains("", "", "答案 16") is None
+
+
 class TestNumericVerifier:
     def test_identity_holds(self):
         x = sympy.Symbol("x")

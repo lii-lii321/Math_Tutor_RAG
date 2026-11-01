@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from backend.services.ai.telemetry import record_event
+from backend.services.math_verifier.arithmetic_verifier import check_arithmetic_chains
 from backend.services.math_verifier.models import VerificationResult
 from backend.services.math_verifier.sympy_verifier import (
     check_derivative_inverse,
@@ -14,6 +15,7 @@ logger = get_logger("math_verifier")
 _VERIFIERS = (
     ("solution_substitution", check_solution_substitution),
     ("derivative_inverse", check_derivative_inverse),
+    ("arithmetic_chains", check_arithmetic_chains),
 )
 
 
