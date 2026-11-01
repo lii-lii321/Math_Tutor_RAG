@@ -58,38 +58,38 @@ def _render_interventions(data: dict) -> None:
     if not data["interventions"]:
         st.caption("暂无进行中的教学干预。在学生能力画像页点「🎯」开启：诊断 → 练习 → 复测。")
         return
-        for item in data["interventions"]:
-            window = item["window"]
-            tone = "mm-badge mm-badge--bad" if window.startswith("复测已逾期") else (
-                "mm-badge mm-badge--warn" if window else "mm-badge mm-badge--blue"
-            )
-            with st.container(border=True):
-                head, action = st.columns([4, 1.2], vertical_alignment="center")
-                with head:
-                    badges = f'<span class="{tone}">{window or "进行中"}</span> '
+    for item in data["interventions"]:
+        window = item["window"]
+        tone = "mm-badge mm-badge--bad" if window.startswith("复测已逾期") else (
+            "mm-badge mm-badge--warn" if window else "mm-badge mm-badge--blue"
+        )
+        with st.container(border=True):
+            head, action = st.columns([4, 1.2], vertical_alignment="center")
+            with head:
+                badges = f'<span class="{tone}">{window or "进行中"}</span> '
+                st.markdown(
+                    f"{badges}<strong>{item['student']}</strong> · {item['knowledge_point']}",
+                    unsafe_allow_html=True,
+                )
+            with action:
+                if st.button("看 TA 的题", key=f"wb_iv_{item['id']}", width="stretch"):
+                    go_to("notebook", student=item["student"], kp=item["knowledge_point"])
+            mastery = item.get("mastery")
+            if mastery:
+                delta = mastery["delta"]
+                if mastery["reviewed_after"] == 0:
+                    st.caption("诊断后尚无新复习记录——复测前先完成这组题。")
+                else:
+                    arrow = "+" if delta >= 0 else ""
+                    delta_tone = (
+                        "mm-badge mm-badge--ok" if delta > 0 else "mm-badge mm-badge--bad"
+                    )
                     st.markdown(
-                        f"{badges}<strong>{item['student']}</strong> · {item['knowledge_point']}",
+                        f"干预有效性：诊断 {mastery['before']:.0%} → 现在 "
+                        f"{mastery['after']:.0%} "
+                        f"<span class='{delta_tone}'>{arrow}{delta:.0%}</span>",
                         unsafe_allow_html=True,
                     )
-                with action:
-                    if st.button("看 TA 的题", key=f"wb_iv_{item['id']}", width="stretch"):
-                        go_to("notebook", student=item["student"], kp=item["knowledge_point"])
-                mastery = item.get("mastery")
-                if mastery:
-                    delta = mastery["delta"]
-                    if mastery["reviewed_after"] == 0:
-                        st.caption("诊断后尚无新复习记录——复测前先完成这组题。")
-                    else:
-                        arrow = "+" if delta >= 0 else ""
-                        delta_tone = (
-                            "mm-badge mm-badge--ok" if delta > 0 else "mm-badge mm-badge--bad"
-                        )
-                        st.markdown(
-                            f"干预有效性：诊断 {mastery['before']:.0%} → 现在 "
-                            f"{mastery['after']:.0%} "
-                            f"<span class='{delta_tone}'>{arrow}{delta:.0%}</span>",
-                            unsafe_allow_html=True,
-                        )
     if totals["retest_due"]:
         st.caption("⏳ 复测通过才计入掌握归档——带学生到能力画像页完成复测登记。")
 
