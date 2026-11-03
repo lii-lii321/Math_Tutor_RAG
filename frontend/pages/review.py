@@ -15,7 +15,7 @@ from frontend.common import (
     page_header,
     pop_params,
 )
-from frontend.components import GRADE_LABELS, safe_call
+from frontend.components import GRADE_LABELS, safe_call, safe_image
 
 _QUEUE_KEY = "review_queue"  # 队列驻留会话态：评分后不再重新拉取
 _REASONS_KEY = "review_reasons"
@@ -87,7 +87,7 @@ def _review_card(service, user: dict) -> None:
         stored = question.image_path
         image_src = display_image_source(stored)
         if image_src:
-            st.image(image_src, width="stretch")
+            safe_image(image_src)
         elif stored:
             st.markdown(question.content_markdown[:220], unsafe_allow_html=True)
             st.caption("⚠️ 原图文件缺失（可能已迁移目录），请参考解析文字")

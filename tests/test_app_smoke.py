@@ -14,6 +14,8 @@ from pathlib import Path
 import pytest
 from streamlit.testing.v1 import AppTest
 
+from frontend.nav import resolve_label
+
 _APP_ENTRY = Path(__file__).resolve().parent.parent / "app.py"
 # 测试夹具账号的口令每次会话随机生成，源码零硬编码凭据
 _SMOKE_PASSWORD = secrets.token_urlsafe(12)
@@ -197,6 +199,82 @@ def test_notebook_url_params_through_login_and_leave_clear(smoke_user, service):
     # 控件重实例化后键会以默认值回写，断言搜索框回到空值而非键消失
     searches = [ti for ti in at.text_input if ti.label == "搜索"]
     assert searches and searches[0].value == ""
+
+
+# ---------- 全页遍历（进程内版 E2E navigate）：补 0% 覆盖页面 ----------
+
+def test_navigate_all_remaining_pages(student_user, service, demo_credentials):
+    """进程内遍历错题本之外的其余页面（E2E test_navigate_all_pages 的
+    进程内版，AppTest 可计入覆盖率）：错题本/画像/图谱/助手/设置。
+
+    标签一律取 resolve_label（单一事实源）——UI 改版会改标签字面量
+    （如 Ai→AI），注入 session 的菜单值必须是注册表原始标签。
+    """
+    service.create_manual_question(
+        student_user.id, content_markdown="全页遍历冒烟题：判别式与求根公式", tags=["遍历"]
+    )
+    username, password = demo_credentials
+    at = AppTest.from_file(_APP_ENTRY, default_timeout=180)
+    at.run()
+    _fill_and_login(at, username, password)
+
+    routes = (
+        ("notebook", "语义搜索"),
+        ("mastery", "知识点掌握度|还没有知识点数据"),
+        ("graph", "标签共现网络|错题数量还太少"),
+        ("assistant", "演示模式|AI Tutor"),
+        ("settings", "AI 引擎"),
+    )
+    for key, markers in routes:
+        _goto_page(at, resolve_label(key))
+        assert not at.exception, [str(e.value) for e in at.exception]
+        assert any(
+            marker in str(m.value)
+            for marker in markers.split("|")
+            for m in at.markdown
+        ), f"{key} 页应渲染出 {markers} 之一"
+
+
+def test_teacher_students_overview_page_renders(db_session, service):
+    """教师学生总览页（覆盖率 0% → 补）：建班加学生后报表可渲染。"""
+    from backend.models.orm import User
+    from backend.services.class_service import ClassService
+    from backend.utils.security import hash_password
+
+    teacher_pw = secrets.token_urlsafe(8)
+    teacher = User(
+        username=f"ov_smoke_{uuid.uuid4().hex[:6]}",
+        password_hash=hash_password(teacher_pw, 4),
+        role="teacher",
+    )
+    db_session.add(teacher)
+    db_session.commit()
+    db_session.refresh(teacher)
+    student = User(
+        username=f"ov_stu_{uuid.uuid4().hex[:6]}", password_hash="x", role="student"
+    )
+    db_session.add(student)
+    db_session.commit()
+    db_session.refresh(student)
+
+    class_service = ClassService()
+    klass = class_service.create_class(teacher.id, "总览冒烟班")
+    class_service.add_student(teacher.id, klass["id"], student.id)
+    service.create_manual_question(
+        student.id, content_markdown="总览冒烟题：一元二次方程", tags=["总览"]
+    )
+
+    at = AppTest.from_file(_APP_ENTRY, default_timeout=180)
+    at.run()
+    _fill_and_login(at, teacher.username, teacher_pw)
+    _goto_page(at, "学生总览")
+    assert not at.exception, [str(e.value) for e in at.exception]
+    flat = "\n".join(str(m.value) for m in at.markdown)
+    assert "学生总数" in flat
+    # 学生名在 st.dataframe 内——dataframe 内容不进 at.markdown，
+    # 行数据改由服务层断言（与页面同口径的 students_overview）
+    overview_rows = service.students_overview(teacher.id)
+    assert any(r["username"] == student.username for r in overview_rows)
 
 
 # ---------- 教学干预闭环 UI（能力画像页，批 3） ----------

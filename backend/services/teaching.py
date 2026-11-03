@@ -225,7 +225,7 @@ class TeachingService:
         """
         from collections import defaultdict
 
-        from backend.services.mastery import UNREVIEWED_SCORE, question_mastery
+        from backend.services.mastery import question_mastery
 
         with self._session() as session:
             record = self._get_owned(session, intervention_id, user_id)
@@ -258,12 +258,12 @@ class TeachingService:
             return value if value.tzinfo else value.replace(tzinfo=dt.timezone.utc)
 
         aware_created = _aware(created)
-        before_logs = [l for l in logs if _aware(l.reviewed_at) <= aware_created]
+        before_logs = [entry for entry in logs if _aware(entry.reviewed_at) <= aware_created]
 
         def _kp_mastery(logs: list) -> float:
             per_question: dict[int, list] = defaultdict(list)
-            for log in logs:
-                per_question[log.question_id].append(log)
+            for entry in logs:
+                per_question[entry.question_id].append(entry)
             values = [
                 question_mastery(per_question.get(qid, [])) for qid in qids
             ]
@@ -275,7 +275,9 @@ class TeachingService:
             "before": round(before, 3),
             "after": round(after, 3),
             "delta": round(after - before, 3),
-            "reviewed_after": sum(1 for l in logs if _aware(l.reviewed_at) > aware_created),
+            "reviewed_after": sum(
+                1 for entry in logs if _aware(entry.reviewed_at) > aware_created
+            ),
         }
 
     def history(self, user_id: int, limit: int = 20) -> list[dict]:

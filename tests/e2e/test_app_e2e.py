@@ -28,14 +28,24 @@ pytestmark = [
 BASE_URL = os.getenv("MM_E2E_BASE_URL", "http://localhost:8601")
 
 
-def _login(page, username: str, password: str) -> None:
+def _login(
+    page,
+    username: str,
+    password: str,
+    landing: tuple[str, ...] = ("累计错题", "教师工作台"),
+) -> None:
+    """登录并等待落地页就绪。
+
+    落地页按角色不同（2026-11-01 起）：学生 → 学情看板（累计错题 KPI），
+    教师 → 教师工作台（工作台标题）。默认两组标记任一出现即算就绪。
+    """
     page.goto(BASE_URL)
     page.wait_for_selector("input", timeout=30000)
     inputs = page.locator('input[type="text"], input[type="password"]')
     inputs.nth(0).fill(username)
     inputs.nth(1).fill(password)
     page.get_by_role("button", name="登录", exact=True).first.click(force=True)
-    page.wait_for_selector("text=累计错题", timeout=30000)
+    _wait_any_text(page, list(landing), 30000)
 
 
 def _wait_any_text(page, markers: list[str], timeout_ms: int) -> None:
@@ -76,6 +86,8 @@ def test_navigate_all_pages(page):
 
 def test_teacher_sees_students_overview(page):
     _login(page, "admin", "admin123")
+    # 教师默认落地工作台（2026-11-01），再进学生总览报表
+    assert page.locator("text=教师工作台").first.is_visible()
     _goto(page, "学生总览", "学生总数")
 
 

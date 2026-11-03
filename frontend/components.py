@@ -74,6 +74,20 @@ def render_question_markdown(content: str) -> None:
     st.markdown(content)
 
 
+def safe_image(src, *, width="stretch", caption: str | None = None) -> None:
+    """容错图片渲染：原图文件损坏/截断/非图片时不炸页面，降级为提示。
+
+    动机（2026-11-03 全页遍历测试发现）：导入/任务链路可能把非图片字节
+    存进 image_path（如队列测试的伪 PNG），st.image 遇到即抛
+    UnidentifiedImageError 整页崩溃。
+    """
+    try:
+        st.image(src, width=width, caption=caption)
+    except Exception as exc:  # noqa: BLE001 - 图片坏了不能拖垮整页
+        logger.warning("原图渲染失败已降级: %s", exc)
+        st.caption("⚠️ 原图无法显示（文件损坏或格式不支持），请参考解析文字。")
+
+
 def question_detail_view(q, show_hit: bool = True) -> None:
     """错题「查看」视图：原图/元信息/解析/笔记/答案/变式（不含交互）。
 
@@ -83,7 +97,7 @@ def question_detail_view(q, show_hit: bool = True) -> None:
     with img_col:
         image_src = display_image_source(q.image_path)
         if image_src:
-            st.image(image_src, width="stretch")
+            safe_image(image_src)
         else:
             st.caption("无原图（手动录入）")
         badges = badges_row_html(q.difficulty, list(q.tags or []))

@@ -25,6 +25,7 @@ from frontend.components import (
     question_detail_view,
     regrade_buttons,
     safe_call,
+    safe_image,
     save_followup_button,
 )
 from frontend.query_state import (
@@ -144,7 +145,7 @@ def _render_card_grid(
                 with st.container(border=True):
                     thumb = display_image_source(q.image_path)
                     if thumb:
-                        st.image(thumb, width="stretch")
+                        safe_image(thumb)
                     else:
                         label = (q.knowledge_points or q.tags or ["未分类"])[0]
                         st.markdown(

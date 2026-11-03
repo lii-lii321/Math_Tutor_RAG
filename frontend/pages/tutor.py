@@ -5,7 +5,7 @@ import streamlit as st
 
 from backend.services.question_service import sanitize_tags
 from frontend.common import followup_chat, get_question_service, go_to, page_header
-from frontend.components import save_followup_button
+from frontend.components import safe_image, save_followup_button
 
 
 def render_tutor_page(user: dict) -> None:
@@ -243,7 +243,7 @@ def _render_analysis(saved, analysis, service, user) -> None:
     with st.container(border=True):
         st.markdown("##### 📷 题目原图")
         if image_src:
-            st.image(image_src, width="stretch")
+            safe_image(image_src)
         else:
             st.caption("(原图缺失，以下解析基于 AI 识别文本)")
         badges = " ".join(f'<span class="mm-badge">{t}</span>' for t in saved.tags)

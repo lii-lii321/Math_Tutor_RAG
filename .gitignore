@@ -27,3 +27,8 @@ docs/deck/node_modules/
 docs/deck/qa/loprofile/
 _app_*.log
 benchmark*.csv 
+
+# 本地工具目录（安全扫描/探针/视频代理缓存，不入库）
+.mimosa/
+.v2c/
+.video_agent/
