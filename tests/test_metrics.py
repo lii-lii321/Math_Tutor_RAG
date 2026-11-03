@@ -52,8 +52,16 @@ def test_http_counter_uses_route_template_not_raw_path(client):
         status="404",
     )
     assert after == before + 1
-    # 原始 ID 路径不得出现在指标里（基数爆炸防线）
-    assert "99999999" not in client.get("/metrics").text
+    # 原始 ID 路径不得出现在 HTTP 计数器标签里（基数爆炸防线）。
+    # 注意：只扫 http 计数器行——_created 等浮点时间戳的十进制表示
+    # 可能天然含该数字串，全文本扫描会随机误报（CI 3.10 实测）。
+    metrics_text = client.get("/metrics").text
+    http_lines = [
+        line for line in metrics_text.splitlines()
+        if line.startswith("mathmaster_http_requests_total")
+    ]
+    assert http_lines
+    assert not any("99999999" in line for line in http_lines)
 
 
 def test_question_created_counter_increments(question_service, student_user):
