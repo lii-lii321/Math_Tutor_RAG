@@ -88,7 +88,8 @@ def test_teacher_sees_students_overview(page):
     _login(page, "admin", "admin123")
     # 教师默认落地工作台（2026-11-01），再进学生总览报表
     assert page.locator("text=教师工作台").first.is_visible()
-    _goto(page, "学生总览", "学生总数")
+    # CI 全新库 admin 未建班 → 显示引导态（不渲染统计卡）；两种状态都算到达
+    _goto(page, "学生总览", "学生总数|还没有创建班级|班级还没有成员")
 
 
 def test_notebook_url_filter_survives_reload(page):
