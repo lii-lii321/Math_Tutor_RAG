@@ -120,7 +120,6 @@ def _grade_label_from(quality: int) -> str:
 
 
 def simulate() -> None:
-    init_db_note = "init via service"
     teacher_id = _get_or_create_teacher()
     if not teacher_id:
         print("admin 教师不存在——先运行应用完成初始化")
@@ -252,12 +251,7 @@ def reset() -> None:
     simulate()
 
 
-def init_db_note() -> None:  # pragma: no cover - 说明性占位
-    pass
-
-
 if __name__ == "__main__":
-    init_db_note()
     from backend.database import init_db
 
     init_db(seed_users=True)
