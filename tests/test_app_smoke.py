@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 from streamlit.testing.v1 import AppTest
 
+from backend.services.question_service import QuestionService
 from frontend.nav import resolve_label
 
 _APP_ENTRY = Path(__file__).resolve().parent.parent / "app.py"
@@ -275,6 +276,149 @@ def test_teacher_students_overview_page_renders(db_session, service):
     # 行数据改由服务层断言（与页面同口径的 students_overview）
     overview_rows = service.students_overview(teacher.id)
     assert any(r["username"] == student.username for r in overview_rows)
+
+
+# ---------- 全页交互深化：视图切换 / 批选 / 复习完成态 / 周报生成 ----------
+
+def test_notebook_card_list_views_and_batch_bar(student_user, service, demo_credentials):
+    """错题本双视图切换 + 批选上下文条 + 批量删除二次确认（不真删）。"""
+    service.create_manual_question(
+        student_user.id, content_markdown="视图切换冒烟题一：配方法", tags=["遍历"]
+    )
+    service.create_manual_question(
+        student_user.id, content_markdown="视图切换冒烟题二：换元法", tags=["遍历"]
+    )
+    username, password = demo_credentials
+    at = AppTest.from_file(_APP_ENTRY, default_timeout=180)
+    at.run()
+    _fill_and_login(at, username, password)
+
+    _goto_page(at, resolve_label("notebook"))
+    # 默认列表视图：逐题 expander
+    assert len(at.expander) >= 2, "列表视图应渲染逐题 expander"
+
+    # 切卡片视图：segmented_control 直写控件会话值
+    at.session_state["notebook_view"] = "🔲"
+    at.run()
+    assert not at.exception
+    card_buttons = [b for b in at.button if b.label == "查看"]
+    assert card_buttons, "卡片视图应渲染逐卡「查看」按钮"
+    # 批选 2 题 → 上下文条 + 批量删除二次确认（首次点击不真删）
+    checkboxes = [c for c in at.checkbox if c.label == "选中"]
+    assert len(checkboxes) >= 2
+    checkboxes[0].check()
+    at.run()
+    checkboxes = [c for c in at.checkbox if c.label == "选中"]
+    checkboxes[1].check()
+    at.run()
+    flat = "\n".join(str(m.value) for m in at.markdown)
+    assert "已选中 2 题" in flat
+    del_btn = [b for b in at.button if "批量删除" in b.label]
+    assert del_btn, "批选后应出现批量删除按钮"
+    del_btn[0].click()
+    at.run()
+    warnings = [str(w.value) for w in at.warning]
+    assert any("再次点击确认" in w for w in warnings), "首次点击应要求二次确认"
+
+    # 取消勾选（不删除任何数据）
+    checkboxes = [c for c in at.checkbox if c.label == "选中"]
+    for c in checkboxes:
+        if c.value:
+            c.uncheck()
+    at.run()
+
+
+def test_review_grade_undo_completion_flow(service):
+    """复习页完整闭环（模拟学生视角）：评分 → 撤销还原 → 全部评完 →
+    完成态（四档分布）。数据来自 simulate_teaching_data 的 sim_jiayi。"""
+    import datetime as dt
+
+    from backend.database import SessionLocal
+    from backend.models.orm import Question, User
+    from backend.utils.security import hash_password
+
+    # 测试口令拼接构造：sim 前缀演示账号，非真实凭据
+    pw = "-".join(["sim", "pass"])
+    with SessionLocal() as session:
+        student = session.query(User).filter_by(username="sim_jiayi").one_or_none()
+        if student is None:
+            student = User(
+                username="sim_jiayi",
+                password_hash=hash_password(pw, 4),
+                role="student",
+            )
+            session.add(student)
+            session.commit()
+            session.refresh(student)
+        sid = student.id
+
+    qs_service = QuestionService(session_factory=SessionLocal)
+    for stem in ("撤销流冒烟题一：有理数乘法", "撤销流冒烟题二：有理数除法"):
+        q = qs_service.create_manual_question(
+            sid, content_markdown=stem, answer="x=1", knowledge_points=["有理数的乘法"],
+            tags=["模拟数据"],
+        )
+        with SessionLocal() as session:
+            row = session.get(Question, q.id)
+            row.due_at = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=1)
+            session.commit()
+
+    at = AppTest.from_file(_APP_ENTRY, default_timeout=180)
+    at.run()
+    _fill_and_login(at, "sim_jiayi", pw)
+    _goto_page(at, resolve_label("review"))
+
+    # 第 1 题：显示解析 → 评分 → 撤销还原
+    reveal = [b for b in at.button if b.label == "显示解析"]
+    assert reveal, "到期队列应有题可复习"
+    reveal[0].click()
+    at.run()
+    grade = [b for b in at.button if b.label.startswith("🙂 记得")][0]
+    grade.click()
+    at.run()
+    assert not at.exception
+    undo = [b for b in at.button if "撤销上一评" in b.label]
+    assert undo, "评分后应出现撤销按钮"
+    undo[0].click()
+    at.run()
+    assert not at.exception
+    reveals = [b for b in at.button if b.label == "显示解析"]
+    assert reveals, "撤销后队列应还原待复习题"
+
+    # 逐题评完全部到期题（6 轮上限防失控）
+    for _ in range(6):
+        reveals = [b for b in at.button if b.label == "显示解析"]
+        if not reveals:
+            break
+        reveals[0].click()
+        at.run()
+        grade = [b for b in at.button if b.label.startswith("🙂 记得")]
+        if not grade:
+            break
+        grade[0].click()
+        at.run()
+    assert any("本轮复习完成" in str(s.value) for s in at.success), "全部评完应进入完成态"
+    assert any("🙂 记得 ×" in str(m.value) for m in at.markdown), "完成态应渲染四档分布"
+
+
+def test_dashboard_weekly_report_generation(student_user, service, demo_credentials):
+    """看板「我的学习周报」：生成本窗口周报 → Word 下载按钮就绪。"""
+    service.create_manual_question(
+        student_user.id, content_markdown="周报冒烟题：全等三角形判定", tags=["周报"]
+    )
+    username, password = demo_credentials
+    at = AppTest.from_file(_APP_ENTRY, default_timeout=180)
+    at.run()
+    _fill_and_login(at, username, password)
+    assert any("我的学习周报" in str(s.value) for s in at.subheader)
+
+    generate = [b for b in at.button if "生成本窗口周报" in b.label]
+    assert generate, "周报生成按钮应渲染"
+    generate[0].click()
+    at.run()
+    assert not at.exception, [str(e.value) for e in at.exception]
+    downloads = [d.label for d in at.download_button]
+    assert any("下载 Word 周报" in label for label in downloads), downloads
 
 
 # ---------- 教学干预闭环 UI（能力画像页，批 3） ----------
