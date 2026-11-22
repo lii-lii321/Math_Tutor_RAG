@@ -72,7 +72,8 @@ def _render_interventions(data: dict) -> None:
                     unsafe_allow_html=True,
                 )
             with action:
-                if st.button("看 TA 的题", key=f"wb_iv_{item['id']}", width="stretch"):
+                if st.button("错题 ↗", key=f"wb_iv_{item['id']}", width="stretch",
+                             help="按该知识点筛选该生的错题本"):
                     go_to("notebook", student=item["student"], kp=item["knowledge_point"])
             mastery = item.get("mastery")
             if mastery:
@@ -151,7 +152,8 @@ def render_workbench_page(user: dict) -> None:
                         f"错题 {row['total']} · 待复习 {row['due']} · 最近 {_fmt_active(row['last_active'])}"
                     )
                 with action:
-                    if st.button("看 TA 的题", key=f"wb_st_{row['user_id']}", width="stretch"):
+                    if st.button("错题 ↗", key=f"wb_st_{row['user_id']}", width="stretch",
+                                 help="按该生筛选错题本"):
                         go_to("notebook", student=row["username"])
 
     with right:
